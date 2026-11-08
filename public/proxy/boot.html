@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Loading…</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+      background: #0b0b14; color: #e8e8f0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      text-align: center; padding: 24px; box-sizing: border-box;
+    }
+    .spinner {
+      width: 38px; height: 38px; border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, .14); border-top-color: #8b7bff;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #status { opacity: .75; }
+    #error { display: none; max-width: 28rem; }
+    #error h1 { font-size: 1.1rem; margin: 0 0 .4rem; }
+    #error button {
+      margin-top: 12px; padding: 8px 16px; border: 0; border-radius: 8px;
+      background: #6c5ce7; color: #fff; font: inherit; cursor: pointer;
+    }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+  </style>
+</head>
+<body>
+  <div class="spinner" id="spinner" aria-hidden="true"></div>
+  <div id="status" role="status">Starting proxy…</div>
+  <div id="error" role="alert">
+    <h1>The proxy could not start</h1>
+    <p id="error-detail"></p>
+    <button type="button" id="retry">Try again</button>
+  </div>
+
+  <script src="/uv/bundle.js"></script>
+  <script src="/uv/config.js"></script>
+  <script src="/proxy/core.js"></script>
+  <script src="/proxy/boot.js"></script>
+</body>
+</html>

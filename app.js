@@ -28,6 +28,18 @@ if (process.env.AUTH_PASS) {
 app.use(express.static(publicPath));
 app.use("/uv/", express.static(uvPath));
 
+// A navigation to a proxied URL only reaches the server when the service worker
+// is not (yet) in front of it: first visit, cleared site data, a shared deep link.
+// Instead of a 404, serve a tiny page that starts the worker and reloads.
+const PROXY_PREFIX = "/supernova/";
+app.get(`${PROXY_PREFIX}*splat`, (req, res, next) => {
+  const dest = req.get("sec-fetch-dest");
+  const isNavigation = dest ? ["document", "iframe", "frame"].includes(dest) : req.accepts("html") === "html";
+  if (!isNavigation) return next();
+  res.set("Cache-Control", "no-store");
+  res.sendFile(join(publicPath, "proxy", "boot.html"));
+});
+
 // Error for everything else
 app.use((req, res) => {
   res.status(404); 

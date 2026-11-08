@@ -8,14 +8,10 @@ if (form && input) {
   })
 }
 
-function registerServiceWorker() {
-  return window.navigator.serviceWorker.register('./sw.js', {
-    scope: __uv$config.prefix,
-  })
-}
-
 function processUrl(value, path) {
-  registerServiceWorker().then(() => {
+  // Wait for the service worker to be *active*, not just registered. Navigating
+  // earlier hits the server and shows a 404 on the first use.
+  SnProxy.ready().then(() => {
     let url = value.trim();
     if (!isUrl(url)) url = 'https://search.brave.com/search?q=' + url;
     else if (!(url.startsWith('https://') || url.startsWith('http://'))) url = 'https://' + url;
@@ -51,6 +47,9 @@ function processUrl(value, path) {
         window.location.href = __uv$config.prefix + __uv$config.encodeUrl(url);
       }
     }
+  }, (err) => {
+    if (typeof openPopup === 'function') openPopup('Proxy error', err.message);
+    else alert(err.message);
   });
 }
 

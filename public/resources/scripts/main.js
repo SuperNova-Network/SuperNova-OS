@@ -347,10 +347,19 @@ function addWindow(id, title, contStr, w, h, type) {
 function delayIframe(elem, src) {
   setTimeout(function () {
     var iframe = elem.getElementsByClassName("frame")[0];
-    iframe.src = src;
-    iframe.onload = function () {
-      elem.getElementsByClassName("loadingoverlay")[0].style = "opacity: 0; background-color:transparent";
+    var load = function () {
+      iframe.src = src;
+      iframe.onload = function () {
+        elem.getElementsByClassName("loadingoverlay")[0].style = "opacity: 0; background-color:transparent";
+      };
     };
+    // Proxied URLs only work once the service worker is active. Desktop apps
+    // never registered it before, so launching one first used to 404.
+    if (window.SnProxy && src.indexOf(SnProxy.scope()) === 0) {
+      SnProxy.ready().then(load, load); // on failure the server's boot page explains what went wrong
+    } else {
+      load();
+    }
   }, 500);
 }
 
