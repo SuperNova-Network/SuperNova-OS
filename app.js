@@ -14,10 +14,12 @@ import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
 import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import config from "./config.js";
+import { createPolicy } from "./src/policy.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
 const authEnabled = Boolean(config.auth.pass);
+const policy = createPolicy(config.filter);
 
 // ---------------------------------------------------------------------------
 // Wisp: the transport that carries all proxied traffic over one WebSocket.
@@ -27,6 +29,9 @@ wispLogging.set_level(wispLogging.WARN);
 // the LAN, or cloud metadata endpoints such as 169.254.169.254).
 wisp.options.allow_loopback_ips = false;
 wisp.options.allow_private_ips = false;
+// The content filter lives here so it covers every connection: links followed
+// inside proxied pages and hand-typed /service/ URLs included.
+wisp.options.hostname_blacklist = policy.wispBlacklist();
 
 // ---------------------------------------------------------------------------
 // HTTP app
@@ -42,6 +47,17 @@ if (authEnabled) {
     realm: "SuperNova OS",
   }));
 }
+
+// Lets the client explain *why* something is blocked before it navigates. The
+// blacklist above is what actually enforces the policy.
+app.post("/api/verdict", express.json({ limit: "2kb" }), (req, res) => {
+  const { host, query } = req.body ?? {};
+  const reason =
+    (typeof host === "string" && policy.checkHost(host.slice(0, 253))) ||
+    (typeof query === "string" && policy.checkQuery(query.slice(0, 500))) ||
+    null;
+  res.set("Cache-Control", "no-store").json({ blocked: Boolean(reason), reason });
+});
 
 // Scripts whose contents depend on the server config. They are generated so the
 // prefixes live in exactly one place (config.js).
@@ -136,9 +152,11 @@ app.use((_req, res) => {
   res.status(404).sendFile(join(publicPath, "404.html"));
 });
 
-app.use((err, _req, res, _next) => {
-  console.error(err);
-  res.status(500).sendFile(join(publicPath, "404.html"));
+app.use((err, req, res, _next) => {
+  const status = err.status >= 400 && err.status < 500 ? err.status : 500;
+  if (status === 500) console.error(err);
+  if (req.path.startsWith("/api/")) return res.status(status).json({ error: status === 500 ? "Internal error" : "Bad request" });
+  res.status(status).sendFile(join(publicPath, "404.html"));
 });
 
 // ---------------------------------------------------------------------------

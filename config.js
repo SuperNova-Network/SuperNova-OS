@@ -19,6 +19,9 @@ function port() {
   return value;
 }
 
+// "a, b ,c" -> ["a", "b", "c"]
+const list = (value) => (value ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+
 export default {
   port: port(),
 
@@ -36,4 +39,23 @@ export default {
 
   // WebSocket endpoint that carries proxied traffic (the Wisp protocol).
   wispPath: "/wisp/",
+
+  // Content filter, enforced on the server for every proxied connection.
+  // Set CONTENT_FILTER=0 to turn it off, or add domains with BLOCKED_HOSTS=a.com,b.com.
+  filter: {
+    enabled: env.CONTENT_FILTER !== "0",
+    hosts: [
+      "pornhub.com", "xvideos.com", "xnxx.com", "xhamster.com", "redtube.com", "youporn.com",
+      "youjizz.com", "spankbang.com", "brazzers.com", "kink.com", "chaturbate.com", "stripchat.com",
+      "8tube.xxx", "fuck.com",
+      ...list(env.BLOCKED_HOSTS),
+    ],
+    // Blocked top-level domains.
+    tlds: ["xxx", "porn", "sex", "adult"],
+    // Hostnames containing these are blocked. Keep this list to words that are
+    // essentially never innocent: "sex" would block essex.ac.uk.
+    hostKeywords: ["porn", "xxx", "hentai"],
+    // Searches containing any of these whole words are refused before they are sent.
+    queryWords: ["porn", "xxx", "nude", "nudes", "erotic", "fetish", "hentai"],
+  },
 };

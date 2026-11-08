@@ -31,7 +31,7 @@
     libcurl: { name: "libcurl", path: "/libcurl/index.mjs", options: function (wisp) { return [{ websocket: wisp }]; } },
   };
 
-  var DEFAULTS = { engine: "sj", transport: "libcurl", wisp: "", search: "brave" };
+  var DEFAULTS = { engine: "sj", transport: "libcurl", wisp: "", search: "brave", safesearch: "1" };
 
   // --- settings (localStorage, with an in-memory fallback when it is blocked) ---
 
@@ -217,13 +217,40 @@
     return ready(engine).then(function () { return encode(url, engine); });
   }
 
+  /** Ask the server whether the content filter blocks this destination or search. */
+  function verdict(host, query) {
+    return fetch("/api/verdict", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ host: host, query: query }),
+    }).then(function (res) { return res.ok ? res.json() : { blocked: false }; })
+      // Failing open is safe: the Wisp server enforces the policy regardless.
+      .catch(function () { return { blocked: false }; });
+  }
+
+  function blockedError(reason) {
+    var error = new Error(reason === "query"
+      ? "That search is blocked by the content filter."
+      : "That site is blocked by the content filter.");
+    error.blocked = true;
+    error.reason = reason;
+    return error;
+  }
+
   /**
    * Address-bar text (a URL or search words) -> proxied path, or null when empty.
-   * Uses the selected search engine for anything that is not an address.
+   * Uses the selected search engine for anything that is not an address, and
+   * rejects with an error whose `blocked` flag is set when the filter refuses it.
    */
   function open(input, engine) {
-    var target = self.SnResolve.resolve(input, get("search"));
-    return target ? go(target.url, engine) : Promise.resolve(null);
+    var target = self.SnResolve.resolve(input, get("search"), { safe: get("safesearch") !== "0" });
+    if (!target) return Promise.resolve(null);
+    var host = new URL(target.url).hostname;
+    var check = target.kind === "search" ? verdict(host, String(input).trim()) : verdict(host);
+    return check.then(function (result) {
+      if (result.blocked) throw blockedError(result.reason);
+      return go(target.url, engine);
+    });
   }
 
   window.SnProxy = {

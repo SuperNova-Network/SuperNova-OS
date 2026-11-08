@@ -8,14 +8,15 @@
 (function (global) {
   "use strict";
 
-  // %s is replaced with the URL-encoded query.
+  // %s is replaced with the URL-encoded query. `safe` is appended when safe search
+  // is requested; engines without a documented URL parameter simply have none.
   var SEARCH_ENGINES = {
-    brave: { name: "Brave Search", url: "https://search.brave.com/search?q=%s" },
-    duckduckgo: { name: "DuckDuckGo", url: "https://duckduckgo.com/?q=%s" },
-    google: { name: "Google", url: "https://www.google.com/search?q=%s" },
-    bing: { name: "Bing", url: "https://www.bing.com/search?q=%s" },
-    startpage: { name: "Startpage", url: "https://www.startpage.com/do/search?q=%s" },
-    ecosia: { name: "Ecosia", url: "https://www.ecosia.org/search?q=%s" },
+    brave: { name: "Brave Search", url: "https://search.brave.com/search?q=%s", safe: "&safesearch=strict" },
+    duckduckgo: { name: "DuckDuckGo", url: "https://duckduckgo.com/?q=%s", safe: "&kp=1" },
+    google: { name: "Google", url: "https://www.google.com/search?q=%s", safe: "&safe=active" },
+    bing: { name: "Bing", url: "https://www.bing.com/search?q=%s", safe: "&adlt=strict" },
+    startpage: { name: "Startpage", url: "https://www.startpage.com/do/search?q=%s", safe: "" },
+    ecosia: { name: "Ecosia", url: "https://www.ecosia.org/search?q=%s", safe: "" },
   };
 
   var DEFAULT_ENGINE = "brave";
@@ -27,11 +28,14 @@
   // Hostname with at least one dot and an alphabetic (or punycode) TLD.
   var DOMAIN = /^(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+(?:\p{L}{2,63}|xn--[a-z0-9-]{1,59})$/iu;
 
-  /** Template for a search engine id, or a custom "https://...%s..." template. */
-  function searchTemplate(choice) {
-    if (choice && SEARCH_ENGINES[choice]) return SEARCH_ENGINES[choice].url;
+  /**
+   * Template for a search engine id, or a custom "https://...%s..." template.
+   * With `safe`, engines that support it get their strict safe-search parameter.
+   */
+  function searchTemplate(choice, safe) {
+    if (choice && SEARCH_ENGINES[choice]) return SEARCH_ENGINES[choice].url + (safe ? SEARCH_ENGINES[choice].safe : "");
     if (typeof choice === "string" && /^https?:\/\/.+%s/i.test(choice)) return choice;
-    return SEARCH_ENGINES[DEFAULT_ENGINE].url;
+    return searchTemplate(DEFAULT_ENGINE, safe);
   }
 
   function parse(href) {
@@ -70,14 +74,16 @@
   /**
    * Decide what to open for `input`.
    * `engine` is a search-engine id or a custom template (see searchTemplate).
+   * `options.safe` turns on the engine's strict safe-search parameter.
    * Returns { kind: "url" | "search", url } or null for empty input.
    */
-  function resolve(input, engine) {
+  function resolve(input, engine, options) {
     var value = String(input == null ? "" : input).trim();
     if (!value) return null;
     var url = toUrl(value);
     if (url) return { kind: "url", url: url };
-    return { kind: "search", url: searchTemplate(engine).replace("%s", encodeURIComponent(value)) };
+    var safe = Boolean(options && options.safe);
+    return { kind: "search", url: searchTemplate(engine, safe).replace("%s", encodeURIComponent(value)) };
   }
 
   global.SnResolve = {

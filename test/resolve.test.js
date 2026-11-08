@@ -75,3 +75,13 @@ test("custom search templates must contain %s and be http(s)", () => {
   assert.match(resolve("hi", "javascript:alert(%s)").url, /search\.brave\.com/);
   assert.match(resolve("hi", "https://example.org/no-placeholder").url, /search\.brave\.com/);
 });
+
+test("safe search adds the engine's strict parameter only when asked", () => {
+  assert.equal(resolve("hi", "google", { safe: true }).url, "https://www.google.com/search?q=hi&safe=active");
+  assert.equal(resolve("hi", "google").url, "https://www.google.com/search?q=hi");
+  assert.equal(resolve("hi", "brave", { safe: true }).url, "https://search.brave.com/search?q=hi&safesearch=strict");
+  assert.equal(resolve("hi", "duckduckgo", { safe: true }).url, "https://duckduckgo.com/?q=hi&kp=1");
+  assert.equal(resolve("hi", "ecosia", { safe: true }).url, "https://www.ecosia.org/search?q=hi", "no documented parameter, so none added");
+  assert.equal(resolve("hi", "https://example.org/?q=%s", { safe: true }).url, "https://example.org/?q=hi", "custom templates are left alone");
+  assert.equal(resolve("example.com", "google", { safe: true }).url, "https://example.com/", "addresses are not touched");
+});
