@@ -20,6 +20,21 @@ const uv = new UVServiceWorker()
 const { ScramjetServiceWorker } = $scramjetLoadWorker()
 const sj = new ScramjetServiceWorker()
 
+// Scramjet answers every Set-Cookie on a sub-resource by messaging the page and then
+// *waiting for the page's reply* before it returns the response. But messages to a
+// page stay queued until its message queue starts (DOMContentLoaded), and a parser
+// blocked on a stylesheet or script cannot reach DOMContentLoaded until that very
+// response arrives: a deadlock. Pages whose sub-resources set cookies (Wikipedia,
+// most large sites) therefore never finished loading. The worker keeps its own cookie
+// store, so the page copy only feeds document.cookie; deliver it without waiting.
+const dispatchToPage = sj.dispatch.bind(sj)
+sj.dispatch = (client, data) => {
+  const reply = dispatchToPage(client, data)
+  if (data.scramjet$type !== 'cookie') return reply
+  reply.catch(() => {})
+  return Promise.resolve()
+}
+
 const sjPrefix = location.origin + __scramjet$config.prefix
 const sjWasm = location.origin + __scramjet$config.files.wasm
 
