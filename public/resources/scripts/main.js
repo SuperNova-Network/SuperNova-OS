@@ -168,6 +168,13 @@ function setup() {
     }*/
     parent.appendChild(el);
   }
+  //create cog
+  document.getElementById("cog").setAttribute("d", genCog(19));
+  // Draw the cog icon in the shared buffer before any copy of it is made. Looking it up
+  // by class took the first copy in the page (e.g. the taskbar pin), so copies made
+  // later, like the Settings title-bar icon, stayed an empty circle.
+  document.querySelector("#svgbuffer .cog_icon path").setAttribute("d", genCog(40));
+
   addTaskbarIcon(setID, "null", 0, programData[setID].name, programData[setID].icon, true);
   addTaskbarIcon(consoleID, "null", 0, programData[consoleID].name, programData[consoleID].icon, true);
   for (var i = 0; i < taskArr.length; i++) {
@@ -179,11 +186,6 @@ function setup() {
     elem.innerHTML = document.getElementById("loadscreenbuffer").innerHTML;
     elem.style.backgroundColor = "#111";
   }, 500);
-
-  //create cog
-  document.getElementById("cog").setAttribute("d", genCog(19));
-  var ci = document.getElementsByClassName("cog_icon")[0];
-  ci.getElementsByTagName("path")[0].setAttribute("d", genCog(40));
 
   //create clock face
   var clock = document.getElementById("clocksvg");
