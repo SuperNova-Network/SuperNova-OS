@@ -1,73 +1,96 @@
 <div align="center">
 
-<img width="260px" src="https://github.com/SuperNova-Network/SuperNova_OS/blob/main/public/resources/media/images/image1.webp?raw=true">
+<img width="260px" src="public/resources/media/images/image1.webp" alt="SuperNova OS">
 
-# SuperNova OS (SnOS)
+# SuperNova OS
 
-<img width="4060px" src="https://github.com/SuperNova-Network/SuperNova_OS/blob/main/public/resources/media/images/Preview.png?raw=true">
+**A web proxy with a desktop-style interface.**
+Windows, a launcher, a built-in browser with tabs, two switchable proxy engines, and tab cloaking, all in one Node.js server.
+
+<img width="900px" src="public/resources/media/images/Preview.png" alt="SuperNova OS desktop">
 
 </div>
 
 <br/>
 
-Welcome to SuperNova OS (SnOS) - the revolutionary Node.js website proxy designed to resemble a fully functional operating system experience right in your browser. With SnOS, you can enjoy a unique browsing experience, complete with customizable wallpapers, interactive programs, and a plethora of features to explore.
+## Features
 
-## Overview
+- **Two proxy engines you can switch between:** [Scramjet](https://github.com/MercuryWorkshop/scramjet) (newest, best compatibility) and [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet) (lightweight, a solid fallback). Switch in Settings or from the Browser's address bar, with no restart.
+- **Two transports:** libcurl (default) and Epoxy, carried over one [Wisp](https://github.com/MercuryWorkshop/wisp-protocol) WebSocket. Point it at your own Wisp server if you like.
+- **SuperNova Browser:** tabs, an address bar that shows the real URL, back/forward/reload, keyboard shortcuts and a new-tab page.
+- **Smart search:** type an address or just words. Choose Brave, DuckDuckGo, Google, Bing, Startpage, Ecosia or your own search URL, with optional safe search.
+- **Cloaking:** 13 tab disguises (Google Classroom, Docs, Canvas, Schoology, Khan Academy, ...), an `about:blank` / `blob:` launcher, a panic key that works inside windows and proxied pages, and an optional leave-page prompt. See [docs/CLOAKING.md](docs/CLOAKING.md).
+- **A real content filter:** enforced on the *server*, so it covers every connection, not just the search box. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md#content-filter).
+- **A desktop to go with it:** draggable, resizable windows, taskbar, launcher, wallpapers, colour schemes, a terminal and a file explorer, with hover, press and window animations throughout.
+- **Sensible security defaults:** the proxy refuses connections to the server's own network (no SSRF), password protection is one environment variable away, and no credentials live in the repository.
 
-SuperNova OS (SnOS) reimagines the traditional browsing experience by transforming it into an immersive operating system-like environment. Built on Node.js, SnOS offers a seamless integration of web technologies to deliver a user-friendly and feature-rich platform.
+## Quick start
 
-## Key Features
+```sh
+git clone https://github.com/SuperNova-Network/SuperNova-OS.git
+cd SuperNova-OS
+npm install
+npm start
+```
 
-- **Program Launcher**: Access a variety of interactive programs seamlessly integrated into SnOS, from games to productivity tools, all within your browser window.
+Open <http://localhost:3000>. Requires **Node.js 20 or newer**.
 
-- **HTTP Proxy**: Utilize SnOS's built-in HTTP proxy feature to navigate the web securely and anonymously, ensuring your privacy and security while browsing.
+For development, `npm run dev` restarts the server when files change. Run the tests with `npm test`.
 
-- **Customizable Wallpaper**: Personalize your SnOS experience by changing the wallpaper to suit your mood or preferences, with a selection of stunning wallpapers to choose from.
+## Using it
 
-- **Settings Program**: Tailor your SnOS experience with the settings Program, where you can adjust various preferences and configurations to enhance your browsing experience.
+| To... | Do this |
+| --- | --- |
+| Browse the web | Open **SuperNova** on the desktop, or switch the taskbar search to **Web** and type an address or a search |
+| Switch engine | Settings > **Proxy** > Engine, or the engine badge in the Browser's address bar |
+| Change the connection | Settings > **Proxy** > Connection (libcurl / Epoxy), or set a custom Wisp server |
+| Check that it works | Settings > Proxy > Troubleshooting > **Run test** |
+| Disguise the tab | Settings > **Cloaking** > Tab disguise |
+| Hide instantly | Settings > Cloaking > **Panic key** (pick a combination such as `Ctrl+Alt+P`) |
+| Open in `about:blank` | Settings > Cloaking > **Open in about:blank** |
+| Change wallpaper or colours | Settings > **Appearance**, or right-click the desktop |
 
-- **Responsive Design**: SnOS is designed to be responsive and accessible across various devices, ensuring a consistent and seamless experience whether you're on desktop, or tablet.
+## Configuration
 
-- **Cloaking**: Of course like any other proxy- we had to add in some helpful cloaks for secretive use. You can access cloaks from the settings program.
+Everything is optional. Copy `.env.example` to `.env`, or set these in your host's dashboard.
 
-## Getting Started
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PORT` | `3000` | Port to listen on |
+| `AUTH_PASS` | *(empty)* | Set to require a login (HTTP Basic). Empty keeps the site public |
+| `AUTH_USER` | `admin` | Username when `AUTH_PASS` is set |
+| `CONTENT_FILTER` | `1` | `0` turns the content filter off |
+| `BLOCKED_HOSTS` | *(empty)* | Extra domains to block, comma separated |
+| `WISP_URL` | *(empty)* | Use an external Wisp server (`wss://...`) instead of this one |
+| `OPEN_BROWSER` | *(empty)* | `1` opens your browser on start (local development) |
 
-To get started with SuperNova OS (SnOS), follow these simple steps:
+The full reference is in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
-1. **Clone Repository**: Clone the SnOS repository to your local machine using the following command: `git clone https://github.com/SuperNova-Network/SuperNova_OS.git`
+## Deploying
 
-2. **Install Dependencies**: Navigate to the cloned directory and install the required dependencies by running: `npm i`
+The proxy runs over a WebSocket, so it needs a host that supports long-lived connections: Fly.io, Render, Railway, Heroku, any VPS or any container platform. **Vercel and Netlify functions cannot hold WebSockets open**; use one of the above, or a static host plus an external Wisp server (`WISP_URL`). A `Dockerfile`, `fly.toml` and `render.yaml` are included. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-3. **Start Server**: Once the dependencies are installed, start the SnOS server by running: `npm start`
+> **Running a public instance?** Read [SECURITY.md](SECURITY.md) first. A proxy lets people browse *from your server's IP address*.
 
-4. **Enjoy**: Open your web browser and navigate to `http://localhost:3000` to start exploring SuperNova OS (SnOS)!
+## Documentation
 
-## Usage
-
-- **Launching Programs**: Click on the program icons on the SnOS desktop to launch the corresponding applications.
-
-- **HTTP Proxy**: Use the built-in HTTP proxy feature to browse the web securely and anonymously. Simply click the on and off button on the right hand side of the search bar programs, and switch it on. Next enter the desired URL in the address bar and enjoy!
-
-- **Changing Wallpaper**: Right-click on the desktop to access the context menu, then select "Change Wallpaper" to choose from a selection of stunning wallpapers.
-
-- **Settings**: Access the settings window by clicking on the gear icon from afterwards clicking the "SnOS" square box logo on the taskbar.
-
-## License and Terms of Service
-
-For licensing information and terms of service, we advise you to check out the respective tabs on the SuperNova OS (SnOS) website.
+| | |
+| --- | --- |
+| [Architecture](docs/ARCHITECTURE.md) | How a page load travels through the system, and every workaround and why |
+| [Proxy engines and transports](docs/PROXY.md) | Choosing and switching them, search and safe search |
+| [Cloaking](docs/CLOAKING.md) | Tab disguise, panic key, `about:blank`, and their limits |
+| [Configuration](docs/CONFIGURATION.md) | Environment variables, the content filter, authentication |
+| [Deployment](docs/DEPLOYMENT.md) | Docker, Fly.io, Render, a VPS with HTTPS |
+| [Development](docs/DEVELOPMENT.md) | Project layout, tests, adding an app to the desktop |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | When a page will not load |
+| [Changelog](CHANGELOG.md) | What changed from the original project |
 
 ## Contributing
 
-We welcome contributions from the community to help improve and enhance SuperNova OS (SnOS). Whether you're a developer, designer, or enthusiast, there are many ways to get involved:
+Bug reports, ideas and pull requests are welcome. Start with [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), and join the community on Discord: [dsc.gg/supernovaproxy](https://dsc.gg/supernovaproxy).
 
-- **Bug Reports**: Report any bugs or issues you encounter while using SnOS to help us improve stability and performance.
+## License
 
-- **Feature Requests**: Share your ideas for new features or improvements that you'd like to see implemented in SnOS.
+SuperNova OS is free software under the **GNU Affero General Public License v3.0** ([LICENSE](LICENSE)). If you run a modified version for others over a network, you must offer them its source code; Settings > System > About links to this repository for that reason.
 
-- **Code Contributions**: Contribute code to SnOS's GitHub repository to help implement new features, fix bugs, or optimize performance.
-
-## Contact
-
-If you have any questions, suggestions, or feedback regarding SuperNova OS (SnOS), please don't hesitate to contact us at  our discord server [dsc.gg/supernovaproxy](dsc.gg/supernovaproxy)
-
-Thank you for choosing SuperNova OS (SnOS). We hope you enjoy your browsing experience in this innovative web-based environment! cheese
+SuperNova OS builds on [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet), [Scramjet](https://github.com/MercuryWorkshop/scramjet), [bare-mux](https://github.com/MercuryWorkshop/bare-mux), [libcurl.js](https://github.com/ading2210/libcurl.js), [epoxy-tls](https://github.com/MercuryWorkshop/epoxy-tls) and [wisp-js](https://github.com/MercuryWorkshop/wisp-js). The desktop shell is derived from PeOS by [PicturElements](https://github.com/PicturElements).
