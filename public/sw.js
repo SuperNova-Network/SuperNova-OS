@@ -1,15 +1,23 @@
-importScripts('/uv/bundle.js')
-importScripts('/uv/config.js')
-importScripts('/uv/sw.js')
+/*
+ * SuperNova OS service worker.
+ *
+ * Requests under a proxy prefix are rewritten and sent through the bare-mux
+ * transport; everything else is left to the browser untouched.
+ */
+importScripts('/proxy/config.js')
+importScripts('/assets/uv/uv.bundle.js')
+importScripts('/proxy/uv.config.js')
+importScripts(__uv$config.sw)
 
-const sw = new UVServiceWorker()
-
-// The legacy vendored UV worker reads this implicit global.
-var userKey = new URL(location).searchParams.get('userkey')
+const uv = new UVServiceWorker()
 
 // Take over immediately instead of waiting for every open tab to close, so the
 // proxy works on the very first visit (and picks up new worker versions fast).
 self.addEventListener('install', (event) => event.waitUntil(self.skipWaiting()))
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()))
 
-self.addEventListener('fetch', (event) => event.respondWith(sw.fetch(event)))
+self.addEventListener('fetch', (event) => {
+  // Not calling respondWith() lets the browser handle non-proxied requests
+  // natively, which keeps caching and streaming behaviour intact.
+  if (uv.route(event)) event.respondWith(uv.fetch(event))
+})

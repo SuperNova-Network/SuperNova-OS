@@ -1,28 +1,34 @@
 {
   "name": "supernova-os",
   "version": "1.0.0",
+  "description": "SuperNova OS: a web proxy with a desktop-style interface.",
   "type": "module",
-  "engines": {
-    "npm": ">=7.0.0",
-    "node": ">=16.0.0"
-  },
-  "description": "",
   "main": "app.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js"
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
   },
-  "author": "",
-  "license": "ISC",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SuperNova-Network/SuperNova-OS.git"
+  },
+  "author": "SuperNova Network",
+  "license": "AGPL-3.0-only",
   "dependencies": {
-    "@nebula-services/bare-server-node": "^2.0.4",
+    "@mercuryworkshop/bare-mux": "^2.1.9",
+    "@mercuryworkshop/epoxy-transport": "^2.1.29",
+    "@mercuryworkshop/libcurl-transport": "^1.5.2",
+    "@mercuryworkshop/wisp-js": "^0.5.3",
     "@titaniumnetwork-dev/ultraviolet": "^3.2.10",
-    "chalk": "^5.6.2",
-    "cors": "^2.8.5",
+    "compression": "^1.8.2",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-basic-auth": "^1.2.1",
-    "node-fetch": "^3.3.2",
     "open": "^10.2.0"
   }
 }

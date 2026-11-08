@@ -60,13 +60,13 @@ const service = "supernova";
 
 var programData = [ //name, url, icon, keywords
   { name: "SuperNova", url: "/$.html", icon: { url: "SuperNova" }, keywords: "proxy,unblocker,supernova,$,calculator,math,interactive,canvas,graph" },
-  { name: "Minecraft", url: `${__uv$config.prefix}${__uv$config.encodeUrl('https://eaglercraft.com/mc/1.8.8/')}`, icon: { url: "Minecraft" }, keywords: "minecraft,building,eaglercraft,game,interactive" },
-  { name: "YouTube", url: `${__uv$config.prefix}${__uv$config.encodeUrl('https://www.youtube.com')}`, icon: { url: "Youtube" }, keywords: "prime,generator,math,information" },
-  { name: "TikTok", url: `${__uv$config.prefix}${__uv$config.encodeUrl('https://www.tiktok.com')}`, icon: { url: "TikTok" }, keywords: "tiktok,video,interactive" },
-  { name: "Crazy Games", url: `${__uv$config.prefix}${__uv$config.encodeUrl('https://www.crazygames.com')}`, icon: { url: "CrazyGames" }, keywords: "bezier,bézier,interactive,gadget" },
-  { name: "Shell Shockers", url: `${__uv$config.prefix}${__uv$config.encodeUrl('https://shellshock.io')}`, icon: { url: "Shell_Shockers_icon" }, keywords: "pitchfork,emporium,store,webshop,reddit,api" },
-  { name: "Reddit", url: `${__uv$config.prefix}${__uv$config.encodeUrl('https://www.reddit.com')}`, icon: { url: "Reddit" }, keywords: "reddit,interactive" },
-  { name: "Discord", url: `${__uv$config.prefix}${__uv$config.encodeUrl('https://discord.com')}`, icon: { url: "Discord" }, keywords: "discord,interactive,chat,voice,video" },
+  { name: "Minecraft", url: "", proxy: "https://eaglercraft.com/mc/1.8.8/", icon: { url: "Minecraft" }, keywords: "minecraft,building,eaglercraft,game,interactive" },
+  { name: "YouTube", url: "", proxy: "https://www.youtube.com", icon: { url: "Youtube" }, keywords: "prime,generator,math,information" },
+  { name: "TikTok", url: "", proxy: "https://www.tiktok.com", icon: { url: "TikTok" }, keywords: "tiktok,video,interactive" },
+  { name: "Crazy Games", url: "", proxy: "https://www.crazygames.com", icon: { url: "CrazyGames" }, keywords: "bezier,bézier,interactive,gadget" },
+  { name: "Shell Shockers", url: "", proxy: "https://shellshock.io", icon: { url: "Shell_Shockers_icon" }, keywords: "pitchfork,emporium,store,webshop,reddit,api" },
+  { name: "Reddit", url: "", proxy: "https://www.reddit.com", icon: { url: "Reddit" }, keywords: "reddit,interactive" },
+  { name: "Discord", url: "", proxy: "https://discord.com", icon: { url: "Discord" }, keywords: "discord,interactive,chat,voice,video" },
 
   { name: "Sudoku Solver", url: "https://picturelements.github.io/sudokuSolver", icon: { url: "sudokusolver" }, keywords: "sudoku,solver,games,interactive" },
   { name: "HTML Editor", url: "https://picturelements.github.io/editor", icon: { url: "htmleditor" }, keywords: "html,editor,css,interactive,gadget" },
@@ -339,26 +339,30 @@ function addWindow(id, title, contStr, w, h, type) {
   setTimeout(function () { elem.classList.remove("init"); }, 200);
   addTaskbarIcon(id, winCount, 2, data.name, data.icon, false);
   moveToTop(winCount);
-  if (id < consoleID) { delayIframe(elem, tmpUrl); }
+  if (id < consoleID) { delayIframe(elem, tmpUrl, programData[id].proxy); }
   winCount++;
   return elem;
 }
 
-function delayIframe(elem, src) {
+function delayIframe(elem, src, proxyTarget) {
   setTimeout(function () {
     var iframe = elem.getElementsByClassName("frame")[0];
-    var load = function () {
-      iframe.src = src;
+    var load = function (url) {
+      iframe.src = url;
       iframe.onload = function () {
         elem.getElementsByClassName("loadingoverlay")[0].style = "opacity: 0; background-color:transparent";
       };
     };
-    // Proxied URLs only work once the service worker is active. Desktop apps
-    // never registered it before, so launching one first used to 404.
-    if (window.SnProxy && src.indexOf(SnProxy.scope()) === 0) {
-      SnProxy.ready().then(load, load); // on failure the server's boot page explains what went wrong
+    if (proxyTarget) {
+      // Proxied apps only work once the service worker is active and the
+      // transport is connected. Wait for that, then encode the URL with the
+      // currently selected engine.
+      SnProxy.go(proxyTarget).then(load, function (err) {
+        elem.getElementsByClassName("loadingoverlay")[0].style = "opacity: 0; background-color:transparent";
+        openPopup("Proxy error", err.message);
+      });
     } else {
-      load();
+      load(src);
     }
   }, 500);
 }
@@ -1088,6 +1092,7 @@ function search() {
     if (newArr.length > 0) {
       var keyws = newArr.toString().replace(/,/g, ", ");
       results.push({
+        index: i,
         name: programData[i].name,
         keywords: keyws.match(input) == null ? keyws : keyws.replace(input, "<span class='highlight'>" + keyws.match(input)[0] + "</span>"),
         url: programData[i].url,
@@ -1111,7 +1116,7 @@ function search() {
   for (var i = 0; i < results.length; i++) {
     var tmpUrl = results[i].url;
     //inHTML+="<a class='result' onclick='window.open('"+(tmpUrl.includes("aquaplexus")?tmpUrl.replace("https","http"):tmpUrl)+"')'><div class='resultimg'></div><div class='resulttext'>"+results[i].name+"<br><kw>"+results[i].keywords+"</kw></div></a>"
-    addResult(addTo, tmpUrl, results[i].icon, results[i].name, results[i].keywords);
+    addResult(addTo, results[i].index, results[i].icon, results[i].name, results[i].keywords);
   }
 
   if (results.length == 0) {
@@ -1119,11 +1124,10 @@ function search() {
   }
 }
 
-function addResult(addTo, url, icon, name, keywords) {
-  url = url.replace("http:", "https:");
+function addResult(addTo, index, icon, name, keywords) {
   var result = document.createElement("a");
   result.className = "result";
-  result.setAttribute("onclick", "window.open('" + url + "')");
+  result.addEventListener("click", function (event) { selectIcon(event, index, true); });
   var resultimg = document.createElement("div");
   resultimg.className = "resultimg";
   var resulttext = document.createElement("div");

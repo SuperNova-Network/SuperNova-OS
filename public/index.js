@@ -9,44 +9,39 @@ if (form && input) {
 }
 
 function processUrl(value, path) {
-  // Wait for the service worker to be *active*, not just registered. Navigating
-  // earlier hits the server and shows a 404 on the first use.
-  SnProxy.ready().then(() => {
-    let url = value.trim();
-    if (!isUrl(url)) url = 'https://search.brave.com/search?q=' + url;
-    else if (!(url.startsWith('https://') || url.startsWith('http://'))) url = 'https://' + url;
+  let url = value.trim();
+  if (!isUrl(url)) url = 'https://search.brave.com/search?q=' + encodeURIComponent(url);
+  else if (!(url.startsWith('https://') || url.startsWith('http://'))) url = 'https://' + url;
 
-    sessionStorage.setItem('encodedUrl', __uv$config.encodeUrl(url));
+  const restrictedWebsites = new Set([
+    "pornhub.com", "8tube.xxx", "redtube.com", "kink.com",
+    "youjizz.com", "xvideos.com", "youporn.com",
+    "brazzers.com", "fuck.com"
+  ]);
 
-    const restrictedWebsites = new Set([
-      "pornhub.com", "8tube.xxx", "redtube.com", "kink.com", 
-      "youjizz.com", "xvideos.com", "youporn.com", 
-      "brazzers.com", "fuck.com"
-    ]);
+  const restrictedKeywords = [
+    "porn", "xxx", "adult", "sex", "nude", "erotic", "fetish"
+  ];
 
-    const restrictedKeywords = [
-      "porn", "xxx", "adult", "sex", "nude", "erotic", "fetish"
-    ];
+  const normalizedUrl = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
 
-    const normalizedUrl = new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  const isRestrictedWebsite = Array.from(restrictedWebsites).some(restricted =>
+    normalizedUrl === restricted || normalizedUrl.endsWith(`.${restricted}`)
+  );
 
-    const isRestrictedWebsite = Array.from(restrictedWebsites).some(restricted => 
-      normalizedUrl === restricted || normalizedUrl.endsWith(`.${restricted}`)
-    );
+  const isRestrictedKeyword = restrictedKeywords.some(keyword =>
+    url.toLowerCase().includes(keyword)
+  );
 
-    const isRestrictedKeyword = restrictedKeywords.some(keyword => 
-      url.toLowerCase().includes(keyword)
-    );
+  if (isRestrictedWebsite || isRestrictedKeyword) {
+    document.write("This query is restricted by SuperNova. Please try another query.");
+    return;
+  }
 
-    if (isRestrictedWebsite || isRestrictedKeyword) {
-      document.write("This query is restricted by SuperNova. Please try another query.");
-    } else {
-      if (path) {
-        location.href = path;
-      } else {
-        window.location.href = __uv$config.prefix + __uv$config.encodeUrl(url);
-      }
-    }
+  // Wait for the service worker to be *active* and the transport connected, not
+  // just registered. Navigating earlier hits the server and shows a 404.
+  SnProxy.go(url).then((proxied) => {
+    window.location.href = path || proxied;
   }, (err) => {
     if (typeof openPopup === 'function') openPopup('Proxy error', err.message);
     else alert(err.message);
