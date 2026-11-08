@@ -11,8 +11,8 @@
  *   sj  Scramjet     newer and the best compatibility with modern sites
  *   uv  Ultraviolet  older, lighter, and a good fallback
  *
- * Expects /proxy/config.js, /assets/uv/uv.bundle.js, /proxy/uv.config.js and
- * /proxy/resolve.js to be loaded first. Scramjet is loaded on demand.
+ * Expects /proxy/config.js, /assets/uv/uv.bundle.js, /proxy/uv.config.js,
+ * /proxy/store.js and /proxy/resolve.js to be loaded first. Scramjet is loaded on demand.
  */
 (function () {
   "use strict";
@@ -33,23 +33,11 @@
 
   var DEFAULTS = { engine: "sj", transport: "libcurl", wisp: "", search: "brave", safesearch: "1" };
 
-  // --- settings (localStorage, with an in-memory fallback when it is blocked) ---
+  // --- settings (shared store, see store.js) ----------------------------------
 
-  var memory = {};
-
-  function get(key) {
-    try {
-      var value = localStorage.getItem("sn." + key);
-      if (value !== null) return value;
-    } catch (e) { /* storage blocked */ }
-    return key in memory ? memory[key] : DEFAULTS[key];
-  }
-
-  function set(key, value) {
-    memory[key] = value;
-    try { localStorage.setItem("sn." + key, value); } catch (e) { /* storage blocked */ }
-    window.dispatchEvent(new CustomEvent("snproxy:settings", { detail: { key: key, value: value } }));
-  }
+  SnStore.defaults(DEFAULTS);
+  var get = SnStore.get;
+  var set = SnStore.set;
 
   function engineKey() {
     var key = get("engine");
