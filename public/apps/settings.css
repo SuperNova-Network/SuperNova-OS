@@ -176,7 +176,6 @@ select {
   display: flex;
   flex-direction: column;
   padding: 8px 12px;
-  cursor: pointer;
 }
 
 .find-results li:hover,
@@ -206,7 +205,6 @@ select {
   background: transparent;
   color: var(--w-text);
   text-align: left;
-  cursor: pointer;
   transition: background-color 100ms;
 }
 
@@ -362,7 +360,6 @@ select {
   background: var(--w-card);
   color: var(--w-text);
   text-align: left;
-  cursor: pointer;
   animation: enter 460ms var(--w-ease) backwards;
   transition: background-color 100ms, transform 120ms var(--w-ease);
 }
@@ -499,7 +496,6 @@ select {
   border-radius: 0;
   background: #3b3b3b;
   color: var(--w-text);
-  cursor: pointer;
   overflow: hidden;
   transition: background-color 100ms, border-color 100ms, transform 100ms;
 }
@@ -594,7 +590,6 @@ select.field {
   border-radius: 11px;
   background: transparent;
   appearance: none;
-  cursor: pointer;
   transition: background-color 150ms, border-color 150ms;
 }
 
@@ -657,7 +652,6 @@ select.field {
 .choice {
   position: relative;
   display: block;
-  cursor: pointer;
 }
 
 .choice input {
@@ -802,7 +796,6 @@ select.field {
   background: var(--w-card);
   color: var(--w-text);
   text-align: left;
-  cursor: pointer;
   overflow: hidden;
   transition: background-color 100ms, border-color 120ms, transform 120ms var(--w-ease);
 }
@@ -879,7 +872,6 @@ select.field {
   border: 2px solid transparent;
   border-radius: 0;
   overflow: hidden;
-  cursor: pointer;
   transition: transform 140ms var(--w-ease), border-color 120ms;
 }
 
@@ -915,7 +907,6 @@ select.field {
   background-color: var(--w-card);
   background-size: cover;
   background-position: center;
-  cursor: pointer;
   transition: transform 140ms var(--w-ease), border-color 120ms;
 }
 
@@ -1035,3 +1026,7 @@ select.field {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Windows 10 never shows the hand cursor: keep the normal arrow everywhere (text boxes keep the I-beam). */
+body, body *, body *::before, body *::after { cursor: default !important; }
+input[type="text"], input[type="search"], input[type="url"], input:not([type]), textarea { cursor: text !important; }
