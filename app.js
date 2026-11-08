@@ -15,11 +15,15 @@ const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const bare = createBareServer("/bare/");
 const app = express();
 
-app.use(basicAuth({ // add the basicAuth middleware
-    users: { 'admin': 'williszesty' }, // replace 'admin' and 'williszesty' <-(password) with your desired username and password
+// Password protection is opt-in: set AUTH_PASS (and optionally AUTH_USER) in the environment.
+// Credentials must never live in source control.
+if (process.env.AUTH_PASS) {
+  app.use(basicAuth({
+    users: { [process.env.AUTH_USER || 'admin']: process.env.AUTH_PASS },
     challenge: true,
-    realm: 'My Application',
-}));
+    realm: 'SuperNova OS',
+  }));
+}
 
 app.use(express.static(publicPath));
 app.use("/uv/", express.static(uvPath));
