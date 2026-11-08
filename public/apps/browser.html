@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>SuperNova Browser</title>
+  <link rel="stylesheet" href="/resources/css/tokens.css">
+  <link rel="stylesheet" href="/resources/css/components.css">
+  <link rel="stylesheet" href="/apps/browser.css">
+</head>
+<body>
+  <!-- Icon sprite: 24x24 stroke icons, drawn with currentColor. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5m7-7-7 7 7 7"/></symbol>
+    <symbol id="i-forward" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></symbol>
+    <symbol id="i-reload" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 4v5h-5"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20zM12 10v5m0 3v.01"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  </svg>
+
+  <header class="chrome">
+    <div class="tabstrip">
+      <div class="tabs" id="tabs" role="tablist" aria-label="Open tabs"></div>
+      <button class="btn btn-ghost btn-icon" id="new-tab" type="button" title="New tab (Alt+T)" aria-label="New tab">
+        <svg><use href="#i-plus"/></svg>
+      </button>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-ghost btn-icon" id="back" type="button" title="Back (Alt+Left)" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+      <button class="btn btn-ghost btn-icon" id="forward" type="button" title="Forward (Alt+Right)" aria-label="Forward"><svg><use href="#i-forward"/></svg></button>
+      <button class="btn btn-ghost btn-icon" id="reload" type="button" title="Reload (F5)" aria-label="Reload"><svg><use href="#i-reload"/></svg></button>
+      <button class="btn btn-ghost btn-icon" id="home" type="button" title="New tab page" aria-label="Home"><svg><use href="#i-home"/></svg></button>
+
+      <form class="address" id="address-form" autocomplete="off">
+        <svg class="address-icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input class="address-input" id="address" type="text" inputmode="url" spellcheck="false"
+               placeholder="Search or enter a web address" aria-label="Address bar (Alt+L)">
+        <div class="engine" id="engine-menu">
+          <button class="engine-button" id="engine-button" type="button" aria-haspopup="menu" aria-expanded="false" title="Switch proxy engine">
+            <span id="engine-label">Scramjet</span>
+          </button>
+          <div class="menu" id="engine-list" role="menu" hidden></div>
+        </div>
+      </form>
+    </div>
+    <div class="progress" id="progress" hidden></div>
+  </header>
+
+  <main class="viewport" id="viewport">
+    <section class="newtab" id="newtab" aria-label="New tab">
+      <div class="newtab-inner">
+        <img class="newtab-logo" src="/resources/media/app_icons/SuperNova.png" alt="" width="84" height="84">
+        <h1>SuperNova</h1>
+        <form class="newtab-search" id="newtab-form" autocomplete="off">
+          <svg aria-hidden="true"><use href="#i-search"/></svg>
+          <input class="field" id="newtab-input" type="text" spellcheck="false" placeholder="Search the web freely" aria-label="Search the web">
+        </form>
+        <div class="tiles" id="tiles"></div>
+        <p class="newtab-note" id="newtab-note"></p>
+      </div>
+    </section>
+
+    <section class="problem" id="problem" hidden role="alert">
+      <div class="problem-card">
+        <svg class="problem-icon" id="problem-icon" aria-hidden="true"><use href="#i-alert"/></svg>
+        <h2 id="problem-title"></h2>
+        <p id="problem-text"></p>
+        <div class="problem-actions">
+          <button class="btn btn-primary" id="problem-retry" type="button">Try again</button>
+          <button class="btn" id="problem-home" type="button">New tab page</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/proxy/config.js"></script>
+  <script src="/assets/uv/uv.bundle.js"></script>
+  <script src="/proxy/uv.config.js"></script>
+  <script src="/proxy/store.js"></script>
+  <script src="/proxy/resolve.js"></script>
+  <script src="/proxy/core.js"></script>
+  <script src="/resources/scripts/cloak.js"></script>
+  <script src="/resources/scripts/fx.js"></script>
+  <script src="/apps/browser.js"></script>
+</body>
+</html>
