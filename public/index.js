@@ -9,9 +9,9 @@ if (form && input) {
 }
 
 function processUrl(value, path) {
-  let url = value.trim();
-  if (!isUrl(url)) url = 'https://search.brave.com/search?q=' + encodeURIComponent(url);
-  else if (!(url.startsWith('https://') || url.startsWith('http://'))) url = 'https://' + url;
+  const target = SnResolve.resolve(value, SnProxy.get('search'));
+  if (!target) return;
+  const url = target.url;
 
   const restrictedWebsites = new Set([
     "pornhub.com", "8tube.xxx", "redtube.com", "kink.com",
@@ -58,9 +58,4 @@ function now(value) {
 
 function blank(value) {
   processUrl(value)
-}
-
-function isUrl(val = '') {
-  if (/^http(s?):\/\//.test(val) || (val.includes('.') && val.substr(0, 1) !== ' ')) return true
-  return false
 }

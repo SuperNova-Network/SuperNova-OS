@@ -11,8 +11,8 @@
  *   sj  Scramjet     newer and the best compatibility with modern sites
  *   uv  Ultraviolet  older, lighter, and a good fallback
  *
- * Expects /proxy/config.js, /assets/uv/uv.bundle.js and /proxy/uv.config.js to
- * be loaded first. Scramjet is loaded on demand.
+ * Expects /proxy/config.js, /assets/uv/uv.bundle.js, /proxy/uv.config.js and
+ * /proxy/resolve.js to be loaded first. Scramjet is loaded on demand.
  */
 (function () {
   "use strict";
@@ -31,7 +31,7 @@
     libcurl: { name: "libcurl", path: "/libcurl/index.mjs", options: function (wisp) { return [{ websocket: wisp }]; } },
   };
 
-  var DEFAULTS = { engine: "sj", transport: "libcurl", wisp: "" };
+  var DEFAULTS = { engine: "sj", transport: "libcurl", wisp: "", search: "brave" };
 
   // --- settings (localStorage, with an in-memory fallback when it is blocked) ---
 
@@ -217,9 +217,19 @@
     return ready(engine).then(function () { return encode(url, engine); });
   }
 
+  /**
+   * Address-bar text (a URL or search words) -> proxied path, or null when empty.
+   * Uses the selected search engine for anything that is not an address.
+   */
+  function open(input, engine) {
+    var target = self.SnResolve.resolve(input, get("search"));
+    return target ? go(target.url, engine) : Promise.resolve(null);
+  }
+
   window.SnProxy = {
     ready: ready,
     go: go,
+    open: open,
     encode: encode,
     decode: decode,
     engineForPath: engineForPath,
