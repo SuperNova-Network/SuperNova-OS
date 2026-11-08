@@ -26,6 +26,8 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Added
 
+- Ten new wallpapers (six space photographs, four generated gaming ones) and a small "Show more" button in Settings > Appearance, which lists the first ten and reveals the rest.
+
 - **Scramjet** as a second engine beside Ultraviolet, switchable at runtime in Settings or from the Browser.
 - **libcurl** and **Epoxy** transports over Wisp, switchable in Settings, with a custom Wisp server option and a connection test.
 - **SuperNova Browser**: tabs, real-URL address bar, shortcuts, new-tab page, engine switcher, friendly blocked/error pages.
