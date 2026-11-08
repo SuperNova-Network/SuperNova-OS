@@ -1066,7 +1066,6 @@ function restart() {
   elem.innerHTML = document.getElementById("loadscreenbuffer").innerHTML;
   elem.getElementsByClassName("loadmsg")[0].innerHTML = "Shutting down";
   elem.style = "display:flex; opacity:0; animation:fadescreen 3500ms forwards 1; animation-delay:250ms;";
-  setTimeout(function () { elem.innerHTML = inner; }, 500);
   setTimeout(function () { elem.style.backgroundColor = "black"; elem.innerHTML = "" }, 3750);
   setTimeout(function () { location.reload(); }, 4000);
 }
@@ -1324,7 +1323,7 @@ function toggleTaskbah() {
   var elem = document.getElementById("taskbahSound");
   if (lockTaskbah) {
     elem.currentTime = 0;
-    elem.play();
+    elem.play().catch(function () { });
   } else {
     elem.pause();
   }
@@ -1522,7 +1521,8 @@ window.onload = function () {
 function openPrompt(title, msg, action) {
   var audio = new Audio('/resources/media/sounds/Xp_Error.wav');
   var buttons = "<br><button class='promptbtn exec'>OK</button><button class='promptbtn cancel'>Cancel</button>";
-  audio.play();
+  // Browsers refuse to autoplay before the first user gesture; that is fine.
+  audio.play().catch(function () { });
   openPopup(title, msg + buttons);
   var elem = document.getElementById("desktop").lastChild;
   elem.getElementsByClassName("close")[0].setAttribute("onclick", "cancelPrompt(" + elem.id + ")");
