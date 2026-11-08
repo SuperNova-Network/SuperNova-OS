@@ -15,7 +15,7 @@ function processUrl(value) {
     if (proxied) window.location.href = proxied
   }, (err) => {
     const title = err.blocked ? 'Blocked by SuperNova' : 'Proxy error'
-    if (typeof openPopup === 'function') openPopup(title, err.message)
+    if (typeof openPopup === 'function') openPopup(title, escapeHtml(err.message))
     else alert(err.message)
   })
 }

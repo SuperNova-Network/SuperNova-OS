@@ -152,7 +152,7 @@ function setup() {
     el.setAttribute("selected", "false");
     el.setAttribute("onclick", "selectIcon(event," + i + ",false)");
     el.addEventListener("mousedown", function (event) { showContext(event, 0) });
-    el.innerHTML = "<div class='icon'></div> <p class='ddesc'>" + programData[i].name + "</p>";
+    el.innerHTML = "<div class='icon'></div> <p class='ddesc'>" + escapeHtml(programData[i].name) + "</p>";
     setIcon(programData[i].icon, el.getElementsByClassName("icon")[0]);
     /*var ext=getExtension(programData[i].url);
     if (ext!=""&&!ext.includes("/")){
@@ -258,7 +258,7 @@ function addWindow(id, title, contStr, w, h, type) {
   }
 
   elem.setAttribute("type", id);
-  var inner = "<div class='infobar infoCol' id='" + winCount + "'><div class='close' title='Close' onclick=closeWin(" + winCount + ")>✕</div><div class='max' title='Toggle' onclick=toggle(" + winCount + ")>◻</div><div class='min' title='Minimize' onclick=minWin(" + winCount + ")>_</div><div class='reload' title='Reload' onclick=reloadWin(" + winCount + ")>↻</div><div class='icon'></div><div class='wintitle'>" + data.name + "</div></div><div class='contentwrapper'><div class='content'><iframe class='frame'></iframe><div class='loadingoverlay'><div class='loader'></div><div class='loader2'></div><div class='loader3'></div></div></div><div class='resize' scale='lw'></div><div class='resize' scale='h'></div><div class='resize' scale='w'></div><div class='resize' scale='th'></div><div class='resize' scale='lwh'></div><div class='resize' scale='wh'></div><div class='resize' scale='thw'></div><div class='resize' scale='thlw'></div></div></div>";
+  var inner = "<div class='infobar infoCol' id='" + winCount + "'><div class='close' title='Close' onclick=closeWin(" + winCount + ")>✕</div><div class='max' title='Toggle' onclick=toggle(" + winCount + ")>◻</div><div class='min' title='Minimize' onclick=minWin(" + winCount + ")>_</div><div class='reload' title='Reload' onclick=reloadWin(" + winCount + ")>↻</div><div class='icon'></div><div class='wintitle'>" + escapeHtml(data.name) + "</div></div><div class='contentwrapper'><div class='content'><iframe class='frame'></iframe><div class='loadingoverlay'><div class='loader'></div><div class='loader2'></div><div class='loader3'></div></div></div><div class='resize' scale='lw'></div><div class='resize' scale='h'></div><div class='resize' scale='w'></div><div class='resize' scale='th'></div><div class='resize' scale='lwh'></div><div class='resize' scale='wh'></div><div class='resize' scale='thw'></div><div class='resize' scale='thlw'></div></div></div>";
   elem.innerHTML = inner;
   elem.setAttribute("active", true);
   elem.id = winCount;
@@ -714,7 +714,7 @@ function selectIcon(evt, id, singleClick) {
 function editName(id) {
   var p = document.getElementsByClassName("ddesc")[id];
   var name = p.innerHTML;
-  p.innerHTML = "<div contenteditable spellcheck='false' id='nameedit'>" + name + "</div>";
+  p.innerHTML = "<div contenteditable spellcheck='false' id='nameedit'>" + escapeHtml(name) + "</div>";
   var ne = document.getElementById("nameedit");
   selectElementContents(ne);
   ne.addEventListener("keydown", function (event) { setName(event, id) });
@@ -733,26 +733,26 @@ function setName(evt, id) {
   var elem = document.getElementById("nameedit");
   if (evt.keyCode == 13) {
     var oldName = programData[id].name;
-    var name = elem.innerHTML;
+    var name = elem.textContent.trim();
     for (var i = 0; i < programData.length; i++) {
       var boolName = (programData[i].name == name && name != oldName), boolBlank = (name == "");
       if (boolName || boolBlank) {
         if (boolName) { openPopup("Filename Error", "Error: Filename '" + name + "' is already in use. Try another name."); }
         if (boolBlank) { openPopup("Filename Error", "Error: Filename cannot be blank. Try another name."); }
-        elem.parentElement.innerHTML = oldName;
+        elem.parentElement.textContent = oldName;
         preventEvents = false;
         return;
       }
     }
     elem.parentElement.parentElement.title = name;
-    elem.parentElement.innerHTML = name;
+    elem.parentElement.textContent = name;
     preventEvents = false;
     programData[id].name = name;
     var titles = document.getElementsByClassName("wintitle");
     var items = document.getElementsByClassName("taskbaritem");
     for (var i = 0; i < titles.length; i++) {
-      if (titles[i].innerHTML == oldName) {
-        titles[i].innerHTML = name;
+      if (titles[i].textContent == oldName) {
+        titles[i].textContent = name;
       }
     }
     for (var i = 0; i < items.length; i++) {
@@ -771,14 +771,14 @@ function resetNames() {
   var titles2 = document.getElementsByClassName("ddesc");
   for (var i = 0; i < titles.length; i++) {
     for (var n = 0; n < origNames.length; n++) {
-      if (titles[i].innerHTML == programData[n].name) { titles[i].innerHTML = origNames[n]; }
+      if (titles[i].textContent == programData[n].name) { titles[i].textContent = origNames[n]; }
     }
   }
   for (var i = 0; i < icons.length; i++) {
     icons[i].setAttribute("data-title", origNames[i]);
   }
   for (var i = 0; i < titles2.length; i++) {
-    titles2[i].innerHTML = origNames[i];
+    titles2[i].textContent = origNames[i];
     localStorage.setItem("customTitle" + i, origNames[i]);
   }
   for (var n = 0; n < origNames.length; n++) {
@@ -1019,7 +1019,7 @@ function addPbItem(addTo, index, icon, name, used) {
   pbicon.className = "icon";
   var pbtitle = document.createElement("div");
   pbtitle.className = "pbtitle";
-  pbtitle.innerHTML = name + " " + (used != null ? "<span>(" + used + ")</span>" : "");
+  pbtitle.innerHTML = escapeHtml(name) + " " + (used != null ? "<span>(" + used + ")</span>" : "");
 
   pbitem.appendChild(pbicon);
   pbitem.appendChild(pbtitle);
@@ -1075,6 +1075,14 @@ function powerOff(evt) {
   openPopup("Nope.", "You fool! You can't exit SnOS. SnOS is love. SnOS is life.");
   hideSearch();
   evt.stopPropagation();
+}
+
+// Names come from localStorage (user-renamed apps) and from remote APIs, so they
+// must never be interpreted as markup.
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, function (ch) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch];
+  });
 }
 
 function escapeRegExp(text) {
@@ -1136,7 +1144,7 @@ function addResult(addTo, index, icon, name, keywords) {
   resultimg.className = "resultimg";
   var resulttext = document.createElement("div");
   resulttext.className = "resulttext";
-  resulttext.innerHTML = name + "<br><kw>" + keywords + "</kw>";
+  resulttext.innerHTML = escapeHtml(name) + "<br><kw>" + keywords + "</kw>";
 
   result.appendChild(resultimg);
   result.appendChild(resulttext);
@@ -1814,7 +1822,7 @@ function createLink(elem, cName, func, name, tpe, sze, url) {
   icon.className = "icon";
   var title = document.createElement("div");
   title.className = "title";
-  title.innerHTML = name;
+  title.textContent = name;
   var type = document.createElement("div");
   type.className = "filetype";
   type.innerHTML = tpe;
