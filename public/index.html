@@ -11,6 +11,9 @@
   <link href="https://fonts.googleapis.com/css?family=VT323" rel="stylesheet">
   <link href="https://picturelements.github.io/PeOS/console.css" rel="stylesheet" type="text/css">
   <link rel="stylesheet" href="./resources/css/styles.css">
+  <link rel="stylesheet" href="./resources/css/tokens.css">
+  <link rel="stylesheet" href="./resources/css/fx.css">
+  <link rel="stylesheet" href="./resources/css/theme.css">
 
   <!-- TAB CUSTOMIZATION -->
   <link rel="icon" href="https://ssl.gstatic.com/classroom/favicon.png" type="image/png" id="favicon">
@@ -169,7 +172,7 @@
     </form>
     <!--After end-->
 
-    <button id="switch" class="switch">OFF</button>
+    <button id="switch" class="switch" type="button" aria-pressed="false" title="Switch between searching apps and searching the web">Apps</button>
 
     <script src="/proxy/config.js"></script>
     <script src="/assets/uv/uv.bundle.js"></script>
@@ -178,7 +181,9 @@
     <script src="/proxy/resolve.js"></script>
     <script src="/proxy/core.js"></script>
     <script src="./resources/scripts/websearch.js"></script>
+    <script src="./resources/scripts/theme.js"></script>
     <script src="./resources/scripts/cloak.js"></script>
+    <script src="./resources/scripts/fx.js"></script>
     <script src="./resources/scripts/shortcuts.js"></script>
 
     <div id="infocorner">
@@ -203,6 +208,17 @@
     </div>
   </div>
   <div id="loadscreen"></div>
+
+  <!-- Shown instead of the desktop on narrow screens (see theme.css) -->
+  <div id="small-screen">
+    <div class="box">
+      <img src="./resources/media/app_icons/SuperNova.png" alt="" width="84" height="84">
+      <h1>SuperNova OS</h1>
+      <p>The desktop needs a larger screen. These work on any device:</p>
+      <a href="./apps/browser.html">Open the Browser</a>
+      <a class="secondary" href="./apps/settings.html">Open Settings</a>
+    </div>
+  </div>
   <style id="specCols"></style>
 
   <!--HTML buffers-->

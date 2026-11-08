@@ -1,0 +1,544 @@
+/*
+ * Desktop theme.
+ *
+ * Restyles the legacy desktop shell (styles.css) without touching its geometry,
+ * which the window manager's JavaScript depends on. Everything here is colour,
+ * shape, depth and motion. Loaded after styles.css; relies on tokens.css and fx.css.
+ *
+ *   1. Base            5. Search panel      9. Settings window
+ *   2. Desktop icons   6. Windows           10. Reduced motion
+ *   3. Taskbar         7. Context menu      11. Small screens
+ *   4. Taskbar search  8. Prompts
+ */
+
+/* 1. Base --------------------------------------------------------------------- */
+
+body {
+  font-family: var(--font);
+  background-color: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-active) transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 0.22em solid transparent;
+  border-radius: 999px;
+  background: var(--surface-active);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 2. Desktop icons ---------------------------------------------------------------- */
+
+.desktoplink {
+  border-radius: 0.7em;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease-spring);
+}
+
+.desktoplink .icon {
+  border-radius: 18%;
+  filter: drop-shadow(0 0.15em 0.3em rgb(0 0 0 / 45%));
+  transition: transform var(--dur) var(--ease-spring), filter var(--dur) var(--ease);
+}
+
+.desktoplink:hover {
+  background-color: rgb(255 255 255 / 13%);
+  box-shadow: 0 0.5em 1.4em rgb(0 0 0 / 30%), inset 0 0 0 1px rgb(255 255 255 / 14%);
+  transform: translateY(-0.2em);
+}
+
+.desktoplink:hover .icon {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0.3em 0.6em rgb(0 0 0 / 55%));
+}
+
+.desktoplink:active {
+  transform: translateY(0) scale(0.96);
+  transition-duration: var(--dur-fast);
+}
+
+.desktoplink[selected="true"] {
+  background-color: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.ddesc {
+  font-family: var(--font);
+  font-weight: 500;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 90%), 0 0 8px rgb(0 0 0 / 60%);
+}
+
+#selectbox {
+  border-radius: 0.3em;
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+/* 3. Taskbar ------------------------------------------------------------------------ */
+
+#taskbar {
+  background: rgb(12 12 24 / 60%);
+  -webkit-backdrop-filter: var(--glass);
+  backdrop-filter: var(--glass);
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  box-shadow: 0 -0.5em 2em rgb(0 0 0 / 30%);
+}
+
+#home {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #000));
+  transition: filter var(--dur) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+#home svg {
+  fill: rgb(255 255 255 / 92%);
+  stroke: rgb(255 255 255 / 92%);
+}
+
+#home:hover {
+  background: linear-gradient(135deg, var(--accent-hover), color-mix(in srgb, var(--accent) 55%, #000));
+  filter: brightness(1.08);
+}
+
+#home:hover svg {
+  fill: #fff;
+  stroke: #fff;
+}
+
+#home:active {
+  transform: scale(0.94);
+}
+
+.taskbaricon {
+  border-radius: 0.5em 0.5em 0 0;
+  transition:
+    width var(--dur) var(--ease),
+    margin var(--dur) var(--ease),
+    opacity var(--dur) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    transform var(--dur) var(--ease-spring);
+}
+
+.taskbaricon:hover,
+.taskbaricon[activelevel="2"] {
+  background-color: rgb(255 255 255 / 14%);
+}
+
+.taskbaricon[activelevel="2"] {
+  background-color: var(--accent-soft);
+}
+
+.taskbaricon .icon {
+  border-radius: 18%;
+  transition: transform var(--dur) var(--ease-spring);
+}
+
+.taskbaricon:hover .icon {
+  transform: translateY(-0.18em) scale(1.12);
+}
+
+.taskbaricon:active .icon {
+  transform: scale(0.9);
+  transition-duration: var(--dur-fast);
+}
+
+.taskbaricon[activelevel="1"],
+.taskbaricon[activelevel="2"] {
+  border-bottom-width: 0.2em;
+}
+
+div[data-title]:before {
+  padding: 0.35em 0.7em;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.5em;
+  background: rgb(18 18 32 / 94%);
+  box-shadow: var(--shadow);
+  font-family: var(--font);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  transform: translateX(-50%) translateY(0.3em);
+}
+
+div[data-title]:hover:before {
+  transform: translateX(-50%) translateY(0);
+}
+
+#time:hover {
+  background-color: rgb(255 255 255 / 10%);
+}
+
+/* 4. Taskbar search ----------------------------------------------------------------------- */
+
+.search {
+  background: rgb(255 255 255 / 9%);
+  color: var(--text);
+  font-family: var(--font);
+  transition: background-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.search::placeholder {
+  color: rgb(255 255 255 / 52%);
+}
+
+.search:hover {
+  background: rgb(255 255 255 / 14%);
+}
+
+.search:focus,
+.search[active="true"] {
+  background: rgb(255 255 255 / 20%);
+  color: #fff;
+  box-shadow: inset 0 -0.15em 0 var(--accent);
+}
+
+#switch.switch {
+  border-left: 1px solid rgb(255 255 255 / 12%);
+  background-color: rgb(255 255 255 / 9%);
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+#switch.switch:hover {
+  background-color: rgb(255 255 255 / 18%);
+  color: #fff;
+}
+
+#switch.switch:active {
+  transform: scale(0.94);
+}
+
+#switch.switch.enabled {
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+#switch.switch.enabled:hover {
+  background-color: var(--accent-hover);
+}
+
+/* 5. Search / start panel ------------------------------------------------------------------- */
+
+#searchbar {
+  border: 1px solid var(--border-strong);
+  border-bottom: 0;
+  border-radius: 0.9em 0.9em 0 0;
+  background: rgb(14 14 26 / 80%);
+  -webkit-backdrop-filter: var(--glass);
+  backdrop-filter: var(--glass);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+#searchbarbar {
+  background: rgb(0 0 0 / 35%);
+}
+
+.sbbitem,
+.sbbitem2,
+.poweritem,
+.pbitem,
+.result {
+  transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.sbbitem:hover,
+.sbbitem2:hover,
+.pbitem:hover,
+.poweritem:hover {
+  background-color: rgb(255 255 255 / 12%);
+}
+
+.sbbitem:active,
+.sbbitem2:active,
+.pbitem:active {
+  background-color: rgb(255 255 255 / 20%);
+}
+
+.result {
+  border-radius: 0.5em;
+}
+
+.result:hover {
+  background-color: var(--accent-soft);
+}
+
+.result:active {
+  transform: scale(0.985);
+}
+
+.highlight {
+  border-radius: 0.2em;
+  background-color: var(--accent);
+  color: #fff;
+}
+
+#powerbar {
+  border-radius: 0.5em 0.5em 0 0;
+  background: rgb(24 24 38 / 96%);
+}
+
+/* 6. Windows -------------------------------------------------------------------------------------- */
+
+.window {
+  border-radius: 0.7em;
+  background-color: #14141f;
+  box-shadow: 0 0.5em 1.6em rgb(0 0 0 / 40%), 0 0 0 1px rgb(255 255 255 / 9%);
+  transition: box-shadow var(--dur) var(--ease);
+}
+
+.window[active="true"] {
+  box-shadow: 0 1em 3em rgb(0 0 0 / 60%), 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.window.init {
+  opacity: 0;
+  transform: scale(0.94) translateY(0.6em);
+  animation: sn-window-in var(--dur-slow) var(--ease-spring) forwards;
+}
+
+.window.closed {
+  transform: scale(0.94) translateY(0.4em);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease) !important;
+}
+
+@keyframes sn-window-in {
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+body .infobar {
+  border-radius: 0.7em 0.7em 0 0;
+  background-color: rgb(30 30 46);
+  color: var(--text-muted);
+  font-weight: 500;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+body .window[active="true"] .infobar.infoCol {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #000), color-mix(in srgb, var(--accent) 52%, #000));
+  color: #fff;
+}
+
+.wintitle:after {
+  border-left-color: rgb(255 255 255 / 40%);
+}
+
+.reload,
+.max,
+.min,
+.close {
+  background-color: transparent;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.window[active="true"] .infobar .min,
+.window[active="true"] .infobar .max,
+.window[active="true"] .infobar .close,
+.window[active="true"] .infobar .reload {
+  background-color: transparent;
+}
+
+.reload:hover,
+.max:hover,
+.min:hover,
+.window[active="true"] .infobar .min:hover,
+.window[active="true"] .infobar .max:hover {
+  background-color: rgb(255 255 255 / 18%) !important;
+  color: #fff;
+}
+
+.reload:active,
+.max:active,
+.min:active {
+  background-color: rgb(255 255 255 / 28%) !important;
+}
+
+.close {
+  border-top-right-radius: 0.7em;
+}
+
+.close:hover {
+  background-color: #e5384b !important;
+  color: #fff;
+}
+
+.close:active {
+  background-color: #c12a3b !important;
+}
+
+.content {
+  border-radius: 0 0 0.7em 0.7em;
+  background-color: #14141f;
+}
+
+.loadingoverlay {
+  background-color: #14141f;
+}
+
+/* 7. Context menu ----------------------------------------------------------------------------------- */
+
+#context {
+  padding: 0.25em;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.7em;
+  background: rgb(22 22 36 / 94%);
+  -webkit-backdrop-filter: var(--glass);
+  backdrop-filter: var(--glass);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  font-family: var(--font);
+  transform-origin: top left;
+  animation: sn-pop var(--dur) var(--ease);
+}
+
+@keyframes sn-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.contextitem {
+  border-radius: 0.4em;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.contextitem:hover {
+  background-color: var(--accent-soft);
+}
+
+.contextitem:active {
+  background-color: var(--accent);
+  color: #fff;
+}
+
+.tickbox[ticked="true"]:before {
+  color: var(--accent);
+}
+
+/* 8. Prompts ----------------------------------------------------------------------------------------- */
+
+.errmsg {
+  color: var(--text);
+}
+
+.promptbtn {
+  border-radius: 0.5em;
+  background-color: var(--surface-active);
+  color: var(--text);
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.promptbtn:hover {
+  background-color: var(--accent);
+  color: #fff;
+}
+
+.promptbtn:active {
+  transform: scale(0.94);
+}
+
+/* 9. Settings window ------------------------------------------------------------------------------------ */
+
+/* Settings is a resizable app now (it used to be a fixed page). */
+.window[type="settings"] .resize {
+  display: block;
+}
+
+/* 10. Reduced motion ------------------------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 11. Small screens --------------------------------------------------------------------------------------- */
+
+/*
+ * The desktop's geometry scales with the viewport width, so it is unusable on a phone.
+ * Offer the two apps that are responsive instead.
+ */
+#small-screen {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  #small-screen {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 200000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 var(--font);
+    text-align: center;
+  }
+
+  #small-screen .box {
+    max-width: 22em;
+  }
+
+  #small-screen img {
+    border-radius: 18px;
+  }
+
+  #small-screen h1 {
+    margin: 0.6em 0 0.2em;
+    font-size: 1.5em;
+  }
+
+  #small-screen p {
+    margin: 0 0 1.2em;
+    color: var(--text-muted);
+  }
+
+  #small-screen a {
+    display: block;
+    margin: 0.5em 0;
+    padding: 0.8em 1em;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  #small-screen a.secondary {
+    background: var(--surface-active);
+  }
+}

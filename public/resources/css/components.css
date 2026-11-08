@@ -248,36 +248,3 @@ select.field option {
   background: var(--border-strong);
   background-clip: padding-box;
 }
-
-/* --- Click ripple (see fx.js) ------------------------------------------------ */
-
-.sn-ripple-layer {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.sn-ripple {
-  position: absolute;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.22;
-  pointer-events: none;
-  transform: scale(0);
-  animation: sn-ripple 520ms var(--ease) forwards;
-}
-
-@keyframes sn-ripple {
-  to {
-    transform: scale(1);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sn-ripple {
-    display: none;
-  }
-}
