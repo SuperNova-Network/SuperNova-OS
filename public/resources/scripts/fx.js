@@ -18,8 +18,6 @@
     ".pbitem",
     ".result",
     ".poweritem",
-    ".coloroption",
-    ".backoption",
     ".histbtn",
   ].join(",");
 

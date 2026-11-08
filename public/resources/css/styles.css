@@ -8,17 +8,6 @@ body {
   font-family: Roboto, Arial, sans-serif;
 }
 
-#version_text {
-  z-index: 9999;
-  position: absolute;
-  top: 8px;
-  right: 46px;
-  margin: 0;
-  padding: 0;
-  font-size: 19px;
-  color: #fff;
-}
-
 body.scaling .content {
   pointer-events: none;
 }
@@ -439,8 +428,7 @@ body.scaling .content {
   right: -0.4em;
 }
 
-.window[type="error"] .resize,
-.window[type="settings"] .resize {
+.window[type="error"] .resize {
   display: none;
 }
 
@@ -485,125 +473,6 @@ body.scaling .content {
 .resize[scale="thlw"] {
   top: -0.4em;
   left: -0.4em;
-}
-
-#settingscontainer {
-  position: absolute;
-  display: block;
-  width: 90%;
-  left: 5%;
-}
-
-#settingscontainer h {
-  display: block;
-  position: relative;
-  width: 100%;
-  margin-top: 3vw;
-  padding-bottom: 0.3vw;
-  font-size: 1.5vw;
-  border-bottom: 0.2vw solid #ddd;
-  color: #444;
-  text-indent: 2%;
-}
-
-#settingscontainer p {
-  display: block;
-  position: relative;
-  font-size: 1vw;
-  color: #444;
-  margin-top: 0.75vw;
-  margin-bottom: 0;
-  left: 2%;
-}
-
-#settingscontainer input,
-#settingscontainer select,
-#settingscontainer button {
-  display: block;
-  position: relative;
-  background-color: #eee;
-  border: 0.15vw solid #999;
-  color: #444;
-  width: 15vw;
-  height: 1.5vw;
-  margin: 0.5vw;
-  margin-left: 2%;
-  outline: none;
-  text-indent: 0.3vw;
-  line-height: 1.5vw;
-  box-sizing: content-box;
-  font-size: 1vw;
-}
-
-#settingscontainer input[disabled] {
-  opacity: 0.5;
-}
-
-#settingscontainer button {
-  text-indent: 0;
-  line-height: 1.5vw;
-  width: 11vw;
-}
-
-#settingscontainer button:hover {
-  background-color: #ddd;
-  border: 0.15vw solid #bbb;
-}
-
-#colorbar,
-#backbar {
-  display: block;
-  position: relative;
-  width: 96%;
-  height: 4.5vw;
-  left: 2%;
-  top: 0.5vw;
-}
-
-.coloroption,
-.backoption {
-  display: block;
-  position: relative;
-  float: left;
-  width: 4.5vw;
-  height: 4.5vw;
-  margin-right: 1vw;
-  margin-bottom: 0.5vw;
-}
-
-.coloroption[selected],
-.backoption[selected] {
-  outline: 0.5vw solid #111;
-}
-
-#backbar {
-  height: 11vw;
-  width: 45%;
-  float: left;
-}
-
-.backoption {
-  background-size: 100% 100%;
-  margin-bottom: 1vw;
-}
-
-.col {
-  display: block;
-  position: relative;
-  width: 4.5vw;
-  height: 1.5vw;
-}
-
-#preview {
-  width: 55%;
-  display: block;
-  position: relative;
-  height: 16.5vw;
-  float: right;
-  background-size: 100% 100%;
-  margin-top: 0.5vw;
-  margin-bottom: 2vw;
-  background-color: #ccc;
 }
 
 #clockbar {

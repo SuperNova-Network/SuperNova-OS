@@ -5,9 +5,9 @@
  * which the window manager's JavaScript depends on. Everything here is colour,
  * shape, depth and motion. Loaded after styles.css; relies on tokens.css and fx.css.
  *
- *   1. Base            5. Search panel      9. Settings window
- *   2. Desktop icons   6. Windows           10. Reduced motion
- *   3. Taskbar         7. Context menu      11. Small screens
+ *   1. Base            5. Search panel      9. Reduced motion
+ *   2. Desktop icons   6. Windows           10. Small screens
+ *   3. Taskbar         7. Context menu
  *   4. Taskbar search  8. Prompts
  */
 
@@ -464,14 +464,7 @@ body .window[active="true"] .infobar.infoCol {
   transform: scale(0.94);
 }
 
-/* 9. Settings window ------------------------------------------------------------------------------------ */
-
-/* Settings is a resizable app now (it used to be a fixed page). */
-.window[type="settings"] .resize {
-  display: block;
-}
-
-/* 10. Reduced motion ------------------------------------------------------------------------------------ */
+/* 9. Reduced motion ------------------------------------------------------------------------------------ */
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -484,7 +477,7 @@ body .window[active="true"] .infobar.infoCol {
   }
 }
 
-/* 11. Small screens --------------------------------------------------------------------------------------- */
+/* 10. Small screens --------------------------------------------------------------------------------------- */
 
 /*
  * The desktop's geometry scales with the viewport width, so it is unusable on a phone.
