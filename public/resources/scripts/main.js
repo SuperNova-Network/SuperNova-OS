@@ -178,7 +178,6 @@ function setup() {
     elem.innerHTML = document.getElementById("loadscreenbuffer").innerHTML;
     elem.style.backgroundColor = "#111";
   }, 500);
-  loadRepos();
 
   //create cog
   document.getElementById("cog").setAttribute("d", genCog(19));
@@ -311,6 +310,7 @@ function addWindow(id, title, contStr, w, h, type) {
     elem.classList.add("icons_hidden");
   } else if (id == explorerID) {
     addContent(elem, document.getElementById("explorerbuffer").innerHTML);
+    loadRepos(elem.getElementsByClassName("sidelinkwrapper")[0]);
     elem.setAttribute("type", "explorer");
     elem.getElementsByClassName("path")[0].addEventListener("keydown", function (event) {
       if (event.keyCode == 13) {
@@ -1635,24 +1635,29 @@ function moveHist(index, dir) {
   parseGeneralURL(win, w.history[w.histPointer]);
 }
 
-function loadRepos() {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function () {
-    if (this.readyState == 4 && this.status == 200) {
-      var elem = document.getElementById("explorerbuffer").getElementsByClassName("sidelinkwrapper")[0];
-      var doc = JSON.parse(this.responseText);
-      for (var i in doc) {
-        var obj = doc[i];
-        var item = document.createElement("div");
-        item.className = "sidelink";
-        item.setAttribute("onclick", "parseGeneralURL(this,'" + obj.url + "/contents')");
-        item.innerHTML = obj.name;
-        elem.appendChild(item);
-      }
-    }
-  };
-  xhttp.open("GET", "https://api.github.com/users/SuperNova-Network/repos", true); // https://web.postman.co/
-  xhttp.send();
+// The repository list comes from GitHub's unauthenticated API (60 requests per
+// hour per IP), so fetch it only when an Explorer window opens and only once.
+var repoCache = null;
+
+function loadRepos(wrapper) {
+  function render(repos) {
+    repos.forEach(function (repo) {
+      var item = document.createElement("div");
+      item.className = "sidelink";
+      item.textContent = repo.name;
+      item.addEventListener("click", function () { parseGeneralURL(item, repo.url + "/contents"); });
+      wrapper.appendChild(item);
+    });
+  }
+
+  if (repoCache) return render(repoCache);
+  fetch("https://api.github.com/users/SuperNova-Network/repos")
+    .then(function (res) { return res.ok ? res.json() : []; })
+    .then(function (repos) {
+      repoCache = Array.isArray(repos) ? repos : [];
+      render(repoCache);
+    })
+    .catch(function () { /* offline or rate limited: the sidebar simply stays empty */ });
 }
 
 function parseGeneralURL(elem, url) {
