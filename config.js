@@ -40,6 +40,10 @@ export default {
   // WebSocket endpoint that carries proxied traffic (the Wisp protocol).
   wispPath: "/wisp/",
 
+  // Optional: send browsers to an external Wisp server instead of this one. Needed on
+  // hosts without WebSocket support. Users can still override it in Settings.
+  wispUrl: /^wss?:\/\//i.test(env.WISP_URL ?? "") ? env.WISP_URL : "",
+
   // Content filter, enforced on the server for every proxied connection.
   // Set CONTENT_FILTER=0 to turn it off, or add domains with BLOCKED_HOSTS=a.com,b.com.
   filter: {

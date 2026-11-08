@@ -16,6 +16,10 @@ test("pages and APIs require credentials when AUTH_PASS is set", async () => {
   assert.equal((await fetch(server.url + "/", { headers: basic("teacher", "s3cret") })).status, 200);
 });
 
+test("...but the health check stays open so platforms can probe it", async () => {
+  assert.equal((await fetch(server.url + "/healthz")).status, 200);
+});
+
 test("the Wisp WebSocket upgrade is protected too (Express middleware never sees it)", async () => {
   const upgrade = (headers) => new Promise((resolve) => {
     const req = request(server.url + "/wisp/", {

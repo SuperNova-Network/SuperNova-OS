@@ -13,7 +13,13 @@ const verdict = (body) => fetch(server.url + "/api/verdict", { method: "POST", h
 test("the desktop is served without any login by default", async () => {
   const res = await get("/");
   assert.equal(res.status, 200);
-  assert.match(await res.text(), /<title>Home<\/title>/);
+  assert.match(await res.text(), /id="taskbar"/);
+});
+
+test("the health check answers without any login", async () => {
+  const res = await get("/healthz");
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), "ok");
 });
 
 test("unknown paths get the 404 page with a 404 status", async () => {
@@ -97,4 +103,20 @@ test("the Wisp endpoint upgrades WebSocket connections and nothing else does", a
   });
   assert.equal(await upgrade("/wisp/"), 101);
   assert.equal(await upgrade("/not-wisp/"), "closed");
+});
+
+test("WISP_URL is passed on to the browser when it is a ws(s) address", async () => {
+  const external = await startServer({ WISP_URL: "wss://wisp.example.org/wisp/" });
+  try {
+    const config = await (await fetch(external.url + "/proxy/config.js")).text();
+    assert.match(config, /"wispUrl":"wss:\/\/wisp\.example\.org\/wisp\/"/);
+  } finally {
+    await external.stop();
+  }
+  const bad = await startServer({ WISP_URL: "javascript:alert(1)" });
+  try {
+    assert.match(await (await fetch(bad.url + "/proxy/config.js")).text(), /"wispUrl":""/, "non-ws schemes are ignored");
+  } finally {
+    await bad.stop();
+  }
 });

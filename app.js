@@ -62,6 +62,12 @@ const app = express();
 app.disable("x-powered-by");
 app.use(compression());
 
+// Health checks (Fly.io, Render, Docker) cannot send credentials, so this sits
+// in front of the auth middleware. It reveals nothing but liveness.
+app.get("/healthz", (_req, res) => {
+  res.type("text/plain").set("Cache-Control", "no-store").send("ok");
+});
+
 if (authEnabled) {
   app.use(basicAuth({
     users: { [config.auth.user]: config.auth.pass },
@@ -87,7 +93,7 @@ app.post("/api/verdict", express.json({ limit: "2kb" }), (req, res) => {
 
 // Scripts whose contents depend on the server config. They are generated so the
 // prefixes live in exactly one place (config.js).
-const clientConfig = { prefixes, wisp: wispPath };
+const clientConfig = { prefixes, wisp: wispPath, wispUrl: config.wispUrl };
 
 function script(res, source) {
   res.type("js").set("Cache-Control", "no-cache").send(source);

@@ -103,9 +103,11 @@
   var connection = null;
   var appliedSignature = "";
 
+  // The user's own server (Settings) beats the operator's (WISP_URL), which beats this site's.
   function wispUrl() {
     var custom = get("wisp").trim();
     if (/^wss?:\/\//i.test(custom)) return custom;
+    if (cfg.wispUrl) return cfg.wispUrl;
     return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + cfg.wisp;
   }
 
