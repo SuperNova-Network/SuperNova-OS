@@ -9,7 +9,7 @@ import open from 'open';
 import basicAuth from 'express-basic-auth';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const bare = createBareServer("/bare/");
@@ -52,9 +52,9 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
-const port = parseInt(process.env.PORT, 10) || 3000;
-if (isNaN(port)) {
-  throw new Error("Invalid PORT environment variable");
+const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error(`Invalid PORT environment variable: ${JSON.stringify(process.env.PORT)}`);
 }
 
 server.on("listening", async () => {
@@ -71,20 +71,36 @@ server.on("listening", async () => {
     }:${address.port}`
   );
 
-  // Open the server address in the default browser
-  await open(`http://localhost:${address.port}`);
+  // Only open a browser when explicitly asked to (local development). Doing it
+  // unconditionally breaks headless hosts such as Docker, Fly.io and Render.
+  if (process.env.OPEN_BROWSER === "1") {
+    try {
+      await open(`http://localhost:${address.port}`);
+    } catch (err) {
+      console.warn(`Could not open a browser: ${err.message}`);
+    }
+  }
 });
 
 // https://expressjs.com/en/advanced/healthcheck-graceful-shutdown.html
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+let shuttingDown = false;
 
-function shutdown() {
-  console.log("SIGTERM signal received: closing HTTP server");
-  server.close();
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received: closing HTTP server`);
+
+  // Don't hang forever on keep-alive or upgraded (WebSocket) connections.
+  const force = setTimeout(() => process.exit(1), 5000);
+  force.unref();
+
   bare.close();
-  process.exit(0);
+  server.close(() => process.exit(0));
+  server.closeAllConnections?.();
 }
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 server.listen({
   port,
