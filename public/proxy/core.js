@@ -31,7 +31,7 @@
     libcurl: { name: "libcurl", path: "/libcurl/index.mjs", options: function (wisp) { return [{ websocket: wisp }]; } },
   };
 
-  var DEFAULTS = { engine: "sj", transport: "epoxy", wisp: "" };
+  var DEFAULTS = { engine: "sj", transport: "libcurl", wisp: "" };
 
   // --- settings (localStorage, with an in-memory fallback when it is blocked) ---
 
