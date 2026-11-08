@@ -59,7 +59,7 @@ document.body.classList.add(localStorage.getItem("viewmode") || "grid");
 const service = "supernova";
 
 var programData = [ //name, url, icon, keywords
-  { name: "SuperNova", url: "/$.html", icon: { url: "SuperNova" }, keywords: "proxy,browser,web,internet,unblocker,search,supernova,tabs" },
+  { name: "SuperNova", url: "/apps/browser.html", icon: { url: "SuperNova" }, keywords: "proxy,browser,web,internet,unblocker,search,supernova,tabs" },
   { name: "Minecraft", url: "", proxy: "https://eaglercraft.com/mc/1.8.8/", icon: { url: "Minecraft" }, keywords: "minecraft,eaglercraft,building,survival,game,sandbox" },
   { name: "YouTube", url: "", proxy: "https://www.youtube.com", icon: { url: "Youtube" }, keywords: "youtube,video,videos,music,watch,stream" },
   { name: "TikTok", url: "", proxy: "https://www.tiktok.com", icon: { url: "TikTok" }, keywords: "tiktok,video,videos,shorts,social" },
@@ -236,7 +236,8 @@ function addWindow(id, title, contStr, w, h, type) {
   oftenUsed[id]++;
   localStorage.setItem("oftenUsed", oftenUsed);
 
-  var tmpUrl = id == viewerID ? contStr : (id == 0 ? programData[id].url + "?" + (new Date().getTime()) : programData[id].url);
+  // The Browser app (id 0) receives its first address or search as contStr.
+  var tmpUrl = id == viewerID ? contStr : (id == 0 && contStr ? programData[id].url + "?q=" + encodeURIComponent(contStr) : programData[id].url);
   var elem = document.createElement("div");
   elem.className = "window init";
   var data = {
