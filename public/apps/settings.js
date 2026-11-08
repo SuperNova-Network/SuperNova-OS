@@ -27,7 +27,7 @@
   const tabs = [...document.querySelectorAll(".nav-item")];
 
   function showPanel(name) {
-    if (!document.getElementById(`panel-${name}`)) name = "proxy";
+    if (!document.getElementById(`panel-${name}`)) name = "home";
     for (const tab of tabs) {
       const selected = tab.dataset.panel === name;
       tab.setAttribute("aria-selected", String(selected));
@@ -49,7 +49,10 @@
     });
   });
   window.addEventListener("hashchange", () => showPanel(location.hash.slice(1)));
-  showPanel(location.hash.slice(1) || "proxy");
+  showPanel(location.hash.slice(1) || "home");
+
+  // Home page tiles jump to their page
+  document.querySelectorAll("[data-go]").forEach((tile) => tile.addEventListener("click", () => showPanel(tile.dataset.go)));
 
   // --- generic bindings -----------------------------------------------------------------
 
@@ -73,9 +76,15 @@
 
   document.querySelectorAll("[data-flag]").forEach((input) => {
     const key = input.dataset.flag;
-    const sync = () => { input.checked = SnStore.flag(key); };
+    const wrap = document.createElement("span");
+    wrap.className = "toggle";
+    const state = document.createElement("span");
+    state.className = "toggle-state";
+    input.replaceWith(wrap);
+    wrap.append(state, input);
+    const sync = () => { input.checked = SnStore.flag(key); state.textContent = input.checked ? "On" : "Off"; };
     sync();
-    input.addEventListener("change", () => SnStore.set(key, input.checked ? "1" : "0"));
+    input.addEventListener("change", () => { SnStore.set(key, input.checked ? "1" : "0"); state.textContent = input.checked ? "On" : "Off"; });
     SnStore.onChange((changedKey) => { if (changedKey === key || changedKey === "*") sync(); });
   });
 
@@ -401,6 +410,110 @@
     }
     syncDesktop();
   }
+
+  // --- find a setting -------------------------------------------------------------------------------
+
+  const findInput = $("find");
+  const findResults = $("find-results");
+  let findIndex = [];
+
+  function buildIndex() {
+    findIndex = [];
+    document.querySelectorAll(".panel").forEach((panel) => {
+      const panelName = panel.id.replace("panel-", "");
+      if (panelName === "home") return;
+      const pageTitle = panel.querySelector(".panel-head h2")?.textContent ?? panelName;
+      panel.querySelectorAll(".group > h3, .row, .choice-body").forEach((el) => {
+        const label = (el.matches("h3") ? el.textContent : el.querySelector("strong")?.textContent) ?? "";
+        const detail = el.querySelector?.("small")?.textContent ?? "";
+        if (label.trim()) findIndex.push({ el, panel: panelName, page: pageTitle, label: label.trim(), text: `${label} ${detail}`.toLowerCase() });
+      });
+    });
+  }
+
+  function renderFind() {
+    const query = findInput.value.trim().toLowerCase();
+    findResults.replaceChildren();
+    if (!query) { findResults.hidden = true; return; }
+    if (!findIndex.length) buildIndex();
+    const hits = findIndex.filter((item) => item.text.includes(query)).slice(0, 7);
+    if (!hits.length) {
+      const none = document.createElement("li");
+      none.className = "find-empty";
+      none.textContent = `No results for “${findInput.value.trim()}”`;
+      findResults.append(none);
+    }
+    hits.forEach((hit, index) => {
+      const li = document.createElement("li");
+      li.setAttribute("role", "option");
+      li.setAttribute("aria-selected", String(index === 0));
+      li.append(text(document.createElement("span"), hit.label), text(document.createElement("small"), hit.page));
+      li.addEventListener("mousedown", (event) => event.preventDefault());
+      li.addEventListener("click", () => go(hit));
+      findResults.append(li);
+    });
+    findResults.hidden = false;
+  }
+
+  function go(hit) {
+    findInput.value = "";
+    findResults.hidden = true;
+    showPanel(hit.panel);
+    const target = hit.el.closest(".row, .group") ?? hit.el;
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ block: "center", behavior: "smooth" });
+      target.classList.remove("flash");
+      void target.offsetWidth;
+      target.classList.add("flash");
+    });
+  }
+
+  findInput.addEventListener("input", renderFind);
+  findInput.addEventListener("blur", () => setTimeout(() => { findResults.hidden = true; }, 120));
+  findInput.addEventListener("keydown", (event) => {
+    const items = [...findResults.querySelectorAll("li[role=option]")];
+    const current = items.findIndex((li) => li.getAttribute("aria-selected") === "true");
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const next = (current + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+      items.forEach((li, i) => li.setAttribute("aria-selected", String(i === next)));
+    } else if (event.key === "Enter" && items[Math.max(current, 0)]) {
+      items[Math.max(current, 0)].click();
+    } else if (event.key === "Escape") {
+      findInput.value = "";
+      findResults.hidden = true;
+    }
+  });
+
+  // --- Reveal highlight: borders and surfaces glow near the pointer ------------------------------------------
+
+  const REVEAL = ".nav-item, .home-tile, .btn, .choice-body, .preset, .swatch, .wallpaper";
+  const REACH = 150; // px beyond an element's edge where its light still shows
+  document.querySelectorAll(REVEAL).forEach((el) => el.classList.add("reveal"));
+
+  let pointer = null;
+  let frame = 0;
+  function paintReveal() {
+    frame = 0;
+    for (const el of document.querySelectorAll(".reveal")) {
+      if (!pointer) { el.style.setProperty("--ro", "0"); continue; }
+      const rect = el.getBoundingClientRect();
+      const dx = Math.max(rect.left - pointer.x, 0, pointer.x - rect.right);
+      const dy = Math.max(rect.top - pointer.y, 0, pointer.y - rect.bottom);
+      const strength = Math.max(0, 1 - Math.hypot(dx, dy) / REACH);
+      el.style.setProperty("--ro", strength.toFixed(2));
+      if (strength > 0) {
+        el.style.setProperty("--rx", `${pointer.x - rect.left}px`);
+        el.style.setProperty("--ry", `${pointer.y - rect.top}px`);
+      }
+    }
+  }
+  const schedule = () => { if (!frame) frame = requestAnimationFrame(paintReveal); };
+  document.addEventListener("pointermove", (event) => { pointer = { x: event.clientX, y: event.clientY }; schedule(); }, { passive: true });
+  document.addEventListener("pointerleave", () => { pointer = null; schedule(); });
+  // Rows created after load (presets, swatches, wallpapers) join in too
+  new MutationObserver(() => document.querySelectorAll(REVEAL).forEach((el) => el.classList.add("reveal")))
+    .observe(document.body, { childList: true, subtree: true });
 
   // --- about ----------------------------------------------------------------------------------------------------
 

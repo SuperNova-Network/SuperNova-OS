@@ -12,6 +12,15 @@
 <body>
   <nav class="nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
     <h1 class="nav-title">Settings</h1>
+    <div class="find">
+      <input class="find-input" id="find" type="search" placeholder="Find a setting" autocomplete="off" spellcheck="false" aria-label="Find a setting">
+      <svg class="find-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <ul class="find-results" id="find-results" role="listbox" hidden></ul>
+    </div>
+    <button class="nav-item" role="tab" data-panel="home" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg>
+      <span>Home</span>
+    </button>
     <button class="nav-item" role="tab" data-panel="proxy" type="button">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
       <span>Proxy</span>
@@ -31,6 +40,29 @@
   </nav>
 
   <main class="content">
+    <!-- ===================== HOME ===================== -->
+    <section class="panel" id="panel-home" role="tabpanel" hidden>
+      <header class="panel-head"><h2>Windows Settings</h2></header>
+      <div class="home-tiles">
+        <button class="home-tile" type="button" data-go="proxy">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+          <span><strong>Proxy</strong><small>Engine, connection, search, troubleshooting</small></span>
+        </button>
+        <button class="home-tile" type="button" data-go="cloaking">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/><path d="m4 4 16 16"/></svg>
+          <span><strong>Cloaking</strong><small>Tab disguise, panic key, about:blank</small></span>
+        </button>
+        <button class="home-tile" type="button" data-go="appearance">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21c-1.5 0-2-1.2-1.4-2.4.5-1 .2-2.1-.8-2.6"/></svg>
+          <span><strong>Personalization</strong><small>Colour scheme, wallpaper, window size</small></span>
+        </button>
+        <button class="home-tile" type="button" data-go="system">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          <span><strong>System</strong><small>Clock, reset, about</small></span>
+        </button>
+      </div>
+    </section>
+
     <!-- ===================== PROXY ===================== -->
     <section class="panel" id="panel-proxy" role="tabpanel" hidden>
       <header class="panel-head">
