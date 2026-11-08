@@ -42,7 +42,7 @@
     return;
   }
 
-  SnProxy.ready().then(function () {
+  SnProxy.ready(SnProxy.engineForPath(location.pathname) || undefined).then(function () {
     setAttempts(attempts() + 1);
     location.reload();
   }, fail);

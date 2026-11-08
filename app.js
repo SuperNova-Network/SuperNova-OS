@@ -12,6 +12,7 @@ import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
+import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import config from "./config.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
@@ -69,6 +70,28 @@ self.__uv$config = {
 `);
 });
 
+app.get("/proxy/scramjet.config.js", (_req, res) => {
+  script(res, `self.__scramjet$config = {
+  prefix: ${JSON.stringify(prefixes.scramjet)},
+  codec: {
+    encode: (url) => url && encodeURIComponent(url),
+    decode: (url) => url && decodeURIComponent(url),
+  },
+  files: {
+    wasm: "/assets/scramjet/scramjet.wasm.wasm",
+    all: "/assets/scramjet/scramjet.all.js",
+    sync: "/assets/scramjet/scramjet.sync.js",
+  },
+  flags: {
+    rewriterLogs: false,
+    scramitize: false,
+    cleanErrors: true,
+    sourcemaps: false,
+  },
+};
+`);
+});
+
 // Allow the worker (served from /) to control every path.
 const scriptHeaders = {
   setHeaders(res, filePath) {
@@ -83,6 +106,7 @@ app.get("/sw.js", (_req, res) => {
 });
 
 app.use("/assets/uv/", express.static(uvPath, scriptHeaders));
+app.use("/assets/scramjet/", express.static(scramjetPath, scriptHeaders));
 app.use("/baremux/", express.static(baremuxPath, scriptHeaders));
 app.use("/epoxy/", express.static(epoxyPath, scriptHeaders));
 app.use("/libcurl/", express.static(libcurlPath, scriptHeaders));

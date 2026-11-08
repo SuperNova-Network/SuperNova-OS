@@ -2,13 +2,17 @@
  * SuperNova proxy client core.
  *
  * Exposes `window.SnProxy`. The important guarantee is `SnProxy.ready()`: it
- * resolves only once the service worker is *activated* and the transport is
- * connected. Navigating to a proxied URL before that point sends the request to
- * the server instead of the worker, which is what used to produce a 404 the
- * first time the proxy was used.
+ * resolves only once the service worker is *activated*, the transport is
+ * connected and the selected engine is initialised. Navigating to a proxied URL
+ * before that point sends the request to the server instead of the worker, which
+ * is what used to produce a 404 the first time the proxy was used.
+ *
+ * Two engines are available and can be switched at any time:
+ *   sj  Scramjet     newer and the best compatibility with modern sites
+ *   uv  Ultraviolet  older, lighter, and a good fallback
  *
  * Expects /proxy/config.js, /assets/uv/uv.bundle.js and /proxy/uv.config.js to
- * be loaded first.
+ * be loaded first. Scramjet is loaded on demand.
  */
 (function () {
   "use strict";
@@ -17,12 +21,17 @@
   var SW_URL = "/sw.js";
   var READY_TIMEOUT_MS = 10000;
 
+  var ENGINES = {
+    sj: { name: "Scramjet", prefix: function () { return cfg.prefixes.scramjet; } },
+    uv: { name: "Ultraviolet", prefix: function () { return cfg.prefixes.uv; } },
+  };
+
   var TRANSPORTS = {
     epoxy: { name: "Epoxy", path: "/epoxy/index.mjs", options: function (wisp) { return [{ wisp: wisp }]; } },
     libcurl: { name: "libcurl", path: "/libcurl/index.mjs", options: function (wisp) { return [{ websocket: wisp }]; } },
   };
 
-  var DEFAULTS = { transport: "epoxy", wisp: "" };
+  var DEFAULTS = { engine: "sj", transport: "epoxy", wisp: "" };
 
   // --- settings (localStorage, with an in-memory fallback when it is blocked) ---
 
@@ -42,6 +51,34 @@
     window.dispatchEvent(new CustomEvent("snproxy:settings", { detail: { key: key, value: value } }));
   }
 
+  function engineKey() {
+    var key = get("engine");
+    return key in ENGINES ? key : DEFAULTS.engine;
+  }
+
+  function transportKey() {
+    var key = get("transport");
+    return key in TRANSPORTS ? key : DEFAULTS.transport;
+  }
+
+  // --- helpers ----------------------------------------------------------------
+
+  function timeout(ms, message) {
+    return new Promise(function (_, reject) {
+      setTimeout(function () { reject(new Error(message)); }, ms);
+    });
+  }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var el = document.createElement("script");
+      el.src = src;
+      el.onload = resolve;
+      el.onerror = function () { reject(new Error("Could not load " + src)); };
+      document.head.appendChild(el);
+    });
+  }
+
   // --- service worker ---------------------------------------------------------
 
   // Resolves once `worker` reaches "activated"; rejects if it is discarded.
@@ -55,12 +92,6 @@
         return true;
       }
       if (!check()) worker.addEventListener("statechange", check);
-    });
-  }
-
-  function timeout(ms, message) {
-    return new Promise(function (_, reject) {
-      setTimeout(function () { reject(new Error(message)); }, ms);
     });
   }
 
@@ -90,13 +121,8 @@
     return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + cfg.wisp;
   }
 
-  function transportKind() {
-    var kind = get("transport");
-    return kind in TRANSPORTS ? kind : DEFAULTS.transport;
-  }
-
   function applyTransport() {
-    var transport = TRANSPORTS[transportKind()];
+    var transport = TRANSPORTS[transportKey()];
     var wisp = wispUrl();
     var signature = transport.path + "|" + wisp;
 
@@ -112,46 +138,83 @@
     });
   }
 
+  // --- scramjet (loaded on demand) --------------------------------------------
+
+  var scramjet = null;
+  var scramjetPromise = null;
+
+  function initScramjet() {
+    if (!scramjetPromise) {
+      scramjetPromise = Promise.all([
+        loadScript("/assets/scramjet/scramjet.all.js"),
+        loadScript("/proxy/scramjet.config.js"),
+        loadScript("/proxy/scramjet-db.js"),
+      ])
+        .then(function () { return self.snEnsureScramjetDb(); })
+        .then(function () {
+          var api = self.$scramjetLoadController();
+          scramjet = new api.ScramjetController(self.__scramjet$config);
+          return scramjet.init();
+        })
+        .catch(function (err) {
+          scramjetPromise = null; // allow a retry
+          throw err;
+        });
+    }
+    return scramjetPromise;
+  }
+
   // --- public API -------------------------------------------------------------
 
-  var readyPromise = null;
+  var baseReady = null;
 
-  function ready() {
-    if (!readyPromise) {
-      readyPromise = Promise.all([registerWorker(), applyTransport()]).then(function () {}, function (err) {
-        readyPromise = null; // allow a retry
+  /**
+   * Resolve once the proxy is usable for `engine` (defaults to the selected one):
+   * worker active, transport connected, engine initialised.
+   */
+  function ready(engine) {
+    engine = engine || engineKey();
+    if (!baseReady) {
+      baseReady = Promise.all([registerWorker(), applyTransport()]).then(function () {}, function (err) {
+        baseReady = null; // allow a retry
         throw err;
       });
     }
-    return readyPromise;
+    return baseReady.then(function () { return engine === "sj" ? initScramjet() : undefined; });
   }
 
-  /** Real URL -> proxied path (e.g. /service/abc...). */
-  function encode(url) {
+  /** Real URL -> proxied path (e.g. /service/abc...). Call after ready(engine). */
+  function encode(url, engine) {
+    engine = engine || engineKey();
+    if (engine === "sj") {
+      if (!scramjet) throw new Error("Scramjet is not initialised yet; wait for SnProxy.ready() first");
+      return scramjet.encodeUrl(url);
+    }
     return self.__uv$config.prefix + self.__uv$config.encodeUrl(url);
   }
 
   /** Proxied href or path -> real URL (or null when it is not a proxied address). */
   function decode(href) {
     try {
-      var path = new URL(href, location.href).pathname + new URL(href, location.href).search;
-      var prefix = self.__uv$config.prefix;
-      if (path.indexOf(prefix) !== 0) return null;
-      return self.__uv$config.decodeUrl(path.slice(prefix.length));
-    } catch (e) {
-      return null;
-    }
+      var parsed = new URL(href, location.href);
+      var path = parsed.pathname + parsed.search + parsed.hash;
+      var uv = cfg.prefixes.uv;
+      var sj = cfg.prefixes.scramjet;
+      if (path.indexOf(uv) === 0) return self.__uv$config.decodeUrl(path.slice(uv.length));
+      if (path.indexOf(sj) === 0) return scramjet ? scramjet.decodeUrl(parsed.href) : decodeURIComponent(path.slice(sj.length));
+    } catch (e) { /* fall through */ }
+    return null;
   }
 
-  /** Does this path belong to a proxy prefix? */
-  function isProxyPath(path) {
-    var prefixes = cfg.prefixes;
-    return Object.keys(prefixes).some(function (key) { return path.indexOf(prefixes[key]) === 0; });
+  /** Which engine owns this path ("uv", "sj") or null. */
+  function engineForPath(path) {
+    return Object.keys(ENGINES).filter(function (key) { return path.indexOf(ENGINES[key].prefix()) === 0; })[0] || null;
   }
 
   /** Wait until the proxy is usable, then return the proxied path for a real URL. */
-  function go(url) {
-    return ready().then(function () { return encode(url); });
+  function go(url, engine) {
+    engine = engine || engineKey();
+    return ready(engine).then(function () { return encode(url, engine); });
   }
 
   window.SnProxy = {
@@ -159,12 +222,14 @@
     go: go,
     encode: encode,
     decode: decode,
-    isProxyPath: isProxyPath,
-    scope: function () { return self.__uv$config.prefix; },
+    engineForPath: engineForPath,
+    isProxyPath: function (path) { return engineForPath(path) !== null; },
     get: get,
     set: set,
+    engine: engineKey,
+    engines: ENGINES,
     transports: TRANSPORTS,
     /** Re-read the transport/Wisp settings and reconnect. */
-    reconnect: function () { appliedSignature = ""; readyPromise = null; return ready(); },
+    reconnect: function () { appliedSignature = ""; baseReady = null; return ready(); },
   };
 })();
