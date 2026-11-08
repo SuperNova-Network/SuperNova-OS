@@ -1078,10 +1078,15 @@ function powerOff(evt) {
   evt.stopPropagation();
 }
 
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function search() {
-  var input = new RegExp("" + document.getElementById("search").value + "", "gi");
+  // The query is plain text, not a pattern: typing "(" or "[" must not throw.
+  var input = new RegExp(escapeRegExp(document.getElementById("search").value), "gi");
   var results = [];
-  for (var i = 1; i < programData.length - hiddenApps; i++) {
+  for (var i = 0; i < programData.length - hiddenApps; i++) {
     var arr = programData[i].keywords.split(",");
     var newArr = [];
     for (var n = 0; n < arr.length; n++) {
