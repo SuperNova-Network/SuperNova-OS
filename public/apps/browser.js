@@ -344,7 +344,6 @@
       const tile = document.createElement("button");
       tile.type = "button";
       tile.className = "tile";
-      tile.dataset.ripple = "";
       tile.style.setProperty("--tile-color", link.color);
       const badge = document.createElement("span");
       badge.className = "tile-badge";

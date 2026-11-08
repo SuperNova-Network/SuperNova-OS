@@ -75,7 +75,7 @@ In `app.js`, before the 404 handler. Routes placed before the `basicAuth` middle
 - **Browser scripts** are plain scripts, not modules, so they work in the service worker and in pages that load them with `<script>`. Legacy desktop code (`main.js`, `console.js`) is ES5-style; the apps (`browser.js`, `settings.js`) use modern syntax.
 - **Settings** go through `SnStore` (`sn.<key>` in `localStorage`); register a default with `SnStore.defaults({...})`.
 - **Anything inserted with `innerHTML` must be escaped** (`escapeHtml` in `main.js`). Prefer `textContent`.
-- **Colours, radii, shadows and motion** come from [`tokens.css`](../public/resources/css/tokens.css). Respect `prefers-reduced-motion`.
+- **The desktop is meant to look and feel like Windows 10.** Do not add hover lifts, springs, glows, ripples or window animations to it; keep to the flat, instant behaviour of `styles.css`. The Browser and Settings apps follow the same rule and take their colours from [`tokens.css`](../public/resources/css/tokens.css).
 - **Commits** are small and describe the *why*: what was wrong, what caused it, how it was verified.
 
 ## Upgrading the proxy libraries

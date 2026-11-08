@@ -193,7 +193,6 @@
     const button = document.createElement("button");
     button.type = "button";
     button.className = "preset";
-    button.dataset.ripple = "";
     button.setAttribute("role", "radio");
     if (icon) {
       const img = new Image();
@@ -342,8 +341,7 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = "swatch";
-      button.dataset.ripple = "";
-      button.setAttribute("role", "radio");
+        button.setAttribute("role", "radio");
       button.setAttribute("aria-label", `Colour scheme ${index + 1}`);
       for (const color of scheme) button.append(Object.assign(document.createElement("i"), { style: `background:${color}` }));
       button.addEventListener("click", () => { os.setScheme(index); syncDesktop(); });

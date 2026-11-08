@@ -21,7 +21,7 @@ Windows, a launcher, a built-in browser with tabs, two switchable proxy engines,
 - **Smart search:** type an address or just words. Choose Brave, DuckDuckGo, Google, Bing, Startpage, Ecosia or your own search URL, with optional safe search.
 - **Cloaking:** 13 tab disguises (Google Classroom, Docs, Canvas, Schoology, Khan Academy, ...), an `about:blank` / `blob:` launcher, a panic key that works inside windows and proxied pages, and an optional leave-page prompt. See [docs/CLOAKING.md](docs/CLOAKING.md).
 - **A real content filter:** enforced on the *server*, so it covers every connection, not just the search box. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md#content-filter).
-- **A desktop to go with it:** draggable, resizable windows, taskbar, launcher, wallpapers, colour schemes, a terminal and a file explorer, with hover, press and window animations throughout.
+- **A desktop to go with it:** draggable, resizable windows, taskbar, launcher, wallpapers, colour schemes, a terminal and a file explorer, in the look and feel of Windows 10.
 - **Sensible security defaults:** the proxy refuses connections to the server's own network (no SSRF), password protection is one environment variable away, and no credentials live in the repository.
 
 ## Quick start

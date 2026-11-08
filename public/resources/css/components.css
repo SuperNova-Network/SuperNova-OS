@@ -1,6 +1,6 @@
 /*
  * Reusable components built on tokens.css: buttons, fields, toggles, cards,
- * chips, scrollbars, focus rings and the click ripple.
+ * chips, scrollbars and focus rings. Deliberately static: no animation or motion.
  */
 
 *,
@@ -44,24 +44,15 @@
   cursor: pointer;
   overflow: hidden;
   user-select: none;
-  transition:
-    background var(--dur-fast) var(--ease),
-    border-color var(--dur-fast) var(--ease),
-    transform var(--dur-fast) var(--ease),
-    box-shadow var(--dur) var(--ease);
 }
 
 .btn:hover {
   background: var(--surface-hover);
   border-color: var(--border-strong);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
 }
 
 .btn:active {
   background: var(--surface-active);
-  transform: translateY(0) scale(0.97);
-  box-shadow: none;
 }
 
 .btn[disabled],
@@ -127,7 +118,6 @@
   background: rgb(0 0 0 / 28%);
   color: var(--text);
   font: inherit;
-  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 
 .field::placeholder {
@@ -170,7 +160,6 @@ select.field option {
   border: 1px solid var(--border);
   appearance: none;
   cursor: pointer;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 
 .switch::after {
@@ -184,11 +173,6 @@ select.field option {
   background: #fff;
   box-shadow: var(--shadow-sm);
   transform: translateY(-50%);
-  transition: left var(--dur) var(--ease-spring), width var(--dur-fast) var(--ease);
-}
-
-.switch:hover::after {
-  width: 1.2em;
 }
 
 .switch:checked {
@@ -198,10 +182,6 @@ select.field option {
 
 .switch:checked::after {
   left: calc(100% - 1.24em);
-}
-
-.switch:checked:hover::after {
-  left: calc(100% - 1.36em);
 }
 
 /* --- Cards, chips ---------------------------------------------------------- */

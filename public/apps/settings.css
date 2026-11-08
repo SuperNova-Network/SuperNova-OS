@@ -63,7 +63,6 @@ select {
   color: var(--text-muted);
   text-align: left;
   cursor: pointer;
-  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 
 .nav-item svg {
@@ -80,11 +79,6 @@ select {
 .nav-item:hover {
   background: var(--surface-hover);
   color: var(--text);
-  transform: translateX(2px);
-}
-
-.nav-item:active {
-  transform: scale(0.97);
 }
 
 .nav-item[aria-selected="true"] {
@@ -105,18 +99,10 @@ select {
 .panel {
   max-width: 720px;
   margin: 0 auto;
-  animation: panel-in var(--dur-slow) var(--ease);
 }
 
 .panel[hidden] {
   display: none;
-}
-
-@keyframes panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
 }
 
 .panel-head {
@@ -256,11 +242,6 @@ select {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  transition:
-    transform var(--dur) var(--ease-spring),
-    border-color var(--dur-fast) var(--ease),
-    background var(--dur-fast) var(--ease),
-    box-shadow var(--dur) var(--ease);
 }
 
 .choice-body small {
@@ -269,13 +250,8 @@ select {
 }
 
 .choice:hover .choice-body {
-  transform: translateY(-2px);
   border-color: var(--border-strong);
   background: var(--surface-hover);
-}
-
-.choice:active .choice-body {
-  transform: scale(0.98);
 }
 
 .choice input:checked + .choice-body {
@@ -359,10 +335,6 @@ select {
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  transition:
-    transform var(--dur) var(--ease-spring),
-    border-color var(--dur-fast) var(--ease),
-    background var(--dur-fast) var(--ease);
 }
 
 .preset img,
@@ -388,13 +360,8 @@ select {
 }
 
 .preset:hover {
-  transform: translateY(-2px);
   border-color: var(--border-strong);
   background: var(--surface-hover);
-}
-
-.preset:active {
-  transform: scale(0.97);
 }
 
 .preset[aria-checked="true"] {
@@ -414,13 +381,6 @@ select {
 .keycap[data-recording="true"] {
   border-color: var(--accent);
   background: var(--accent-soft);
-  animation: record 1.1s ease-in-out infinite;
-}
-
-@keyframes record {
-  50% {
-    box-shadow: 0 0 0 4px var(--accent-soft);
-  }
 }
 
 /* --- Appearance -------------------------------------------------------------------------------------- */
@@ -441,20 +401,10 @@ select {
   border-radius: var(--radius);
   overflow: hidden;
   cursor: pointer;
-  transition: transform var(--dur) var(--ease-spring), border-color var(--dur-fast) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
 .swatch i {
   flex: 1;
-}
-
-.swatch:hover {
-  transform: translateY(-3px) scale(1.04);
-  box-shadow: var(--shadow);
-}
-
-.swatch:active {
-  transform: scale(0.95);
 }
 
 .swatch[aria-checked="true"] {
@@ -477,16 +427,6 @@ select {
   background-size: cover;
   background-position: center;
   cursor: pointer;
-  transition: transform var(--dur) var(--ease-spring), border-color var(--dur-fast) var(--ease), box-shadow var(--dur) var(--ease);
-}
-
-.wallpaper:hover {
-  transform: scale(1.05);
-  box-shadow: var(--shadow);
-}
-
-.wallpaper:active {
-  transform: scale(0.97);
 }
 
 .wallpaper[aria-checked="true"] {
@@ -542,7 +482,7 @@ select {
 @media (max-width: 620px) {
   body {
     flex-direction: column;
-  }
+}
 
   .nav {
     flex-direction: row;
@@ -551,26 +491,26 @@ select {
     overflow-x: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
-  }
+}
 
   .nav-title {
     display: none;
-  }
+}
 
   .nav-item {
     flex: none;
-  }
+}
 
   .nav-item[aria-selected="true"] {
     box-shadow: inset 0 -3px 0 var(--accent);
-  }
+}
 
   .row {
     flex-wrap: wrap;
-  }
+}
 
   .row .field.narrow,
   .slider {
     width: 100%;
-  }
+}
 }
