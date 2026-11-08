@@ -31,7 +31,7 @@ Two helpers in `test/helpers.js` keep this simple:
 - `loadBrowserScript("public/…")` runs a browser script (they are plain scripts that attach to `self`) inside a Node `vm` sandbox, so `resolve.js`, `store.js` and `cloak.js` are unit-tested without a browser.
 - `startServer(env)` launches the real `app.js` on a free port, so integration tests exercise exactly what ships.
 
-Behaviour that needs a real browser (the first-visit flow, engine switching, the desktop) was verified with Playwright against Chrome. Those scripts are not part of the repository, because they download a browser and depend on live websites. If you change `core.js`, `sw.js` or the transport setup, please test on a **fresh browser profile**: most bugs in this area only appear on the first load.
+Behaviour that needs a real browser (the first-visit flow, engine switching, the desktop) was verified with Playwright against Chrome. When you test the proxy, **assert that the page finishes loading and paints** (`document.readyState === 'complete'`), not just that its `<title>` arrived: the title comes with the first bytes, and several serious bugs here only showed on sub-resources. Those scripts are not part of the repository, because they download a browser and depend on live websites. If you change `core.js`, `sw.js` or the transport setup, please test on a **fresh browser profile**: most bugs in this area only appear on the first load.
 
 ## Layout
 

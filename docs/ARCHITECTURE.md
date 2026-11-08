@@ -69,6 +69,8 @@ These are small, commented in the code, and worth knowing about when upgrading d
 
 **libcurl's start-up race** (`public/proxy/core.js`). bare-mux calls `init()` on each request until the transport is ready, and libcurl's `init()` builds a session before its WebAssembly has loaded, so the first request of a visit could fail with "wasm not loaded yet" (about one fresh visit in five). The transport is installed through a subclass with one shared, retrying `init()`.
 
+**Scramjet's cookie acknowledgement** (`public/sw.js`). For a Set-Cookie on a sub-resource, Scramjet messages the page and waits for its reply before returning the response. A page cannot receive that message until `DOMContentLoaded`, and a parser blocked on a stylesheet or script cannot reach it until that same response arrives, so pages whose sub-resources set cookies (Wikipedia, GitHub, most large sites) hung forever while tiny pages worked. The worker keeps its own cookie store, so it now delivers the message without waiting.
+
 **Scramjet frames** (`SnProxy.registerFrame`). Scramjet expects iframes to be named by its `ScramjetFrame` helper; without it, pages nested inside other frames raised an error from Scramjet's bootstrap.
 
 **Favicons** (`public/apps/browser.js`). Reading `link.href` from a proxied document returns the *real* URL, so using it directly would load the icon from the site and bypass the proxy. Icons are re-encoded through the proxy.

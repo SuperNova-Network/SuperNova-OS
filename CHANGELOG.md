@@ -10,6 +10,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 - **The proxy returned a 404 the first time it was used** and worked on the second try. The service worker was registered but not yet active when the page navigated. Navigations now wait for activation, the worker takes control immediately, and a navigation that still arrives without it gets a page that starts the worker and reloads instead of a 404. Desktop apps (YouTube, Reddit, ...) never registered the worker at all.
 - About one fresh visit in five failed with `wasm not loaded yet` (libcurl's start-up race), a second "fails the first time" bug found by repeated fresh-profile testing.
+- Scramjet never finished loading large sites (Wikipedia, GitHub, DuckDuckGo, ...): sub-resources whose responses set cookies deadlocked against the page's message queue. Small pages worked, which hid it.
 - Scramjet could not start when its worker won a race to create its IndexedDB schema, and failed every request when its config arrived by message.
 - Typing `(` or `[` into the launcher search threw on every keystroke.
 - Renaming an app threw on every keystroke (a call to a function that no longer existed), and names were inserted as HTML.
