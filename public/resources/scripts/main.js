@@ -35,6 +35,8 @@ var colors = [
   ["#999", "#aaa", "#ddd", "#e8e8e8 0%,#a0a0a0 50%,#1f1f1f 100%"]
 ];
 var specCols = ["#68c464 0%,#1c5d9e 38%,#50005f 100%"];
+// One readable accent per colour scheme, shared with the apps (see theme.js).
+var accents = ["#e0533d", "#43b84a", "#6b5cff", "#e8892e", "#8f5bd6", "#8a8fa8", "#cfd2e0"];
 var backgrounds = ["Adventure_Time.gif", "Bouncy.jpg", "space.jpg", "Flower.jpg", "Bucks.jpg", "Leaf.jpg", "LonelyRoad.jpg", "Flowers.jpg", "Mandelbrot.png", "Match.jpg", "rocks.png"];
 contextShow = false, next = null;
 
@@ -78,7 +80,7 @@ var programData = [ //name, url, icon, keywords
   { name: "Viewer", url: "", icon: { url: "viewer" }, keywords: "" },
   { name: "Console", url: "", icon: { url: "console" }, keywords: "" },
   { name: "Prompt", url: "", icon: { svg: "info_icon" }, keywords: "" },
-  { name: "Settings", url: "", icon: { svg: "cog_icon" }, keywords: "" },
+  { name: "Settings", url: "/apps/settings.html", icon: { svg: "cog_icon" }, keywords: "" },
   { name: "File Explorer", url: "", icon: { url: "explorer" }, keywords: "" }
 ];
 
@@ -106,7 +108,7 @@ document.getElementsByClassName("contextitem")[6].addEventListener("mousedown", 
 document.getElementsByClassName("contextitem")[7].addEventListener("mousedown", function () { contextClose(); });
 document.getElementsByClassName("contextitem")[8].addEventListener("mousedown", function () { toggleFullscreen(); });
 document.getElementsByClassName("contextitem")[9].addEventListener("mousedown", function () { contextShow = !contextShow; });
-document.getElementsByClassName("contextitem")[10].addEventListener("mousedown", function () { openSettings("backH"); });
+document.getElementsByClassName("contextitem")[10].addEventListener("mousedown", function () { openSettings("appearance"); });
 document.getElementsByClassName("contextitem")[11].addEventListener("mousedown", function () {
   lockTaskbar = !lockTaskbar;
   localStorage.setItem("lockTaskbar", lockTaskbar ? 1 : 0);
@@ -165,13 +167,6 @@ function setup() {
   for (var i = 0; i < taskArr.length; i++) {
     addTaskbarIcon(taskArr[i], "null", 0, programData[taskArr[i]].name, programData[taskArr[i]].icon, true);
   }
-  for (var i = -14; i < 15; i++) {
-    var el = document.createElement("option");
-    el.innerHTML = "UTC" + (i < 1 ? "" : "+") + "" + (i != 0 ? i : "");
-    document.getElementById("timezone").appendChild(el);
-  }
-  var tz = new Date().getTimezoneOffset() / -60;
-  document.getElementById("timezone").getElementsByTagName("option")[0].innerHTML = "Local (UTC" + (tz < 0 ? "" : "+") + "" + (tz != 0 ? tz : "") + ")";
   setCols();
   setTimeout(function () {
     var elem = document.getElementById("loadscreen");
@@ -214,8 +209,20 @@ function genCog(r) {
   return out + "Z";
 }
 
+// A user-supplied wallpaper address. Only http(s) is accepted, and quotes are
+// escaped so the value cannot break out of the CSS url('...').
+function customBackgroundCss() {
+  var url = localStorage.getItem("backgroundUrl");
+  if (!url) return "";
+  var parsed;
+  try { parsed = new URL(url, location.href); } catch (e) { return ""; }
+  if (!/^https?:$/.test(parsed.protocol)) return "";
+  return ".backOverride{background:none; background-image:url('" + parsed.href.replace(/['\\]/g, encodeURIComponent) + "');}";
+}
+
 function setCols() {
-  document.getElementById("specCols").innerHTML = ".specColor{background-color:" + colors[colId][0] + "; border-color:" + colors[colId][0] + ";}\n.window[active='true'] .infoCol, .normCol{background-color:" + colors[colId][1] + ";}\n.borderCol{border-color:" + colors[colId][2] + " !important;}\n.grad{background: -moz-linear-gradient(-45deg, " + colors[colId][3] + "); background: -webkit-linear-gradient(-45deg, " + colors[colId][3] + "); background: linear-gradient(135deg, " + colors[colId][3] + "); background: linear-gradient(135deg, " + colors[colId][3] + ");}" + (backId != 0 ? ".backOverride{background:none; background-image:url(/resources/media/wallpapers/" + backgrounds[backId - 1] + ");}" : "") + "";
+  document.getElementById("specCols").innerHTML = ".specColor{background-color:" + colors[colId][0] + "; border-color:" + colors[colId][0] + ";}\n.window[active='true'] .infoCol, .normCol{background-color:" + colors[colId][1] + ";}\n.borderCol{border-color:" + colors[colId][2] + " !important;}\n.grad{background: -moz-linear-gradient(-45deg, " + colors[colId][3] + "); background: -webkit-linear-gradient(-45deg, " + colors[colId][3] + "); background: linear-gradient(135deg, " + colors[colId][3] + "); background: linear-gradient(135deg, " + colors[colId][3] + ");}" + (backId != 0 ? ".backOverride{background:none; background-image:url(/resources/media/wallpapers/" + backgrounds[backId - 1] + ");}" : "") + customBackgroundCss();
+  if (window.SnStore) { SnStore.set("accent", accents[colId] || ""); }
 }
 
 function factoryReset() {
@@ -237,7 +244,10 @@ function addWindow(id, title, contStr, w, h, type) {
   localStorage.setItem("oftenUsed", oftenUsed);
 
   // The Browser app (id 0) receives its first address or search as contStr.
-  var tmpUrl = id == viewerID ? contStr : (id == 0 && contStr ? programData[id].url + "?q=" + encodeURIComponent(contStr) : programData[id].url);
+  // contStr: the Browser (id 0) gets its first query, Settings (setID) the section to show.
+  var tmpUrl = id == viewerID ? contStr
+    : (id == 0 && contStr ? programData[id].url + "?q=" + encodeURIComponent(contStr)
+      : (id == setID && contStr ? programData[id].url + "#" + encodeURIComponent(contStr) : programData[id].url));
   var elem = document.createElement("div");
   elem.className = "window init";
   var data = {
@@ -252,7 +262,11 @@ function addWindow(id, title, contStr, w, h, type) {
       if (wins[i].getAttribute("type") == "settings") {
         windows[i].collapsed = false;
         moveToTop(i);
-        return;
+        if (contStr) {
+          // Jump the open Settings window to the requested section.
+          try { wins[i].getElementsByTagName("iframe")[0].contentWindow.location.hash = contStr; } catch (e) { }
+        }
+        return wins[i];
       }
     }
   }
@@ -306,9 +320,7 @@ function addWindow(id, title, contStr, w, h, type) {
     elem.setAttribute("type", "error");
     elem.classList.add("icons_hidden");
   } else if (id == setID) {
-    addContent(elem, document.getElementById("settingsbuffer").innerHTML);
     elem.setAttribute("type", "settings");
-    elem.classList.add("icons_hidden");
   } else if (id == explorerID) {
     addContent(elem, document.getElementById("explorerbuffer").innerHTML);
     loadRepos(elem.getElementsByClassName("sidelinkwrapper")[0]);
@@ -340,7 +352,7 @@ function addWindow(id, title, contStr, w, h, type) {
   setTimeout(function () { elem.classList.remove("init"); }, 200);
   addTaskbarIcon(id, winCount, 2, data.name, data.icon, false);
   moveToTop(winCount);
-  if (id < consoleID) { delayIframe(elem, tmpUrl, programData[id].proxy); }
+  if (id < consoleID || id == setID) { delayIframe(elem, tmpUrl, programData[id].proxy); }
   winCount++;
   return elem;
 }
@@ -1337,54 +1349,22 @@ function toggleTaskbah() {
   }
 }
 
-function openSettings(scrTo) {
+function openSettings(section) {
   hideSearch();
-  var win = addWindow(setID, null, null, 60, 35);
-  var dt = new Date();
-  var date = new Date(dt.setTime(dt.getTime() + tzOffset * 60000));
-  var month = date.getMonth() + 1, day = date.getDate();
-  document.getElementById("dateset").value = date.getFullYear() + "-" + (month < 10 ? "0" + month : month) + "-" + (day < 10 ? "0" + day : day);
-  document.getElementById("timezone").selectedIndex = tzIndex;
-  var prec = document.getElementById("prectz");
-  if (tzIndex == 1 && prec.getAttribute("disabled") != null) {
-    prec.removeAttribute("disabled");
-    prec.value = tzOffset;
-  }
-  newTime();
-  document.getElementsByClassName("sizeslider")[0].value = DEF_WIN_W;
-  document.getElementsByClassName("sizeslider")[1].value = DEF_WIN_H;
-  updateSize(0);
-  colorSelect();
-  if (scrTo != null) {
-    win.getElementsByClassName("content")[0].scrollTop = document.getElementById(scrTo).offsetTop;
-  }
+  return addWindow(setID, null, section || null, 64, 40);
 }
 
-function colorSelect() {
-  var inner = "";
-  for (var i = 0; i < colors.length; i++) {
-    inner += "<div class='coloroption' " + (i == colId ? "selected" : "") + " onclick=selCol(" + i + ")><div class='col' style='background-color:" + colors[i][0] + "'></div><div class='col' style='background-color:" + colors[i][1] + "'></div><div class='col' style='background-color:" + colors[i][2] + "'></div></div>";
-  }
-  document.getElementById("colorbar").innerHTML = inner;
 
-  inner = "<div class='backoption grad' " + (backId == 0 ? "selected" : "") + " onclick=selIco(0)></div>";
-  for (var i = 1; i < backgrounds.length + 1; i++) {
-    inner += "<div class='backoption' " + (i == backId ? "selected" : "") + " onclick=selIco(" + i + ") style='background-image:url(/resources/media/wallpapers/icons/" + (backgrounds[i - 1].replace(".", "Ico.")) + ")'></div>";
-  }
-  document.getElementById("backbar").innerHTML = inner;
-}
 
 function selCol(id) {
   colId = id;
   localStorage.setItem("colId", id);
-  colorSelect();
   setCols();
 }
 
 function selIco(id) {
   backId = id;
   localStorage.setItem("backId", id);
-  colorSelect();
   setCols();
 }
 
@@ -1427,8 +1407,7 @@ function daysInMonth(month, year) {
 }
 
 function newTime() {
-  var dt = new Date();
-  dt.setTime(dt.getTime() + tzOffset * 60000);
+  var dt = new Date(Date.now() + Number(tzOffset) * 60000);
   var month = dt.getMonth() + 1, day = dt.getDate(), hour = dt.getHours(), minute = dt.getMinutes();
   document.getElementById("time").innerHTML = "" + (hour < 10 ? "0" + hour : hour) + ":" + (minute < 10 ? "0" + minute : minute) + "<br>" + dt.getFullYear() + "-" + (month < 10 ? "0" + month : month) + "-" + (day < 10 ? "0" + day : day);
 
@@ -1445,17 +1424,6 @@ function newTime() {
   document.getElementById("hour").style = "transform:rotate(" + (hour / 12 * 360 + minute / 2) + "deg)";
   document.getElementById("minute").style = "transform:rotate(" + (minute * 6 + dt.getSeconds() / 10) + "deg)";
   document.getElementById("second").style = "transform:rotate(" + dt.getSeconds() * 6 + "deg)";
-
-  var index = document.getElementById("timezone").selectedIndex;
-  var offset = getOffset(dt, index);
-  if (index > 0) {
-    dt = new Date();
-    dt.setTime(index == 1 ? dt.getTime() + (document.getElementById("prectz").value) * 60000 + offset : dt.getTime() + ((index - 16 + dt.getTimezoneOffset() / 60) * 60) * 60000 + offset);
-  } else {
-    dt = new Date();
-    dt.setTime(dt.getTime() + offset);
-  }
-  document.getElementById("tzlbl").innerHTML = "Current time: " + dt.toLocaleString() + "";
 }
 
 function handleTaskbar() {
@@ -1470,48 +1438,56 @@ function handleTaskbar() {
   }
 }
 
-function getOffset() {
-  var dt = new Date();
-  var dt2 = new Date(), roundedDate = Math.floor((dt.getTime() - 60000 * dt2.getTimezoneOffset()) / 86400000) * 86400000;
-  return new Date(document.getElementById("dateset").value).getTime() - roundedDate;
-}
 
-function setTime() {
-  var dt = new Date();
-  var offset = getOffset() / 60000;
-  var index = document.getElementById("timezone").selectedIndex;
 
-  if (index == 0) { tzOffset = offset; }
-  else if (index == 1) { tzOffset = parseInt(document.getElementById("prectz").value) + offset; }
-  else { tzOffset = (index - 16 + dt.getTimezoneOffset() / 60) * 60 + offset; }
-
-  newTime();
-  localStorage.setItem("tzIndex", index);
+// "local" or a whole number of hours from UTC. tzOffset is stored as minutes to
+// add to the local time.
+function setTimezone(value) {
+  tzOffset = value === "local" ? 0 : Number(value) * 60 + new Date().getTimezoneOffset();
   localStorage.setItem("tzOffset", tzOffset);
-  openClock();
-}
-
-function updateTime() {
-  var index = document.getElementById("timezone").selectedIndex;
-  var precTZ = document.getElementById("prectz");
-  if (index == 1) {
-    precTZ.removeAttribute("disabled");
-  } else {
-    precTZ.setAttribute("disabled", "");
-  }
-  tzIndex = index;
   newTime();
 }
 
-function updateSize(id) {
-  var val = parseInt(document.getElementsByClassName("sizeslider")[id].value);
-  if (id == 0) { DEF_WIN_W = val; }
-  else { DEF_WIN_H = val; }
-  document.getElementById("winW").innerHTML = "Window width: " + DEF_WIN_W;
-  document.getElementById("winH").innerHTML = "Window height: " + DEF_WIN_H;
+function currentTimezone() {
+  var offset = Number(tzOffset);
+  if (!offset) { return "local"; }
+  return String(Math.round((offset - new Date().getTimezoneOffset()) / 60));
+}
+
+
+
+function setWindowSize(width, height) {
+  DEF_WIN_W = parseInt(width) || DEF_WIN_W;
+  DEF_WIN_H = parseInt(height) || DEF_WIN_H;
   localStorage.setItem("winW", DEF_WIN_W);
   localStorage.setItem("winH", DEF_WIN_H);
 }
+
+// What the Settings window (an iframe on this origin) may do to the desktop.
+window.SnOS = {
+  schemes: colors.map(function (scheme) { return scheme.slice(0, 3); }),
+  wallpapers: backgrounds,
+  state: function () {
+    return {
+      scheme: colId,
+      wallpaper: backId,
+      customBackground: localStorage.getItem("backgroundUrl") || "",
+      windowWidth: DEF_WIN_W,
+      windowHeight: DEF_WIN_H,
+      timezone: currentTimezone()
+    };
+  },
+  setScheme: selCol,
+  setWallpaper: selIco,
+  setCustomBackground: function (url) {
+    if (url) { localStorage.setItem("backgroundUrl", url); } else { localStorage.removeItem("backgroundUrl"); }
+    setCols();
+  },
+  setWindowSize: setWindowSize,
+  setTimezone: setTimezone,
+  resetNames: resetNamesRelay,
+  factoryReset: resetAll
+};
 
 newTime();
 setInterval(newTime, 1000);
