@@ -898,6 +898,18 @@ select.field {
   margin: 10px 0 14px;
 }
 
+#wallpapers-more {
+  min-height: 0;
+  height: 28px;
+  padding: 0 14px;
+  margin: -4px 0 14px;
+  font-size: 13px;
+}
+
+.wallpaper[hidden] {
+  display: none;
+}
+
 .wallpaper {
   position: relative;
   aspect-ratio: 16 / 10;

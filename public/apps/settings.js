@@ -359,6 +359,7 @@
     });
 
     // Wallpapers (index 0 is the plain gradient)
+    const WALLPAPERS_SHOWN = 10;
     const wallpapers = $("wallpapers");
     const wallpaperButtons = ["", ...os.wallpapers].map((file, index) => {
       const button = document.createElement("button");
@@ -369,9 +370,20 @@
       if (file) button.style.backgroundImage = `url(/resources/media/wallpapers/icons/${file.replace(".", "Ico.")})`;
       else button.style.background = "linear-gradient(135deg, var(--accent), #0b0b14)";
       button.addEventListener("click", () => { os.setWallpaper(index); $("wallpaper-url").value = ""; syncDesktop(); });
+      if (index >= WALLPAPERS_SHOWN) button.hidden = true;
       wallpapers.append(button);
       return button;
     });
+
+    // Only the first few are listed; "Show more" reveals the rest
+    const showMore = $("wallpapers-more");
+    const setWallpapersExpanded = (open) => {
+      wallpaperButtons.forEach((button, index) => { if (index >= WALLPAPERS_SHOWN) button.hidden = !open; });
+      showMore.textContent = open ? "Show less" : "Show more";
+      showMore.setAttribute("aria-expanded", String(open));
+    };
+    showMore.hidden = wallpaperButtons.length <= WALLPAPERS_SHOWN;
+    showMore.addEventListener("click", () => setWallpapersExpanded(showMore.getAttribute("aria-expanded") !== "true"));
 
     $("wallpaper-apply").addEventListener("click", () => {
       const url = $("wallpaper-url").value.trim();
@@ -401,6 +413,8 @@
       const state = os.state();
       schemeButtons.forEach((button, index) => button.setAttribute("aria-checked", String(index === state.scheme)));
       wallpaperButtons.forEach((button, index) => button.setAttribute("aria-checked", String(index === state.wallpaper && !state.customBackground)));
+      // Never hide the wallpaper that is in use
+      if (state.wallpaper >= WALLPAPERS_SHOWN && !state.customBackground && showMore.getAttribute("aria-expanded") !== "true") setWallpapersExpanded(true);
       if (document.activeElement !== $("wallpaper-url")) $("wallpaper-url").value = state.customBackground;
       $("win-w").value = state.windowWidth;
       $("win-h").value = state.windowHeight;

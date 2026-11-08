@@ -37,7 +37,7 @@ var colors = [
 var specCols = ["#68c464 0%,#1c5d9e 38%,#50005f 100%"];
 // One readable accent per colour scheme, shared with the apps (see theme.js).
 var accents = ["#e0533d", "#43b84a", "#6b5cff", "#e8892e", "#8f5bd6", "#8a8fa8", "#cfd2e0"];
-var backgrounds = ["Adventure_Time.gif", "Bouncy.jpg", "space.jpg", "Flower.jpg", "Bucks.jpg", "Leaf.jpg", "LonelyRoad.jpg", "Flowers.jpg", "Mandelbrot.png", "Match.jpg", "rocks.png"];
+var backgrounds = ["Adventure_Time.gif", "Bouncy.jpg", "space.jpg", "Flower.jpg", "Bucks.jpg", "Leaf.jpg", "LonelyRoad.jpg", "Flowers.jpg", "Mandelbrot.png", "Match.jpg", "rocks.png", "Andromeda.jpg", "CrabNebula.jpg", "OrionNebula.jpg", "Pillars.jpg", "Saturn.jpg", "WebbDeepField.jpg", "Synthwave.jpg", "NeonGrid.jpg", "Invaders.jpg", "Matrix.jpg"];
 contextShow = false, next = null;
 
 //load variables from localStorage
