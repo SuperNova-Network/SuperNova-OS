@@ -14,12 +14,10 @@
   <link rel="manifest" href="./manifest.webmanifest">
 
   <!-- CSS -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,900" rel="stylesheet" type="text/css">
   <link href="https://fonts.googleapis.com/css?family=VT323" rel="stylesheet">
   <link href="https://picturelements.github.io/PeOS/console.css" rel="stylesheet" type="text/css">
   <link rel="stylesheet" href="./resources/css/styles.css">
-  <link rel="stylesheet" href="./resources/css/tokens.css">
-  <link rel="stylesheet" href="./resources/css/fx.css">
-  <link rel="stylesheet" href="./resources/css/theme.css">
 
   <!-- The terminal's data files. Deferred so a slow third-party host cannot block the desktop from appearing. -->
   <script defer src="https://picturelements.github.io/PeOS/console_load.js"></script>
@@ -168,9 +166,7 @@
     <script src="/proxy/resolve.js"></script>
     <script src="/proxy/core.js"></script>
     <script src="./resources/scripts/websearch.js"></script>
-    <script src="./resources/scripts/theme.js"></script>
     <script src="./resources/scripts/cloak.js"></script>
-    <script src="./resources/scripts/fx.js"></script>
     <script src="./resources/scripts/shortcuts.js"></script>
 
     <div id="infocorner">
@@ -196,7 +192,7 @@
   </div>
   <div id="loadscreen"></div>
 
-  <!-- Shown instead of the desktop on narrow screens (see theme.css) -->
+  <!-- Shown instead of the desktop on narrow screens (see the end of styles.css) -->
   <div id="small-screen">
     <div class="box">
       <img src="./resources/media/app_icons/SuperNova.png" alt="" width="84" height="84">

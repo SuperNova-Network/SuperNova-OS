@@ -1688,3 +1688,62 @@ div[data-title]:hover:before {
 /*PURPLE - #317, #74a, #85f*/
 /*DARK - #222, #333, #777*/
 /*LIGHT - #999, #aaa, #ddd*/
+
+/* The taskbar's Apps/Web mode switch: the original "on" colour (switch.js toggles the class). */
+.switch.enabled {
+  background-color: rgb(146 146 146);
+}
+
+/*
+ * The desktop's geometry scales with the viewport width, so it is unusable on a phone.
+ * Narrow screens get links to the two responsive apps instead.
+ */
+#small-screen {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  #small-screen {
+    display: flex;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 200000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #222;
+    color: #fff;
+    font: 16px/1.5 Roboto, Arial, sans-serif;
+    text-align: center;
+  }
+
+  #small-screen .box {
+    max-width: 22em;
+  }
+
+  #small-screen h1 {
+    margin: 0.6em 0 0.2em;
+    font-size: 1.5em;
+  }
+
+  #small-screen p {
+    margin: 0 0 1.2em;
+    color: #ccc;
+  }
+
+  #small-screen a {
+    display: block;
+    margin: 0.5em 0;
+    padding: 0.8em 1em;
+    background: #53f;
+    color: #fff;
+    text-decoration: none;
+  }
+
+  #small-screen a.secondary {
+    background: #555;
+  }
+}
