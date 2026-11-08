@@ -1,7 +1,22 @@
 {
-    "name": "Mathematics",
-    "description": "SuperNova, The Best Middle School Core Classes Learning.",
-    "repository": "https://github.com/SuperNova-Network/SuperNova_OS",
-    "logo": "/images/space.ico",
-    "keywords": ["school", "SuperNova"]
-  } 
+  "name": "SuperNova OS",
+  "description": "A web proxy with a desktop-style interface.",
+  "repository": "https://github.com/SuperNova-Network/SuperNova-OS",
+  "keywords": ["proxy", "ultraviolet", "scramjet", "supernova"],
+  "env": {
+    "AUTH_USER": {
+      "description": "Username for optional password protection.",
+      "value": "admin",
+      "required": false
+    },
+    "AUTH_PASS": {
+      "description": "Set a password to require a login. Leave empty to keep the site public.",
+      "required": false
+    },
+    "CONTENT_FILTER": {
+      "description": "Set to 0 to turn the content filter off.",
+      "value": "1",
+      "required": false
+    }
+  }
+}

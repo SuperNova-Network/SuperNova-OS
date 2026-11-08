@@ -1,5 +1,11 @@
 node_modules
 .idea
+.vscode
 .DS_Store
 .hintrc
+*.log
+
+# Local configuration and secrets (the example file is tracked)
 .env
+.env.*
+!.env.example

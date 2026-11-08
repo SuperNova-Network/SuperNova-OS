@@ -1,5 +1,11 @@
+# Render blueprint. Render supports WebSockets, which the proxy needs.
 services:
   - type: web
-    name: edu
-    env: docker
+    name: supernova-os
+    runtime: docker
     plan: free
+    healthCheckPath: /healthz
+    envVars:
+      # Optional: set AUTH_PASS in the dashboard to password-protect the site.
+      - key: AUTH_PASS
+        sync: false
