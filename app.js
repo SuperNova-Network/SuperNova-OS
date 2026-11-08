@@ -26,9 +26,12 @@ const policy = createPolicy(config.filter);
 const readVersion = (url) => {
   try { return JSON.parse(readFileSync(url, "utf8")).version; } catch { return null; }
 };
+const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 const info = {
   name: "SuperNova OS",
-  version: readVersion(new URL("./package.json", import.meta.url)),
+  version: packageJson.version ?? null,
+  // AGPL-3.0 section 13: people using a modified version over a network must be offered its source.
+  source: (packageJson.repository?.url ?? "").replace(/^git\+/, "").replace(/\.git$/, "") || null,
   node: process.version,
   components: Object.fromEntries(
     [

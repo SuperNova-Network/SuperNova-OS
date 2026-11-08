@@ -16,6 +16,13 @@ test("the desktop is served without any login by default", async () => {
   assert.match(await res.text(), /id="taskbar"/);
 });
 
+test("/api/info offers the source code, as the AGPL requires", async () => {
+  const info = await (await get("/api/info")).json();
+  assert.equal(info.source, "https://github.com/SuperNova-Network/SuperNova-OS");
+  assert.ok(info.version);
+  assert.ok(info.components.Scramjet && info.components.Ultraviolet);
+});
+
 test("the health check answers without any login", async () => {
   const res = await get("/healthz");
   assert.equal(res.status, 200);

@@ -410,6 +410,7 @@
     .then((response) => response.json())
     .then((info) => {
       text($("about-name"), info.name);
+      if (info.source) $("about-source").href = info.source; else $("about-license").hidden = true;
       text($("about-version"), `Version ${info.version ?? "unknown"} · Node ${info.node}${info.filter ? " · Content filter on" : ""}`);
       const list = $("about-components");
       for (const [name, version] of Object.entries(info.components)) {

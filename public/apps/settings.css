@@ -520,6 +520,14 @@ select {
   font-size: 13px;
 }
 
+#about-license {
+  margin-top: 16px;
+}
+
+#about-license a {
+  color: var(--accent-hover);
+}
+
 .components dt {
   color: var(--text);
 }
