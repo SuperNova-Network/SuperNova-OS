@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "node --watch app.js",
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "repository": {
     "type": "git",
