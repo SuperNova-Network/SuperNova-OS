@@ -1970,25 +1970,28 @@ function setIcon(obj, elem) {
 }
 
 
-navigator.getBattery().then(function (battery) {
-  updateAll();
-  battery.addEventListener('chargingchange', function () {
+// The Battery Status API does not exist in Firefox or Safari, and is
+// unavailable in insecure contexts; calling it unguarded throws.
+if (typeof navigator.getBattery === "function") {
+  navigator.getBattery().then(function (battery) {
     updateAll();
-  });
-  battery.addEventListener('levelchange', function () {
-    updateAll();
-  });
-  function updateAll() {
-    var batt = document.getElementById("battery");
-    var lvl = Math.floor(battery.level * 100);
-    var charging = battery.charging && lvl != 100;
-    batt.setAttribute("charging", charging);
-    document.getElementById("batterywrapper").setAttribute("data-title", lvl + "% charged" + (charging ? " (charging)" : ""));
-    batt.getElementsByClassName("batteryindicator")[0].setAttribute("width", lvl);
-    if (lvl == 10 && !charging) {
-      openPopup("Battery level low", "The battery level is low (10%). It is recommended that you charge your computer.");
-    } else if (lvl < 8 && !charging) {
-      openPopup("BATTERY LEVEL LOW", "HOLY FUCK! " + lvl + "% REMAINING! CHARGE YOUR DAMN COMPUTER NOW!");
+    battery.addEventListener('chargingchange', updateAll);
+    battery.addEventListener('levelchange', updateAll);
+
+    var warned = false;
+    function updateAll() {
+      var batt = document.getElementById("battery");
+      var lvl = Math.floor(battery.level * 100);
+      var charging = battery.charging && lvl != 100;
+      batt.setAttribute("charging", charging);
+      document.getElementById("batterywrapper").setAttribute("data-title", lvl + "% charged" + (charging ? " (charging)" : ""));
+      batt.getElementsByClassName("batteryindicator")[0].setAttribute("width", lvl);
+      if (charging) {
+        warned = false;
+      } else if (lvl <= 10 && !warned) {
+        warned = true; // one warning per discharge, not one per percent
+        openPopup("Battery level low", "The battery level is low (" + lvl + "%). Consider plugging in your charger.");
+      }
     }
-  }
-});
+  }).catch(function () { /* no battery information available */ });
+}
