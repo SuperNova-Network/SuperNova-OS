@@ -17,7 +17,7 @@ Windows, a launcher, a built-in browser with tabs, two switchable proxy engines,
 
 - **Two proxy engines you can switch between:** [Scramjet](https://github.com/MercuryWorkshop/scramjet) (newest, best compatibility) and [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet) (lightweight, a solid fallback). Switch in Settings or from the Browser's address bar, with no restart.
 - **Two transports:** libcurl (default) and Epoxy, carried over one [Wisp](https://github.com/MercuryWorkshop/wisp-protocol) WebSocket. Point it at your own Wisp server if you like.
-- **SuperNova Browser:** tabs, an address bar that shows the real URL, back/forward/reload, keyboard shortcuts and a new-tab page.
+- **SuperNova Browser:** Chrome-style tabs (drag to reorder, pin, duplicate, reopen closed ones, right-click menu), **fullscreen per tab**, zoom, bookmarks bar, address suggestions from bookmarks and history, an address bar that shows the real URL, keyboard shortcuts and an animated new-tab page.
 - **Smart search:** type an address or just words. Choose Brave, DuckDuckGo, Google, Bing, Startpage, Ecosia or your own search URL, with optional safe search.
 - **Cloaking:** 13 tab disguises (Google Classroom, Docs, Canvas, Schoology, Khan Academy, ...), an `about:blank` / `blob:` launcher, a panic key that works inside windows and proxied pages, and an optional leave-page prompt. See [docs/CLOAKING.md](docs/CLOAKING.md).
 - **A real content filter:** enforced on the *server*, so it covers every connection, not just the search box. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md#content-filter).

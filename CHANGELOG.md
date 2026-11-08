@@ -32,7 +32,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 - **Cloaking:** 13 tab disguise presets plus custom, applied on every load; `about:blank` and `blob:` launchers with auto-launch; a panic key that works inside windows and proxied pages; a leave-page prompt.
 - **Search:** smart address-or-search detection, six search engines plus custom, safe search.
 - **Content filter enforced on the server**, with hostname-based rules, `BLOCKED_HOSTS` and a verdict API.
-- **Interface:** the desktop keeps its original Windows 10 look; the Browser and Settings apps are flat (no animation); the colour scheme sets the apps' accent colour; a small-screen fallback.
+- **Interface:** the desktop keeps its original Windows 10 look; the Settings app is flat and the Browser app has its own animated, Chrome-style design; the colour scheme sets the apps' accent colour; a small-screen fallback.
 - `/healthz`, `WISP_URL`, `/api/info`, web app manifest, `robots.txt`.
 - A test suite (58 tests), GitHub Actions CI on Node 20, 22 and 24, and documentation under `docs/`.
 
