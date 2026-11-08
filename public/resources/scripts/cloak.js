@@ -211,9 +211,14 @@
       "</head><body><iframe src=\"" + esc(cloakedUrl()) + "\" allow=\"fullscreen; autoplay; clipboard-write\" allowfullscreen></iframe></body></html>";
   }
 
-  /** Send the tab we are leaving somewhere harmless. */
+  /**
+   * Send the tab we are leaving somewhere harmless. This must be the top window:
+   * the launcher is usually triggered from a window (iframe) inside the desktop,
+   * and replacing only that frame would leave the desktop sitting in the tab.
+   */
   function leaveOriginalTab() {
-    global.location.replace(safeNavigationUrl(store.get("panicUrl")));
+    var url = safeNavigationUrl(store.get("panicUrl"));
+    try { topWindow().location.replace(url); } catch (e) { global.location.replace(url); }
   }
 
   /**
