@@ -71,7 +71,7 @@ var programData = [ //name, url, icon, keywords
   { name: "Bloxd.io", url: "", proxy: "https://bloxd.io/", icon: { url: "bloxd" }, keywords: "bloxd,blocks,building,minecraft,multiplayer,game" },
   { name: "Diep.io", url: "", proxy: "https://diep.io/", icon: { url: "diep" }, keywords: "diep,tanks,io,multiplayer,game" },
   { name: "Paper.io 2", url: "", proxy: "https://paper-io.com/", icon: { url: "paperio2" }, keywords: "paper,io,territory,multiplayer,game" },
-  { name: "Geometry Dash", url: "", proxy: "https://geometrydashlite.io/", icon: { url: "geometrydash" }, keywords: "geometry,dash,rhythm,platformer,jump,game" },
+  { name: "Zombs.io", url: "", proxy: "https://zombs.io/", icon: { url: "zombs" }, keywords: "zombs,zombies,survival,tower,defense,io,multiplayer,game" },
   { name: "Survev.io", url: "", proxy: "https://survev.io/", icon: { url: "survev" }, keywords: "survev,surviv,battle royale,shooter,io,multiplayer,game" },
   { name: "Cookie Clicker", url: "", proxy: "https://cookieclicker.ee/", icon: { url: "cookieclicker" }, keywords: "cookie,clicker,idle,incremental,game" },
   { name: "MooMoo.io", url: "", proxy: "https://moomoo.io/", icon: { url: "moomoo" }, keywords: "moomoo,survival,io,multiplayer,game" },
