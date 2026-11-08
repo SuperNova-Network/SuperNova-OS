@@ -1,0 +1,420 @@
+/*
+ * Settings app.
+ *
+ * Proxy and cloaking preferences are plain SnStore values: the proxy core, the
+ * browser app and the cloak all react to changes (also across windows), so this
+ * page needs no wiring to them. Desktop options (colour scheme, wallpaper, window
+ * size, clock) go through the SnOS bridge that the desktop exposes to its windows.
+ */
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const text = (el, value) => { el.textContent = value; return el; };
+
+  /** The desktop's bridge, when this page runs inside a desktop window. */
+  const os = (() => {
+    try { return window.parent !== window ? window.parent.SnOS ?? null : null; } catch { return null; }
+  })();
+
+  function status(el, message, state = "") {
+    el.textContent = message;
+    if (state) el.dataset.state = state; else delete el.dataset.state;
+  }
+
+  // --- navigation -------------------------------------------------------------------
+
+  const tabs = [...document.querySelectorAll(".nav-item")];
+
+  function showPanel(name) {
+    if (!document.getElementById(`panel-${name}`)) name = "proxy";
+    for (const tab of tabs) {
+      const selected = tab.dataset.panel === name;
+      tab.setAttribute("aria-selected", String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      $(`panel-${tab.dataset.panel}`).hidden = !selected;
+    }
+    if (location.hash.slice(1) !== name) history.replaceState(null, "", `#${name}`);
+  }
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => showPanel(tab.dataset.panel));
+    tab.addEventListener("keydown", (event) => {
+      const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      const next = tabs[(index + step + tabs.length) % tabs.length];
+      next.focus();
+      showPanel(next.dataset.panel);
+    });
+  });
+  window.addEventListener("hashchange", () => showPanel(location.hash.slice(1)));
+  showPanel(location.hash.slice(1) || "proxy");
+
+  // --- generic bindings -----------------------------------------------------------------
+
+  /** Settings that need a reconnect (or other work) after they change. */
+  function changed(key) {
+    if (key === "transport" || key === "wisp") SnProxy.reconnect().catch(() => { /* reported by the test button */ });
+  }
+
+  document.querySelectorAll("[data-radio]").forEach((group) => {
+    const key = group.dataset.radio;
+    const inputs = [...group.querySelectorAll("input[type=radio]")];
+    const sync = () => inputs.forEach((input) => { input.checked = input.value === SnStore.get(key); });
+    sync();
+    inputs.forEach((input) => input.addEventListener("change", () => {
+      if (!input.checked) return;
+      SnStore.set(key, input.value);
+      changed(key);
+    }));
+    SnStore.onChange((changedKey) => { if (changedKey === key || changedKey === "*") sync(); });
+  });
+
+  document.querySelectorAll("[data-flag]").forEach((input) => {
+    const key = input.dataset.flag;
+    const sync = () => { input.checked = SnStore.flag(key); };
+    sync();
+    input.addEventListener("change", () => SnStore.set(key, input.checked ? "1" : "0"));
+    SnStore.onChange((changedKey) => { if (changedKey === key || changedKey === "*") sync(); });
+  });
+
+  // --- proxy: wisp, search ----------------------------------------------------------------
+
+  const wisp = $("wisp");
+  wisp.value = SnStore.get("wisp") ?? "";
+
+  function validWisp(value) { return value === "" || /^wss?:\/\/\S+$/i.test(value); }
+  const wispTarget = () => wisp.value.trim() || `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${self.__sn$config.wisp}`;
+
+  wisp.addEventListener("change", () => {
+    const value = wisp.value.trim();
+    if (!validWisp(value)) return status($("wisp-status"), "Enter an address starting with ws:// or wss://, or leave it empty.", "error");
+    SnStore.set("wisp", value);
+    changed("wisp");
+    status($("wisp-status"), value ? "Saved. Using your Wisp server." : "Saved. Using this site's Wisp server.", "ok");
+  });
+
+  $("wisp-test").addEventListener("click", () => {
+    const value = wisp.value.trim();
+    if (!validWisp(value)) return status($("wisp-status"), "That is not a valid ws:// or wss:// address.", "error");
+    const started = performance.now();
+    status($("wisp-status"), "Connecting…");
+    let socket;
+    const finish = (message, state) => { clearTimeout(timer); try { socket?.close(); } catch { /* already closed */ } status($("wisp-status"), message, state); };
+    const timer = setTimeout(() => finish("No answer after 6 seconds.", "error"), 6000);
+    try {
+      socket = new WebSocket(wispTarget());
+      socket.onopen = () => finish(`Reachable (${Math.round(performance.now() - started)} ms).`, "ok");
+      socket.onerror = () => finish("Could not connect to that Wisp server.", "error");
+    } catch {
+      finish("That address cannot be used.", "error");
+    }
+  });
+
+  const searchSelect = $("search");
+  const customRow = $("search-custom-row");
+  const customInput = $("search-custom");
+  for (const [id, engine] of Object.entries(SnResolve.SEARCH_ENGINES)) searchSelect.add(new Option(engine.name, id));
+  searchSelect.add(new Option("Custom…", "custom"));
+
+  function syncSearch() {
+    const value = SnStore.get("search");
+    const known = value in SnResolve.SEARCH_ENGINES;
+    searchSelect.value = known ? value : "custom";
+    customRow.hidden = known;
+    if (!known && document.activeElement !== customInput) customInput.value = value;
+  }
+  searchSelect.addEventListener("change", () => {
+    if (searchSelect.value === "custom") { customRow.hidden = false; customInput.focus(); return; }
+    SnStore.set("search", searchSelect.value);
+    customRow.hidden = true;
+  });
+  customInput.addEventListener("change", () => {
+    const value = customInput.value.trim();
+    if (/^https?:\/\/.+%s/i.test(value)) SnStore.set("search", value);
+    else customInput.setCustomValidity("The address must start with http:// or https:// and contain %s");
+    customInput.reportValidity();
+    customInput.setCustomValidity("");
+  });
+  syncSearch();
+  SnStore.onChange((key) => { if (key === "search" || key === "*") syncSearch(); });
+
+  // --- proxy: troubleshooting ----------------------------------------------------------------
+
+  $("proxy-test").addEventListener("click", async () => {
+    const out = $("proxy-test-status");
+    const button = $("proxy-test");
+    button.disabled = true;
+    status(out, "Starting the proxy…");
+    const started = performance.now();
+    try {
+      const proxied = await SnProxy.go("https://example.com/");
+      const readyAt = performance.now();
+      status(out, "Loading a test page through the proxy…");
+      const response = await fetch(proxied);
+      const body = await response.text();
+      if (!response.ok || !/Example Domain/.test(body)) throw new Error(`The test page came back as ${response.status} without the expected content.`);
+      const engine = SnProxy.engines[SnProxy.engine()].name;
+      const transport = SnProxy.transports[SnStore.get("transport")].name;
+      status(out, `Working. Started in ${Math.round(readyAt - started)} ms and loaded a page in ${Math.round(performance.now() - readyAt)} ms using ${engine} and ${transport}.`, "ok");
+    } catch (error) {
+      status(out, `Not working: ${error.message}`, "error");
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("proxy-reset").addEventListener("click", async () => {
+    const out = $("proxy-reset-status");
+    status(out, "Resetting…");
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+      await Promise.all((await caches.keys()).map((key) => caches.delete(key)));
+      await new Promise((resolve) => {
+        const request = indexedDB.deleteDatabase("$scramjet");
+        request.onsuccess = request.onerror = request.onblocked = () => resolve();
+        setTimeout(resolve, 2500);
+      });
+      status(out, "Done. Reloading…", "ok");
+      setTimeout(() => (window.top ?? window).location.reload(), 700);
+    } catch (error) {
+      status(out, `Could not reset: ${error.message}`, "error");
+    }
+  });
+
+  // --- cloaking: disguise -------------------------------------------------------------------------
+
+  const presetsEl = $("presets");
+  const presetButtons = new Map();
+
+  function addPreset(id, name, icon) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "preset";
+    button.dataset.ripple = "";
+    button.setAttribute("role", "radio");
+    if (icon) {
+      const img = new Image();
+      img.alt = "";
+      img.src = icon;
+      img.loading = "lazy";
+      button.append(img);
+    } else {
+      button.append(text(Object.assign(document.createElement("span"), { className: "preset-plain" }), "✎"));
+    }
+    button.append(text(document.createElement("span"), name));
+    button.addEventListener("click", () => SnStore.set("cloak", id));
+    presetsEl.append(button);
+    presetButtons.set(id, button);
+  }
+  SnCloak.presets.forEach((preset) => addPreset(preset.id, preset.name, preset.icon));
+  addPreset("custom", "Custom…", "");
+
+  const titleInput = $("cloak-title");
+  const iconInput = $("cloak-icon");
+
+  function syncCloak() {
+    const selected = SnStore.get("cloak");
+    presetButtons.forEach((button, id) => button.setAttribute("aria-checked", String(id === selected)));
+    $("custom-cloak").hidden = selected !== "custom";
+    if (document.activeElement !== titleInput) titleInput.value = SnStore.get("cloakTitle") ?? "";
+    if (document.activeElement !== iconInput) iconInput.value = SnStore.get("cloakIcon") ?? "";
+    const look = SnCloak.current();
+    text($("preview-title"), look.title);
+    const icon = $("preview-icon");
+    icon.hidden = !look.icon;
+    if (look.icon) icon.src = look.icon; else icon.removeAttribute("src");
+  }
+  titleInput.addEventListener("input", () => SnStore.set("cloakTitle", titleInput.value));
+  iconInput.addEventListener("input", () => SnStore.set("cloakIcon", iconInput.value.trim()));
+  syncCloak();
+  SnStore.onChange((key) => { if (/^cloak/.test(key) || key === "*") syncCloak(); });
+
+  // --- cloaking: launcher -----------------------------------------------------------------------------
+
+  function launch(kind) {
+    const opened = kind === "blob" ? SnCloak.launchBlob() : SnCloak.launchAboutBlank();
+    if (!opened) status($("launch-status"), "The browser blocked the new tab. Allow pop-ups for this site and try again.", "error");
+  }
+  $("launch-blank").addEventListener("click", () => launch("blank"));
+  $("launch-blob").addEventListener("click", () => launch("blob"));
+
+  // --- cloaking: panic key -----------------------------------------------------------------------------
+
+  const panicButton = $("panic-record");
+  const panicLabel = $("panic-label");
+  const panicHint = $("panic-hint");
+  const DEFAULT_HINT = "Click the button, then press the keys you want.";
+  let recording = null; // { previous } while capturing
+
+  // A plain typing key (a letter, digit or punctuation) would fire the panic key while
+  // someone is just typing, so it needs Ctrl, Alt or Cmd as well.
+  const TYPING_KEY = /(^|\+)(Key[A-Z]|Digit\d|Space|Minus|Equal|Bracket(Left|Right)|Semicolon|Quote|Comma|Period|Slash|Backslash)$/;
+  const needsModifier = (combo) => TYPING_KEY.test(combo) && !/(^|\+)(Ctrl|Alt|Meta)(\+|$)/.test(combo);
+
+  function syncPanic() {
+    text(panicLabel, recording ? "Press keys…" : SnCloak.formatCombo(SnStore.get("panicKey")));
+    panicButton.dataset.recording = String(Boolean(recording));
+  }
+
+  function stopRecording(save) {
+    if (!recording) return;
+    document.removeEventListener("keydown", onRecordKey, true);
+    // Restore (or replace) the key that was cleared so the old shortcut could not fire while recording.
+    SnStore.set("panicKey", save ?? recording.previous);
+    recording = null;
+    syncPanic();
+  }
+
+  function onRecordKey(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.code === "Escape" && !event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey) {
+      text(panicHint, DEFAULT_HINT);
+      return stopRecording();
+    }
+    const combo = SnCloak.comboFromEvent(event);
+    if (!combo) return; // only a modifier so far
+    if (needsModifier(combo)) {
+      text(panicHint, "Add Ctrl, Alt or Cmd, otherwise typing that key would trigger it. Press Esc to cancel.");
+      return;
+    }
+    text(panicHint, `Saved ${SnCloak.formatCombo(combo)}.`);
+    stopRecording(combo);
+  }
+
+  panicButton.addEventListener("click", () => {
+    if (recording) return stopRecording();
+    recording = { previous: SnStore.get("panicKey") };
+    SnStore.set("panicKey", ""); // the existing shortcut must not fire while we record a new one
+    text(panicHint, "Press the key combination now. Esc cancels.");
+    document.addEventListener("keydown", onRecordKey, true);
+    syncPanic();
+  });
+  panicButton.addEventListener("blur", () => { if (recording) { text(panicHint, DEFAULT_HINT); stopRecording(); } });
+  $("panic-clear").addEventListener("click", () => { if (recording) stopRecording(); SnStore.set("panicKey", ""); text(panicHint, DEFAULT_HINT); });
+  syncPanic();
+  SnStore.onChange((key) => { if ((key === "panicKey" || key === "*") && !recording) syncPanic(); });
+
+  const DESTINATIONS = [
+    ["Google Classroom", "https://classroom.google.com"],
+    ["Google Docs", "https://docs.google.com"],
+    ["Google Drive", "https://drive.google.com"],
+    ["Canvas", "https://canvas.instructure.com"],
+    ["Schoology", "https://app.schoology.com"],
+    ["Clever", "https://clever.com"],
+    ["Khan Academy", "https://www.khanacademy.org"],
+    ["Wikipedia", "https://en.wikipedia.org"],
+  ];
+  const destSelect = $("panic-preset");
+  const destCustom = $("panic-custom");
+  DESTINATIONS.forEach(([name, url]) => destSelect.add(new Option(name, url)));
+  destSelect.add(new Option("Custom…", "custom"));
+
+  function syncDestination() {
+    const url = SnStore.get("panicUrl");
+    const preset = DESTINATIONS.find(([, value]) => value === url);
+    destSelect.value = preset ? url : "custom";
+    $("panic-custom-row").hidden = Boolean(preset);
+    if (!preset && document.activeElement !== destCustom) destCustom.value = url;
+  }
+  destSelect.addEventListener("change", () => {
+    if (destSelect.value === "custom") { $("panic-custom-row").hidden = false; destCustom.focus(); return; }
+    SnStore.set("panicUrl", destSelect.value);
+  });
+  destCustom.addEventListener("change", () => SnStore.set("panicUrl", SnCloak.safeNavigationUrl(destCustom.value)));
+  syncDestination();
+  SnStore.onChange((key) => { if (key === "panicUrl" || key === "*") syncDestination(); });
+
+  $("panic-test").addEventListener("click", () => SnCloak.panic());
+
+  // --- appearance and system (desktop bridge) ---------------------------------------------------------------
+
+  if (!os) {
+    $("no-os").hidden = false;
+    document.querySelectorAll("[data-needs-os]").forEach((group) => { group.dataset.disabled = ""; });
+  } else {
+    // Colour scheme
+    const schemes = $("schemes");
+    const schemeButtons = os.schemes.map((scheme, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "swatch";
+      button.dataset.ripple = "";
+      button.setAttribute("role", "radio");
+      button.setAttribute("aria-label", `Colour scheme ${index + 1}`);
+      for (const color of scheme) button.append(Object.assign(document.createElement("i"), { style: `background:${color}` }));
+      button.addEventListener("click", () => { os.setScheme(index); syncDesktop(); });
+      schemes.append(button);
+      return button;
+    });
+
+    // Wallpapers (index 0 is the plain gradient)
+    const wallpapers = $("wallpapers");
+    const wallpaperButtons = ["", ...os.wallpapers].map((file, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "wallpaper";
+      button.setAttribute("role", "radio");
+      button.setAttribute("aria-label", file ? file.replace(/\.[^.]+$/, "") : "Gradient");
+      if (file) button.style.backgroundImage = `url(/resources/media/wallpapers/icons/${file.replace(".", "Ico.")})`;
+      else button.style.background = "linear-gradient(135deg, var(--accent), #0b0b14)";
+      button.addEventListener("click", () => { os.setWallpaper(index); $("wallpaper-url").value = ""; syncDesktop(); });
+      wallpapers.append(button);
+      return button;
+    });
+
+    $("wallpaper-apply").addEventListener("click", () => {
+      const url = $("wallpaper-url").value.trim();
+      if (url && !/^https?:\/\//i.test(url) && url[0] !== "/") return $("wallpaper-url").focus();
+      os.setCustomBackground(url);
+      syncDesktop();
+    });
+
+    // Window size
+    for (const id of ["win-w", "win-h"]) {
+      $(id).addEventListener("input", () => {
+        text($(`${id}-out`), $(id).value);
+        os.setWindowSize($("win-w").value, $("win-h").value);
+      });
+    }
+
+    // Time zone
+    const zone = $("timezone");
+    zone.add(new Option("Local time", "local"));
+    for (let hours = -12; hours <= 14; hours++) zone.add(new Option(hours === 0 ? "UTC" : `UTC${hours > 0 ? "+" : ""}${hours}`, String(hours)));
+    zone.addEventListener("change", () => os.setTimezone(zone.value));
+
+    $("reset-names").addEventListener("click", () => os.resetNames());
+    $("factory-reset").addEventListener("click", () => os.factoryReset());
+
+    function syncDesktop() {
+      const state = os.state();
+      schemeButtons.forEach((button, index) => button.setAttribute("aria-checked", String(index === state.scheme)));
+      wallpaperButtons.forEach((button, index) => button.setAttribute("aria-checked", String(index === state.wallpaper && !state.customBackground)));
+      if (document.activeElement !== $("wallpaper-url")) $("wallpaper-url").value = state.customBackground;
+      $("win-w").value = state.windowWidth;
+      $("win-h").value = state.windowHeight;
+      text($("win-w-out"), state.windowWidth);
+      text($("win-h-out"), state.windowHeight);
+      zone.value = state.timezone;
+    }
+    syncDesktop();
+  }
+
+  // --- about ----------------------------------------------------------------------------------------------------
+
+  fetch("/api/info")
+    .then((response) => response.json())
+    .then((info) => {
+      text($("about-name"), info.name);
+      text($("about-version"), `Version ${info.version ?? "unknown"} · Node ${info.node}${info.filter ? " · Content filter on" : ""}`);
+      const list = $("about-components");
+      for (const [name, version] of Object.entries(info.components)) {
+        list.append(text(document.createElement("dt"), name), text(document.createElement("dd"), version ?? "not installed"));
+      }
+    })
+    .catch(() => text($("about-version"), "Version information is unavailable."));
+})();

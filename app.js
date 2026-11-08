@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
 import { timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 import { hostname } from "node:os";
@@ -20,6 +21,27 @@ const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
 const authEnabled = Boolean(config.auth.pass);
 const policy = createPolicy(config.filter);
+
+// Versions shown in Settings > About. Read once at startup.
+const readVersion = (url) => {
+  try { return JSON.parse(readFileSync(url, "utf8")).version; } catch { return null; }
+};
+const info = {
+  name: "SuperNova OS",
+  version: readVersion(new URL("./package.json", import.meta.url)),
+  node: process.version,
+  components: Object.fromEntries(
+    [
+      ["Ultraviolet", "@titaniumnetwork-dev/ultraviolet"],
+      ["Scramjet", "@mercuryworkshop/scramjet"],
+      ["libcurl transport", "@mercuryworkshop/libcurl-transport"],
+      ["Epoxy transport", "@mercuryworkshop/epoxy-transport"],
+      ["Wisp", "@mercuryworkshop/wisp-js"],
+      ["bare-mux", "@mercuryworkshop/bare-mux"],
+    ].map(([label, name]) => [label, readVersion(new URL(`./node_modules/${name}/package.json`, import.meta.url))])
+  ),
+  filter: policy.enabled,
+};
 
 // ---------------------------------------------------------------------------
 // Wisp: the transport that carries all proxied traffic over one WebSocket.
@@ -47,6 +69,10 @@ if (authEnabled) {
     realm: "SuperNova OS",
   }));
 }
+
+app.get("/api/info", (_req, res) => {
+  res.set("Cache-Control", "no-cache").json(info);
+});
 
 // Lets the client explain *why* something is blocked before it navigates. The
 // blacklist above is what actually enforces the policy.

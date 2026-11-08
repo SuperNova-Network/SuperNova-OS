@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Settings</title>
+  <link rel="stylesheet" href="/resources/css/tokens.css">
+  <link rel="stylesheet" href="/resources/css/components.css">
+  <link rel="stylesheet" href="/apps/settings.css">
+</head>
+<body>
+  <nav class="nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
+    <h1 class="nav-title">Settings</h1>
+    <button class="nav-item" role="tab" data-panel="proxy" type="button" data-ripple>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+      <span>Proxy</span>
+    </button>
+    <button class="nav-item" role="tab" data-panel="cloaking" type="button" data-ripple>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/><path d="m4 4 16 16"/></svg>
+      <span>Cloaking</span>
+    </button>
+    <button class="nav-item" role="tab" data-panel="appearance" type="button" data-ripple>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21c-1.5 0-2-1.2-1.4-2.4.5-1 .2-2.1-.8-2.6"/></svg>
+      <span>Appearance</span>
+    </button>
+    <button class="nav-item" role="tab" data-panel="system" type="button" data-ripple>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+      <span>System</span>
+    </button>
+  </nav>
+
+  <main class="content">
+    <!-- ===================== PROXY ===================== -->
+    <section class="panel" id="panel-proxy" role="tabpanel" hidden>
+      <header class="panel-head">
+        <h2>Proxy</h2>
+        <p>Choose how pages are loaded. Changes apply immediately to new pages.</p>
+      </header>
+
+      <div class="group">
+        <h3>Engine</h3>
+        <p class="hint">The engine rewrites websites so they work through the proxy. If a site misbehaves, try the other one.</p>
+        <div class="choices" role="radiogroup" aria-label="Proxy engine" data-radio="engine">
+          <label class="choice">
+            <input type="radio" name="engine" value="sj">
+            <span class="choice-body">
+              <strong>Scramjet <span class="chip">Recommended</span></strong>
+              <small>Newest engine with the best compatibility for modern sites and apps.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="engine" value="uv">
+            <span class="choice-body">
+              <strong>Ultraviolet</strong>
+              <small>Lightweight and well tested. A good fallback.</small>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>Connection</h3>
+        <p class="hint">How requests travel from this server to the website.</p>
+        <div class="choices" role="radiogroup" aria-label="Transport" data-radio="transport">
+          <label class="choice">
+            <input type="radio" name="transport" value="libcurl">
+            <span class="choice-body">
+              <strong>libcurl <span class="chip">Recommended</span></strong>
+              <small>Broadest site support, including sites that use HTTP/2 heavily.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="transport" value="epoxy">
+            <span class="choice-body">
+              <strong>Epoxy</strong>
+              <small>Alternative TLS client. Try it if libcurl is slow on your network.</small>
+            </span>
+          </label>
+        </div>
+
+        <label class="row column" for="wisp">
+          <span class="row-label"><strong>Wisp server</strong><small>Leave empty to use this site. Set a <code>wss://</code> address to route traffic through another server.</small></span>
+          <span class="inline">
+            <input class="field" id="wisp" type="url" spellcheck="false" placeholder="wss://example.com/wisp/" autocomplete="off">
+            <button class="btn" id="wisp-test" type="button">Test</button>
+          </span>
+          <small class="status" id="wisp-status" role="status"></small>
+        </label>
+      </div>
+
+      <div class="group">
+        <h3>Search</h3>
+        <label class="row" for="search">
+          <span class="row-label"><strong>Search engine</strong><small>Used when you type words instead of an address.</small></span>
+          <select class="field narrow" id="search"></select>
+        </label>
+        <label class="row column" id="search-custom-row" for="search-custom" hidden>
+          <span class="row-label"><strong>Custom search address</strong><small>Use <code>%s</code> where the search words go.</small></span>
+          <input class="field" id="search-custom" type="url" spellcheck="false" placeholder="https://example.com/search?q=%s" autocomplete="off">
+        </label>
+        <label class="row" for="safesearch">
+          <span class="row-label"><strong>Safe search</strong><small>Ask search engines to hide explicit results (where supported).</small></span>
+          <input class="switch" id="safesearch" type="checkbox" role="switch" data-flag="safesearch">
+        </label>
+      </div>
+
+      <div class="group">
+        <h3>Troubleshooting</h3>
+        <div class="row">
+          <span class="row-label"><strong>Test the proxy</strong><small>Starts the service worker and connection, and reports how long it took.</small></span>
+          <button class="btn" id="proxy-test" type="button">Run test</button>
+        </div>
+        <small class="status" id="proxy-test-status" role="status"></small>
+        <div class="row">
+          <span class="row-label"><strong>Reset proxy data</strong><small>Removes the service worker, cached proxy data and stored site cookies. Use this if pages stop loading.</small></span>
+          <button class="btn btn-danger" id="proxy-reset" type="button">Reset</button>
+        </div>
+        <small class="status" id="proxy-reset-status" role="status"></small>
+      </div>
+    </section>
+
+    <!-- ===================== CLOAKING ===================== -->
+    <section class="panel" id="panel-cloaking" role="tabpanel" hidden>
+      <header class="panel-head">
+        <h2>Cloaking</h2>
+        <p>Change how this tab looks, hide it quickly, and open it somewhere less obvious.</p>
+      </header>
+
+      <div class="group">
+        <h3>Tab disguise</h3>
+        <p class="hint">The title and icon shown on the browser tab. Applied every time the site loads.</p>
+        <div class="preview" aria-live="polite">
+          <span class="preview-tab"><img id="preview-icon" alt="" width="16" height="16"><span id="preview-title"></span></span>
+        </div>
+        <div class="presets" id="presets" role="radiogroup" aria-label="Tab disguise"></div>
+        <div id="custom-cloak" hidden>
+          <label class="row column" for="cloak-title">
+            <span class="row-label"><strong>Custom title</strong></span>
+            <input class="field" id="cloak-title" type="text" maxlength="120" placeholder="Page title" autocomplete="off">
+          </label>
+          <label class="row column" for="cloak-icon">
+            <span class="row-label"><strong>Custom icon address</strong><small>An https:// image address, or a path on this site.</small></span>
+            <input class="field" id="cloak-icon" type="text" spellcheck="false" placeholder="https://example.com/icon.png" autocomplete="off">
+          </label>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>Open in a cloaked tab</h3>
+        <p class="hint">Runs SuperNova inside an <code>about:blank</code> or <code>blob:</code> tab and sends this tab to your panic destination.</p>
+        <div class="buttons">
+          <button class="btn btn-primary" id="launch-blank" type="button">Open in about:blank</button>
+          <button class="btn" id="launch-blob" type="button">Open as blob:</button>
+        </div>
+        <small class="status" id="launch-status" role="status"></small>
+        <label class="row" for="autoblank">
+          <span class="row-label"><strong>Open cloaked automatically</strong><small>On each visit, the first click opens the cloaked tab (browsers block pop-ups without a click). Add <code>?nocloak=1</code> to the address to skip it once.</small></span>
+          <input class="switch" id="autoblank" type="checkbox" role="switch" data-flag="autoblank">
+        </label>
+      </div>
+
+      <div class="group">
+        <h3>Panic key</h3>
+        <p class="hint">One key combination that instantly sends this tab to your panic destination. It works inside windows and proxied pages, too.</p>
+        <div class="row">
+          <span class="row-label"><strong>Shortcut</strong><small id="panic-hint">Click the button, then press the keys you want.</small></span>
+          <span class="inline">
+            <button class="btn keycap" id="panic-record" type="button" aria-describedby="panic-hint"><span id="panic-label">Not set</span></button>
+            <button class="btn btn-ghost" id="panic-clear" type="button">Clear</button>
+          </span>
+        </div>
+        <label class="row" for="panic-preset">
+          <span class="row-label"><strong>Panic destination</strong><small>Where the tab goes.</small></span>
+          <select class="field narrow" id="panic-preset"></select>
+        </label>
+        <label class="row column" id="panic-custom-row" for="panic-custom" hidden>
+          <span class="row-label"><strong>Custom destination</strong></span>
+          <input class="field" id="panic-custom" type="text" spellcheck="false" placeholder="https://example.com" autocomplete="off">
+        </label>
+        <div class="buttons"><button class="btn" id="panic-test" type="button">Try it now</button></div>
+      </div>
+
+      <div class="group">
+        <h3>Safety</h3>
+        <label class="row" for="anticlose">
+          <span class="row-label"><strong>Confirm before closing</strong><small>Ask for confirmation if the tab is closed or reloaded, so work is not lost by accident.</small></span>
+          <input class="switch" id="anticlose" type="checkbox" role="switch" data-flag="anticlose">
+        </label>
+      </div>
+    </section>
+
+    <!-- ===================== APPEARANCE ===================== -->
+    <section class="panel" id="panel-appearance" role="tabpanel" hidden>
+      <header class="panel-head">
+        <h2>Appearance</h2>
+        <p>Make the desktop yours.</p>
+      </header>
+      <p class="notice" id="no-os" hidden>These options control the desktop. Open Settings from the SuperNova desktop to use them.</p>
+
+      <div class="group" data-needs-os>
+        <h3>Colour scheme</h3>
+        <div class="swatches" id="schemes" role="radiogroup" aria-label="Colour scheme"></div>
+      </div>
+
+      <div class="group" data-needs-os>
+        <h3>Wallpaper</h3>
+        <div class="wallpapers" id="wallpapers" role="radiogroup" aria-label="Wallpaper"></div>
+        <label class="row column" for="wallpaper-url">
+          <span class="row-label"><strong>Custom wallpaper</strong><small>An image address (https://…). Leave empty to use the selection above.</small></span>
+          <span class="inline">
+            <input class="field" id="wallpaper-url" type="url" spellcheck="false" placeholder="https://example.com/wallpaper.jpg" autocomplete="off">
+            <button class="btn" id="wallpaper-apply" type="button">Apply</button>
+          </span>
+        </label>
+      </div>
+
+      <div class="group" data-needs-os>
+        <h3>Windows</h3>
+        <label class="row" for="win-w">
+          <span class="row-label"><strong>Default width</strong></span>
+          <span class="slider"><input type="range" id="win-w" min="20" max="100"><output id="win-w-out"></output></span>
+        </label>
+        <label class="row" for="win-h">
+          <span class="row-label"><strong>Default height</strong></span>
+          <span class="slider"><input type="range" id="win-h" min="15" max="80"><output id="win-h-out"></output></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- ===================== SYSTEM ===================== -->
+    <section class="panel" id="panel-system" role="tabpanel" hidden>
+      <header class="panel-head">
+        <h2>System</h2>
+        <p>Clock, names and data.</p>
+      </header>
+
+      <div class="group" data-needs-os>
+        <h3>Clock</h3>
+        <label class="row" for="timezone">
+          <span class="row-label"><strong>Time zone</strong><small>What the taskbar clock shows.</small></span>
+          <select class="field narrow" id="timezone"></select>
+        </label>
+      </div>
+
+      <div class="group" data-needs-os>
+        <h3>Data</h3>
+        <div class="row">
+          <span class="row-label"><strong>Reset app names</strong><small>Undo any renamed desktop icons.</small></span>
+          <button class="btn" id="reset-names" type="button">Reset names</button>
+        </div>
+        <div class="row">
+          <span class="row-label"><strong>Factory reset</strong><small>Erase every setting, pinned app and saved preference, then restart. This cannot be undone.</small></span>
+          <button class="btn btn-danger" id="factory-reset" type="button">Factory reset…</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3>About</h3>
+        <div class="about card">
+          <img src="/resources/media/app_icons/SuperNova.png" alt="" width="56" height="56">
+          <div>
+            <strong id="about-name">SuperNova OS</strong>
+            <div class="hint" id="about-version">Loading…</div>
+          </div>
+        </div>
+        <dl class="components" id="about-components"></dl>
+      </div>
+    </section>
+  </main>
+
+  <script src="/proxy/config.js"></script>
+  <script src="/assets/uv/uv.bundle.js"></script>
+  <script src="/proxy/uv.config.js"></script>
+  <script src="/proxy/store.js"></script>
+  <script src="/proxy/resolve.js"></script>
+  <script src="/proxy/core.js"></script>
+  <script src="/resources/scripts/theme.js"></script>
+  <script src="/resources/scripts/cloak.js"></script>
+  <script src="/resources/scripts/fx.js"></script>
+  <script src="/apps/settings.js"></script>
+</body>
+</html>
