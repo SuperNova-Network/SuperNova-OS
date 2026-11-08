@@ -189,6 +189,7 @@
     frame.setAttribute("allow", "fullscreen; autoplay; clipboard-read; clipboard-write; microphone; camera");
     frame.allowFullscreen = true;
     frame.hidden = true;
+    SnProxy.registerFrame(frame); // names the frame for Scramjet; harmless for other engines
     frame.addEventListener("load", () => { if (frame.getAttribute("src")) onFrameLoad(tab); });
     els.viewport.appendChild(frame);
     tab.frame = frame;

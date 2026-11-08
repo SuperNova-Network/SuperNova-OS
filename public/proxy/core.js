@@ -152,6 +152,22 @@
     return scramjetPromise;
   }
 
+  /**
+   * Register an iframe with Scramjet's frame manager (it names the frame, which
+   * Scramjet's frame and top-window logic relies on). Without it, pages nested
+   * inside other frames log "YOU NEED TO USE ScramjetFrame" and some of that logic
+   * fails. A no-op until Scramjet is initialised, and for frames already registered.
+   */
+  var registeredFrames = typeof WeakSet === "function" ? new WeakSet() : null;
+
+  function registerFrame(frame) {
+    if (scramjet && registeredFrames && !registeredFrames.has(frame)) {
+      registeredFrames.add(frame);
+      scramjet.createFrame(frame);
+    }
+    return frame;
+  }
+
   // --- public API -------------------------------------------------------------
 
   var baseReady = null;
@@ -248,6 +264,7 @@
     encode: encode,
     decode: decode,
     engineForPath: engineForPath,
+    registerFrame: registerFrame,
     isProxyPath: function (path) { return engineForPath(path) !== null; },
     get: get,
     set: set,
