@@ -762,7 +762,6 @@ function setName(evt, id) {
     }
     localStorage.setItem("customTitle" + id, name);
   }
-  saveUserAppsToStorage();
 }
 
 function resetNames() {
