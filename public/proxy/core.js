@@ -111,6 +111,46 @@
     return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + cfg.wisp;
   }
 
+  /*
+   * bare-mux's worker calls transport.init() for every request until `ready` is true,
+   * and libcurl's init() has two problems with that:
+   *
+   *  1. It is not safe to re-enter. A second request arriving while the first is still
+   *     starting up begins a second initialisation.
+   *  2. It builds its session *before* waiting for the WebAssembly module, so if the
+   *     first request of a visit beats the wasm download it throws "wasm not loaded
+   *     yet". About one fresh visit in five hit this.
+   *
+   * The wrapper below runs one shared initialisation, retries that specific transient
+   * error until the wasm arrives, and never caches a failure.
+   */
+  var TRANSIENT_INIT_ERROR = "wasm not loaded";
+
+  function sharedInitTransport(path) {
+    return [
+      "const { default: Transport } = await import(" + JSON.stringify(path) + ");",
+      "class SharedInit extends Transport {",
+      "  init() {",
+      "    if (!this.__sharedInit) {",
+      "      this.__sharedInit = (async () => {",
+      "        for (let attempt = 0; ; attempt++) {",
+      "          try {",
+      "            return await super.init();",
+      "          } catch (error) {",
+      "            const transient = String((error && error.message) || error).indexOf(" + JSON.stringify(TRANSIENT_INIT_ERROR) + ") !== -1;",
+      "            if (!transient || attempt >= 100) { this.__sharedInit = null; throw error; }",
+      "            await new Promise((resolve) => setTimeout(resolve, 100));",
+      "          }",
+      "        }",
+      "      })();",
+      "    }",
+      "    return this.__sharedInit;",
+      "  }",
+      "}",
+      "return [SharedInit, " + JSON.stringify(path) + "];",
+    ].join("\n");
+  }
+
   function applyTransport() {
     var transport = TRANSPORTS[transportKey()];
     var wisp = wispUrl();
@@ -121,7 +161,7 @@
       return Promise.resolve(connection.getTransport()).catch(function () { return ""; }).then(function (current) {
         // The shared worker outlives page loads, so only reconfigure on change.
         if (current === transport.path && appliedSignature === signature) return;
-        return connection.setTransport(transport.path, transport.options(wisp)).then(function () {
+        return connection.setManualTransport(sharedInitTransport(transport.path), transport.options(wisp)).then(function () {
           appliedSignature = signature;
         });
       });
