@@ -41,7 +41,7 @@ var backgrounds = ["Adventure_Time.gif", "Bouncy.jpg", "space.jpg", "Flower.jpg"
 contextShow = false, next = null;
 
 //load variables from localStorage
-var taskArr = [0, 2, 18], oftenUsed = [];
+var taskArr = [0, 2], oftenUsed = [];
 var tzIndex = localStorage.getItem("tzIndex") || 0, tzOffset = localStorage.getItem("tzOffset") || 0;
 var tmpArr = localStorage.getItem("taskArr");
 taskArr = tmpArr != null ? tmpArr.split(",") : taskArr;
@@ -85,6 +85,13 @@ var programData = [ //name, url, icon, keywords
 
 pl = programData.length;
 var viewerID = pl - 5, consoleID = pl - 4, errID = pl - 3, setID = pl - 2, explorerID = pl - 1;
+
+// Settings and the Console are pinned permanently. Listing them in taskArr as well pinned
+// them twice, which rewrote the icon's click handler to minWin(null) and made it crash
+// (this is how the File Explorer icon broke). Also drop duplicates and ids that no longer exist.
+taskArr = taskArr.map(Number).filter(function (id, index, all) {
+  return id >= 0 && id < programData.length && id !== setID && id !== consoleID && all.indexOf(id) === index;
+});
 var defaultPage = "https://api.github.com/repos/SuperNova-Network/SuperNova-DY/contents"; // go to https://api.github.com/users/SuperNova-Network/repos and find "contents_url" to get the url for the default page. EX: https://media.discordapp.net/attachments/828071279424307221/1203153358597394534/image.png?ex=65d00ee2&is=65bd99e2&hm=9a4f32904842838ea9a40c8f45e2b860491aee8c4b55cb6fa4b7f995f5f64aff&=&format=webp&quality=lossless&width=1439&height=206
 // https://web.postman.co/
 
@@ -161,7 +168,7 @@ function setup() {
     }*/
     parent.appendChild(el);
   }
-  addTaskbarIcon(explorerID, "null", 0, programData[explorerID].name, programData[explorerID].icon, true);
+  addTaskbarIcon(setID, "null", 0, programData[setID].name, programData[setID].icon, true);
   addTaskbarIcon(consoleID, "null", 0, programData[consoleID].name, programData[consoleID].icon, true);
   for (var i = 0; i < taskArr.length; i++) {
     addTaskbarIcon(taskArr[i], "null", 0, programData[taskArr[i]].name, programData[taskArr[i]].icon, true);
@@ -712,7 +719,7 @@ function selectIcon(evt, id, singleClick) {
   if (!preventEvents) {
     var time = new Date().getTime();
     if (time - last < 500 || singleClick) {
-      addWindow(id, null, null, DEF_WIN_W, DEF_WIN_H);
+      if (id == setID) { openSettings(); } else { addWindow(id, null, null, DEF_WIN_W, DEF_WIN_H); }
       prevX = -100;
     } else if (evt.target.getAttribute("class") == "ddesc" && time - last < 1000) {
       editName(id);
