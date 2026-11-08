@@ -1,13 +1,19 @@
 <!DOCTYPE html>
-<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
-<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
-<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]>      <html class="no-js"> <!--<![endif]-->
-<html>
+<html lang="en">
 
 <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b0b14">
+
+  <!-- The tab title and icon are set by the cloak (resources/scripts/cloak.js); these are the pre-JS defaults. -->
+  <title>Classes</title>
+  <link rel="icon" href="https://www.google.com/s2/favicons?domain=classroom.google.com&sz=64" type="image/png" id="favicon">
+  <link rel="apple-touch-icon" href="./resources/media/app_icons/SuperNova.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+
   <!-- CSS -->
-  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,900" rel="stylesheet" type="text/css">
   <link href="https://fonts.googleapis.com/css?family=VT323" rel="stylesheet">
   <link href="https://picturelements.github.io/PeOS/console.css" rel="stylesheet" type="text/css">
   <link rel="stylesheet" href="./resources/css/styles.css">
@@ -15,46 +21,27 @@
   <link rel="stylesheet" href="./resources/css/fx.css">
   <link rel="stylesheet" href="./resources/css/theme.css">
 
-  <!-- TAB CUSTOMIZATION -->
-  <link rel="icon" href="https://ssl.gstatic.com/classroom/favicon.png" type="image/png" id="favicon">
-  <title>Home</title>
+  <!-- The terminal's data files. Deferred so a slow third-party host cannot block the desktop from appearing. -->
+  <script defer src="https://picturelements.github.io/PeOS/console_load.js"></script>
+  <script defer src="./resources/scripts/console.js"></script>
 
-  <!-- JS -->
-  <script src="https://picturelements.github.io/PeOS/console_load.js"></script>
-  <script src="./resources/scripts/console.js"></script>
-
-  <!-- Essential META Tags -->
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-
-  <!-- Search Engine -->
+  <!-- Search engines and link previews -->
   <meta name="description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
-
-  <!-- Schema.org for Google -->
   <meta itemprop="name" content="SuperNova OS - Educational Space Website">
   <meta itemprop="description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
-
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="SuperNova OS - Educational Space Website">
   <meta name="twitter:description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
-
-  <!-- Open Graph general (Facebook, Pinterest & Google+) -->
-  <meta name="og:title" content="SuperNova OS - Educational Space Website">
-  <meta name="og:description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
-  <meta name="og:image" content="./resources/media/app_icons/SuperNova.png">
-  <meta name="og:url" content="https://mathematic-file.vercel.app/">
-  <meta name="og:site_name" content="SuperNova OS - Educational Space Website">
-  <meta name="og:type" content="website">
+  <meta property="og:title" content="SuperNova OS - Educational Space Website">
+  <meta property="og:description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
+  <meta property="og:image" content="./resources/media/app_icons/SuperNova.png">
+  <meta property="og:site_name" content="SuperNova OS - Educational Space Website">
+  <meta property="og:type" content="website">
 </head>
 
 <body oncontextmenu="return contextShow">
-  <!--[if lt IE 7]>
-    <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
-  <![endif]-->
-
-  <audio id="taskbahSound" loop preload="auto">
+  <noscript><p style="position:fixed;inset:0;z-index:999999;margin:0;padding:2em;background:#0b0b14;color:#ececf6;font:16px system-ui,sans-serif">SuperNova OS needs JavaScript. Please enable it and reload.</p></noscript>
+  <audio id="taskbahSound" loop preload="none">
     <source src="https://picturelements.github.io/images/win_icons/LockIt.mp3">
   </audio>
 
