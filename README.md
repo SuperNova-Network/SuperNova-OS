@@ -1,93 +1,41 @@
 <div align="center">
+  <img width="120" src="public/resources/media/app_icons/SuperNova.png" alt="SuperNova">
+  <h1>SuperNova OS</h1>
+  <p>A web proxy with a Windows 10 style desktop.</p>
 
-<img width="150" src="public/resources/media/app_icons/SuperNova.png" alt="SuperNova logo">
-
-# SuperNova OS
-
-### A web proxy that looks and feels like Windows 10.
-
-Two switchable proxy engines, a Chrome-style browser with tabs, one-click games, tab cloaking
-and a real content filter, all served from a single Node.js app.
-
-<br>
-
-[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-7b2fbf?style=for-the-badge)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A5%2020-3c873a?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
-[![Engines](https://img.shields.io/badge/engines-Scramjet%20%7C%20Ultraviolet-0b7285?style=for-the-badge)](docs/PROXY.md)
-[![Discord](https://img.shields.io/badge/discord-join-5865f2?style=for-the-badge&logo=discord&logoColor=white)](https://dsc.gg/supernovaproxy)
-
-[**Quick start**](#-quick-start) ·
-[**Features**](#-features) ·
-[**Using it**](#-using-it) ·
-[**Configuration**](#-configuration) ·
-[**Deploying**](#-deploying) ·
-[**Docs**](#-documentation)
-
-<br>
-
-<img src="docs/img/desktop.webp" width="860" alt="The SuperNova OS desktop with a space wallpaper, game icons and the taskbar">
-
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-20%2B-green" alt="Node 20+"></a>
+  <a href="https://dsc.gg/supernovaproxy"><img src="https://img.shields.io/badge/discord-join-5865f2" alt="Discord"></a>
 </div>
 
 <br>
 
-## ✨ Features
+![SuperNova OS desktop](docs/img/desktop.webp)
 
-<table>
-<tr>
-<td width="50%" valign="top">
+SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has a tabbed browser, games on the desktop, tab cloaking and a server side content filter, all from one Node.js app.
 
-### 🚀 Two engines, one switch
-[Scramjet](https://github.com/MercuryWorkshop/scramjet) (newest, best compatibility) and
-[Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet) (light and well tested).
-Swap them live in Settings or from the address bar. No restart.
+## Features
 
-### 🔌 Two transports
-**libcurl** (default) or **Epoxy**, carried over one
-[Wisp](https://github.com/MercuryWorkshop/wisp-protocol) WebSocket. Point it at your own Wisp server if you like.
+- Two proxy engines, [Scramjet](https://github.com/MercuryWorkshop/scramjet) and [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet). Switch between them in Settings or from the address bar, no restart needed.
+- Two transports, libcurl (default) and Epoxy, both over one [Wisp](https://github.com/MercuryWorkshop/wisp-protocol) WebSocket. You can point it at your own Wisp server.
+- Chrome style browser with draggable tabs, pinning, duplicate and reopen, fullscreen per tab, zoom, a bookmarks bar, address suggestions, real URLs in the address bar and an animated new tab page.
+- 13 games on the desktop that run through the proxy: Bloxd.io, Slither.io, Diep.io, Krunker, Paper.io 2, Skribbl.io, Zombs.io, 2048, Survev.io, Minecraft, Cookie Clicker, Smash Karts and MooMoo.io.
+- Tab cloaking with 13 disguises, an about:blank / blob: launcher, a panic key that works inside windows and proxied pages, and an optional leave page prompt.
+- Content filter that runs on the server, so it covers every connection and not just the search box.
+- Windows 10 style Settings app with a tile home page, setting search, toggles and the Fluent Reveal hover effect.
+- 21 wallpapers (space and gaming). Click "Show more" in Settings > Appearance to see all of them.
+- Search with Brave, DuckDuckGo, Google, Bing, Startpage, Ecosia or a custom URL, with optional safe search.
+- Draggable and resizable windows, a launcher, a terminal and a file explorer.
+- Blocks connections to the server's own network (SSRF protection), optional password through one env variable, and no credentials in the repo.
 
-### 🌐 SuperNova Browser
-Chrome-style tabs you can drag, pin, duplicate and reopen. **Fullscreen per tab**, zoom, a bookmarks bar,
-address suggestions, real URLs in the address bar and an animated new-tab page.
+<p>
+  <img src="docs/img/browser.webp" width="49%" alt="SuperNova Browser">
+  <img src="docs/img/settings.webp" width="49%" alt="Settings app">
+</p>
 
-</td>
-<td width="50%" valign="top">
+## Getting started
 
-### 🎮 Games on the desktop
-Thirteen popular browser games, one double-click away, all running through the proxy:
-Bloxd.io, Slither.io, Diep.io, Krunker, Paper.io 2, Skribbl.io, Zombs.io, 2048, Survev.io,
-Minecraft, Cookie Clicker, Smash Karts and MooMoo.io.
-
-### 🕶️ Cloaking
-13 tab disguises, an `about:blank` / `blob:` launcher, a panic key that works inside windows
-and proxied pages, and an optional leave-page prompt.
-
-### 🛡️ A real content filter
-Enforced on the **server**, so it covers every connection, not only the search box.
-
-</td>
-</tr>
-</table>
-
-Also included:
-
-- **Windows 10-style Settings**, pinned to the taskbar: a Home page of tiles, *Find a setting* search, Windows toggles and the Fluent *Reveal* highlight.
-- **21 wallpapers**, including space (Hubble and Webb images, Saturn, nebulae) and gaming (synthwave, neon grid, pixel invaders, digital rain). Choose *Show more* in Settings > Appearance to see them all.
-- **Smart search** with Brave, DuckDuckGo, Google, Bing, Startpage, Ecosia or your own URL, plus optional safe search.
-- **Draggable, resizable windows**, a launcher, a terminal and a file explorer.
-- **Safe defaults**: the proxy refuses connections to the server's own network (no SSRF), a password is one environment variable away, and no credentials live in the repository.
-
-<br>
-
-<div align="center">
-<img src="docs/img/browser.webp" width="420" alt="SuperNova Browser with Chrome-style tabs and a new-tab page">
-&nbsp;
-<img src="docs/img/settings.webp" width="420" alt="The Windows 10-style Settings app">
-</div>
-
-<br>
-
-## ⚡ Quick start
+You need Node.js 20 or newer.
 
 ```sh
 git clone https://github.com/SuperNova-Network/SuperNova-OS.git
@@ -96,146 +44,104 @@ npm install
 npm start
 ```
 
-Open <http://localhost:3000>. You need **Node.js 20 or newer**.
+Then open http://localhost:3000.
 
-| Command | What it does |
-| --- | --- |
-| `npm start` | Run the server |
-| `npm run dev` | Run it and restart on file changes |
-| `npm test` | Run the test suite |
+Other scripts:
 
-<br>
+- `npm run dev` restarts the server when files change
+- `npm test` runs the tests
 
-## 🧭 Using it
+## Usage
 
-| To... | Do this |
-| --- | --- |
-| Browse the web | Open **SuperNova** on the desktop, or switch the taskbar search to **Web** and type an address or a search |
-| Play a game | Double-click its icon on the desktop |
-| Switch engine | Settings > **Proxy** > Engine, or the engine badge in the Browser's address bar |
-| Change the connection | Settings > **Proxy** > Connection (libcurl / Epoxy), or set a custom Wisp server |
-| Check that it works | Settings > Proxy > Troubleshooting > **Run test** |
-| Disguise the tab | Settings > **Cloaking** > Tab disguise |
-| Hide instantly | Settings > Cloaking > **Panic key** (for example `Ctrl+Alt+P`) |
-| Open in `about:blank` | Settings > Cloaking > **Open in about:blank** |
-| Change wallpaper or colours | Settings > **Appearance**, or right-click the desktop |
+- Browse: open SuperNova on the desktop, or switch the taskbar search to Web and type a URL or search.
+- Games: double click the icon on the desktop.
+- Switch engine: Settings > Proxy > Engine, or click the engine badge in the browser's address bar.
+- Change transport: Settings > Proxy > Connection. You can also set a custom Wisp server there.
+- Test the connection: Settings > Proxy > Troubleshooting > Run test.
+- Cloaking: Settings > Cloaking for the tab disguise, panic key (e.g. `Ctrl+Alt+P`) and open in about:blank.
+- Wallpaper and colors: Settings > Appearance, or right click the desktop.
 
 <details>
-<summary><b>Browser keyboard shortcuts</b></summary>
-
-<br>
+<summary>Browser shortcuts</summary>
 
 | Keys | Action |
 | --- | --- |
 | `Alt+T` / `Alt+W` | New tab / close tab |
-| `Alt+Shift+T` | Reopen the last closed tab |
-| `Alt+L` | Focus the address bar |
-| `Alt+D` | Bookmark the page |
-| `Alt+←` / `Alt+→` | Back / forward |
+| `Alt+Shift+T` | Reopen last closed tab |
+| `Alt+L` | Focus address bar |
+| `Alt+D` | Bookmark page |
+| `Alt+Left` / `Alt+Right` | Back / forward |
 | `F5` | Reload |
-| `F11` | Fullscreen this tab |
-| `Alt+1` ... `Alt+9` | Jump to a tab |
+| `F11` | Fullscreen tab |
+| `Alt+1` to `Alt+9` | Jump to tab |
 | `Ctrl+Tab` | Next tab |
 | `Alt++` / `Alt+-` / `Alt+0` | Zoom in / out / reset |
 
 </details>
 
-<br>
+## How it works
 
-## 🏗️ How it works
+Page requests go through a service worker, which rewrites them using whichever engine you picked. The transport (libcurl or Epoxy) sends that traffic over a Wisp WebSocket to the Node server. The server checks it against the content filter and SSRF guard, then relays it. It doesn't rewrite anything itself, it just passes bytes along and serves the desktop.
 
 ```mermaid
 flowchart LR
-    A[Your browser] -->|page request| B[Service worker]
-    B -->|rewritten by| C{Engine<br/>Scramjet or Ultraviolet}
-    C -->|bytes| D[Transport<br/>libcurl or Epoxy]
-    D <-->|Wisp WebSocket| E[Node server<br/>content filter + SSRF guard]
-    E <--> F[(The web)]
+    A[Browser] --> B[Service worker]
+    B --> C{Scramjet / Ultraviolet}
+    C --> D[libcurl / Epoxy]
+    D <-->|Wisp| E[Node server]
+    E <--> F[(Web)]
 ```
 
-One service worker serves both engines. The Node server only relays bytes over the Wisp WebSocket,
-refuses blocked and private addresses, and serves the desktop. The details, including every workaround
-and why it exists, are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+More detail, including the workarounds and why they're there, is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-<br>
+## Configuration
 
-## ⚙️ Configuration
+Everything is optional. Copy `.env.example` to `.env` or set these on your host.
 
-Everything is optional. Copy `.env.example` to `.env`, or set these in your host's dashboard.
-
-| Variable | Default | Purpose |
+| Variable | Default | Description |
 | --- | --- | --- |
 | `PORT` | `3000` | Port to listen on |
-| `AUTH_PASS` | *(empty)* | Set to require a login (HTTP Basic). Empty keeps the site public |
+| `AUTH_PASS` | empty | Set this to require a login (HTTP Basic). Leave empty for a public site |
 | `AUTH_USER` | `admin` | Username when `AUTH_PASS` is set |
-| `CONTENT_FILTER` | `1` | `0` turns the content filter off |
-| `BLOCKED_HOSTS` | *(empty)* | Extra domains to block, comma separated |
-| `WISP_URL` | *(empty)* | Use an external Wisp server (`wss://...`) instead of this one |
-| `OPEN_BROWSER` | *(empty)* | `1` opens your browser on start (local development) |
+| `CONTENT_FILTER` | `1` | Set to `0` to turn the filter off |
+| `BLOCKED_HOSTS` | empty | Extra domains to block, comma separated |
+| `WISP_URL` | empty | Use an external Wisp server (`wss://...`) |
+| `OPEN_BROWSER` | empty | Set to `1` to open your browser on start |
 
-The full reference is in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+Full reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 
-<br>
+## Deploying
 
-## ☁️ Deploying
+The proxy runs over WebSockets, so you need a host that keeps connections open: Fly.io, Render, Railway, Heroku, a VPS or any container platform. A `Dockerfile`, `fly.toml` and `render.yaml` are included.
 
-The proxy runs over a WebSocket, so it needs a host that keeps connections open: Fly.io, Render, Railway,
-Heroku, any VPS or any container platform. A `Dockerfile`, `fly.toml` and `render.yaml` are included.
+**Vercel and Netlify won't work** since their functions can't hold WebSockets open. If you want to use one of them, host the static files there and set `WISP_URL` to an external Wisp server.
 
-> [!WARNING]
-> **Vercel and Netlify functions cannot hold WebSockets open.** Use one of the hosts above, or a static
-> host plus an external Wisp server (`WISP_URL`).
+If you're running a public instance, read [SECURITY.md](SECURITY.md) first. Anyone using it is browsing from your server's IP.
 
-> [!IMPORTANT]
-> **Running a public instance?** Read [SECURITY.md](SECURITY.md) first. A proxy lets people browse
-> *from your server's IP address*.
+Step by step guides are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for step-by-step guides.
+## Docs
 
-<br>
+- [Architecture](docs/ARCHITECTURE.md)
+- [Proxy engines and transports](docs/PROXY.md)
+- [Cloaking](docs/CLOAKING.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Development](docs/DEVELOPMENT.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Changelog](CHANGELOG.md)
+- [Security](SECURITY.md)
 
-## 📚 Documentation
+## Contributing
 
-| | |
-| --- | --- |
-| 🏛️ [Architecture](docs/ARCHITECTURE.md) | How a page load travels through the system |
-| 🔀 [Proxy engines and transports](docs/PROXY.md) | Choosing and switching them, search and safe search |
-| 🕶️ [Cloaking](docs/CLOAKING.md) | Tab disguise, panic key, `about:blank`, and their limits |
-| ⚙️ [Configuration](docs/CONFIGURATION.md) | Environment variables, the content filter, authentication |
-| ☁️ [Deployment](docs/DEPLOYMENT.md) | Docker, Fly.io, Render, a VPS with HTTPS |
-| 🧑‍💻 [Development](docs/DEVELOPMENT.md) | Project layout, tests, adding an app to the desktop |
-| 🩺 [Troubleshooting](docs/TROUBLESHOOTING.md) | When a page will not load |
-| 📝 [Changelog](CHANGELOG.md) | What changed from the original project |
-| 🔒 [Security](SECURITY.md) | Reporting issues and hardening a public instance |
+Issues and PRs are welcome. Check [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) before you start. You can also find us on [Discord](https://dsc.gg/supernovaproxy).
 
-<br>
+## License
 
-## 🤝 Contributing
+AGPL-3.0, see [LICENSE](LICENSE). If you host a modified version for other people you have to make the source available to them, which is why Settings > System > About links back to this repo.
 
-Bug reports, ideas and pull requests are welcome. Start with [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md),
-and come chat on Discord: **[dsc.gg/supernovaproxy](https://dsc.gg/supernovaproxy)**.
+## Credits
 
-<br>
+Built on [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet), [Scramjet](https://github.com/MercuryWorkshop/scramjet), [bare-mux](https://github.com/MercuryWorkshop/bare-mux), [libcurl.js](https://github.com/ading2210/libcurl.js), [epoxy-tls](https://github.com/MercuryWorkshop/epoxy-tls) and [wisp-js](https://github.com/MercuryWorkshop/wisp-js). The desktop is based on PeOS by [PicturElements](https://github.com/PicturElements).
 
-## 📄 License and credits
-
-SuperNova OS is free software under the **GNU Affero General Public License v3.0** ([LICENSE](LICENSE)).
-If you run a modified version for others over a network, you must offer them its source code. Settings >
-System > About links to this repository for that reason.
-
-Built on [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet),
-[Scramjet](https://github.com/MercuryWorkshop/scramjet),
-[bare-mux](https://github.com/MercuryWorkshop/bare-mux),
-[libcurl.js](https://github.com/ading2210/libcurl.js),
-[epoxy-tls](https://github.com/MercuryWorkshop/epoxy-tls) and
-[wisp-js](https://github.com/MercuryWorkshop/wisp-js). The desktop shell is derived from PeOS by
-[PicturElements](https://github.com/PicturElements).
-
-Space wallpapers are public-domain images from NASA, ESA and the Hubble and Webb telescopes (via
-Wikimedia Commons), except the Andromeda Galaxy photograph by Adam Evans, used under
-[CC BY 2.0](https://creativecommons.org/licenses/by/2.0/). The gaming wallpapers were generated for this project.
-
-<div align="center">
-<br>
-<sub>Made for people who like their proxy to look like a desktop.</sub>
-</div>
+Space wallpapers are public domain images from NASA, ESA, Hubble and Webb (via Wikimedia Commons), except the Andromeda Galaxy photo by Adam Evans, used under [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/). The gaming wallpapers were generated for this project.
