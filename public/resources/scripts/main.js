@@ -1799,7 +1799,7 @@ function resetAll() {
 if (!SnStore.get("visited-before")) {
   // This is the user's first visit
   setTimeout(function() {
-    openPrompt("Welcome to SnOS!", "This is a simple operating system made by SuperNova-Network. It's a work in progress, so expect bugs and unfinished features. Enjoy your stay!", "welcome");
+    openPrompt("Welcome to SnOS!", "Do people even read this?? Don't you have school work to do? I KNOW your GPA is below a 3.0", "welcome");
   }, 3000);
 
   // Set the flag indicating the user has visited before
