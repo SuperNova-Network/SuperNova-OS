@@ -13,7 +13,9 @@
  *     two browsers changing different settings never undo each other.
  *   - On load, pending changes go up first, then the account's settings come down
  *     and replace this browser's. If that changed anything, the page reloads once so
- *     every part of the desktop shows it (it is still behind the load screen then).
+ *     every part of the desktop shows it (it is still behind the load screen then),
+ *     provided the browser really kept the new values: where storage is blocked a
+ *     reload would only start over, so the values stay in memory instead.
  *
  * Needs store.js and backup.js. Plain script; attaches `SnAccount` to window.
  */
@@ -22,7 +24,7 @@
 
   var API = "/api/account";
   var PENDING = "sn-sync:pending";   // not under "sn.": not a setting, never synced or exported
-  var RELOADED = "sn-sync:reloaded"; // sessionStorage: guards against a reload loop
+  var RELOADS = "sn-sync:reloads";   // sessionStorage: recent automatic reloads (a last-resort loop guard)
   var PUSH_DELAY = 1500;
 
   var store = window.SnStore;
@@ -293,16 +295,34 @@
 
   // --- start-up ---------------------------------------------------------------------
 
+  /** Whether localStorage now holds exactly the synced settings (so a reload will show them). */
+  function kept(settings) {
+    try {
+      return Object.keys(settings).every(function (key) {
+        return !syncable(key) || localStorage.getItem("sn." + key) === settings[key];
+      });
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /** Reload, unless that already happened twice in the last 20 seconds (it never should). */
+  function reloadOnce() {
+    var now = Date.now(), recent = [];
+    try { recent = JSON.parse(sessionStorage.getItem(RELOADS) || "[]").filter(function (t) { return now - t < 20000; }); } catch (e) { /* ignore */ }
+    if (recent.length >= 2) {
+      console.warn("SuperNova: not reloading again to show synced settings; they apply after the next reload.");
+      return;
+    }
+    try { sessionStorage.setItem(RELOADS, JSON.stringify(recent.concat(now))); } catch (e) { /* ignore */ }
+    location.reload();
+  }
+
   if (window.top === window) {
     start().then(function (result) {
-      if (!result.changed) return;
-      // Another browser changed something: reload once so every part of the page
-      // reads it. Not again within a few seconds, whatever happens.
-      var last = 0;
-      try { last = Number(sessionStorage.getItem(RELOADED)) || 0; } catch (e) { /* ignore */ }
-      if (Date.now() - last < 15000) return;
-      try { sessionStorage.setItem(RELOADED, String(Date.now())); } catch (e) { /* ignore */ }
-      location.reload();
+      // The account had something this page didn't read at load: reload so every part
+      // of the page shows it. Only if the browser kept the values, or it would loop.
+      if (result.changed && kept(localSettings())) reloadOnce();
     }).catch(function () { /* offline or accounts unavailable: this browser's settings still work */ });
   }
 })();
