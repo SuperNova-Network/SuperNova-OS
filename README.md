@@ -55,6 +55,7 @@ Other scripts:
 
 - Browse: open SuperNova on the desktop, or switch the taskbar search to Web and type a URL or search.
 - Games: double click the icon on the desktop.
+- Your own apps: right click the desktop > Add an app…, or open the browser menu > Add to desktop. Right click an app you added to rename or remove it.
 - Switch engine: Settings > Proxy > Engine, or click the engine badge in the browser's address bar.
 - Change transport: Settings > Proxy > Connection. You can also set a custom Wisp server there.
 - Test the connection: Settings > Proxy > Troubleshooting > Run test.

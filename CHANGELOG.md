@@ -8,6 +8,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Fixed
 
+- Pin to taskbar from a desktop icon threw, and pinned nothing, whenever an unpinned window was open.
 - **The proxy returned a 404 the first time it was used** and worked on the second try. The service worker was registered but not yet active when the page navigated. Navigations now wait for activation, the worker takes control immediately, and a navigation that still arrives without it gets a page that starts the worker and reloads instead of a 404. Desktop apps (YouTube, Reddit, ...) never registered the worker at all.
 - About one fresh visit in five failed with `wasm not loaded yet` (libcurl's start-up race), a second "fails the first time" bug found by repeated fresh-profile testing.
 - Scramjet never finished loading large sites (Wikipedia, GitHub, DuckDuckGo, ...): sub-resources whose responses set cookies deadlocked against the page's message queue. Small pages worked, which hid it.
@@ -26,6 +27,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Added
 
+- **Add your own apps to the desktop.** Right-click the desktop > Add an app…, or use Add to desktop in the browser menu to add the page you are on. Custom apps open in their own window through the proxy, and can be renamed, pinned to the taskbar, found in the start menu and search, and removed (right-click > Remove from desktop). They get a coloured letter icon rather than the site's favicon, so the desktop never contacts the site directly. The content filter is checked when an app is added and again each time it opens.
 - Ten new wallpapers (six space photographs, four generated gaming ones) and a small "Show more" button in Settings > Appearance, which lists the first ten and reveals the rest.
 
 - **Scramjet** as a second engine beside Ultraviolet, switchable at runtime in Settings or from the Browser.

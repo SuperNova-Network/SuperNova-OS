@@ -121,6 +121,11 @@
     button.querySelector("use").setAttribute("href", `#i-${name}`);
   }
 
+  /** The desktop's bridge (SnOS) when this browser runs in a desktop window, else null. */
+  function desktop() {
+    try { return window.parent !== window ? window.parent.SnOS ?? null : null; } catch { return null; }
+  }
+
   function toast(message) {
     const el = document.createElement("div");
     el.className = "toast";
@@ -736,6 +741,7 @@
       menuItem(tab.fullscreen ? "Exit fullscreen" : "Fullscreen this tab", { icon: "fullscreen", kbd: "F11", onClick: () => toggleFullscreen(tab) }),
       separator(),
       menuItem("Bookmark this page", { icon: "star", kbd: "Alt+D", disabled: !tab.url, onClick: () => toggleBookmark(tab) }),
+      menuItem("Add to desktop", { icon: "plus", disabled: !tab.url || !desktop(), onClick: () => desktop().openAddApp(tab.title, tab.url) }),
       menuItem(SnStore.flag("bookmarkbar") ? "Hide bookmarks bar" : "Show bookmarks bar", { icon: "star", kbd: "Alt+B", onClick: toggleBookmarkBar }),
       menuItem("Clear history", { icon: "trash", note: `${readList("history").length} pages`, disabled: !readList("history").length, onClick: () => { writeList("history", []); toast("History cleared"); } }),
     );
