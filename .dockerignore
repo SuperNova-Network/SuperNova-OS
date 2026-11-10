@@ -12,6 +12,9 @@ npm-debug.log
 .env.*
 !.env.example
 
+# Local accounts database
+data
+
 # Not needed at runtime
 test
 e2e

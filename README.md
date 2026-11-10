@@ -61,6 +61,7 @@ Other scripts:
 - Test the connection: Settings > Proxy > Troubleshooting > Run test.
 - Cloaking: Settings > Cloaking for the tab disguise, panic key (e.g. `Ctrl+Alt+P`) and open in about:blank.
 - Wallpaper and colors: Settings > Appearance, or right click the desktop.
+- Accounts (when the site has them on): Settings > Account to create one or sign in. Your apps, wallpaper, bookmarks and preferences follow you to any browser you sign in on.
 - Back up or move your setup: Settings > System > Backup exports your apps, bookmarks and preferences to a file and imports it again, on any SuperNova site.
 
 <details>
@@ -109,6 +110,8 @@ Everything is optional. Copy `.env.example` to `.env` or set these on your host.
 | `BLOCKED_HOSTS` | empty | Extra domains to block, comma separated |
 | `WISP_URL` | empty | Use an external Wisp server (`wss://...`) |
 | `OPEN_BROWSER` | empty | Set to `1` to open your browser on start |
+| `ACCOUNTS` | empty | Set to `1` to let people sign in and keep their settings in an account (needs a persistent disk) |
+| `TRUST_PROXY` | empty | Set to `1` behind a hosting platform's proxy (Fly.io, Render, nginx) |
 
 Full reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 

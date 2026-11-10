@@ -16,6 +16,10 @@ FROM base
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Accounts database (ACCOUNTS=1). Mount a volume here so it survives new images.
+ENV DATA_DIR=/app/data
+RUN mkdir -p /app/data && chown node:node /app/data
+
 # Run as the unprivileged user that ships with the image.
 USER node
 

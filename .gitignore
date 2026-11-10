@@ -5,6 +5,9 @@ node_modules
 .hintrc
 *.log
 
+# Accounts database (DATA_DIR)
+/data/
+
 # Local configuration and secrets (the example file is tracked)
 .env
 .env.*

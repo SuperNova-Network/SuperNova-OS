@@ -13,6 +13,10 @@ Server settings come from environment variables, read in [`config.js`](../config
 | `BLOCKED_HOSTS` | *(empty)* | Extra blocked domains, comma separated. Subdomains are included |
 | `WISP_URL` | *(empty)* | Send browsers to an external Wisp server (`ws://` or `wss://` only) |
 | `OPEN_BROWSER` | *(empty)* | `1` opens a browser when the server starts. Never use it on a host |
+| `ACCOUNTS` | *(empty)* | `1` turns on [accounts](#accounts). Needs Node.js 22.13+ and a persistent `DATA_DIR` |
+| `ACCOUNTS_SIGNUP` | `1` | `0` stops new sign-ups; existing accounts keep working |
+| `DATA_DIR` | `data` | Where the accounts database (`accounts.db`) is kept |
+| `TRUST_PROXY` | *(empty)* | Proxies in front of the server to trust for the visitor's address and protocol: a hop count (`1`), `true`, or addresses. Set it behind Fly.io, Render, nginx and the like |
 
 `GET /healthz` returns `ok` without authentication, for platform health checks.
 
@@ -21,6 +25,17 @@ Server settings come from environment variables, read in [`config.js`](../config
 Set `AUTH_PASS` to password-protect the whole site. The credentials are checked with a constant-time comparison, and the **Wisp WebSocket upgrade is checked too**; Express middleware never sees WebSocket upgrades, so without this the proxy itself would stay open.
 
 Basic auth sends the password with every request, so only use it over HTTPS (all the platforms in [Deployment](DEPLOYMENT.md) provide it). The original project shipped a hardcoded `admin` / password pair in the source; if you ever used it, change it, because it remains in the git history.
+
+## Accounts
+
+Off by default. With `ACCOUNTS=1`, people can create an account under Settings > Account, and their settings follow them to any browser they sign in on: desktop apps and names, wallpaper and colours, bookmarks, and proxy, search and cloaking preferences. Browsing history is never sent to the server.
+
+- **Storage.** One SQLite file, `DATA_DIR/accounts.db` (the built-in `node:sqlite`, so no extra dependency). Put `DATA_DIR` on storage that survives restarts and deploys: a Fly.io volume, a Render disk, a Docker volume, or a VPS's own disk. On an ephemeral filesystem every account disappears on the next deploy. Back the file up like any database.
+- **No email.** Sign-up shows a one-time recovery code; with it a person can set a new password (and gets a new code). Without it, a forgotten password cannot be recovered.
+- **Passwords** are hashed with scrypt. Sessions are random tokens (only their hashes are stored) in an `HttpOnly`, `SameSite=Strict` cookie that lasts 30 days and renews while in use. Changing the password or using the recovery code signs out every other browser.
+- **Limits.** Sign-in is limited to 10 tries per username and 20 per address every 10 minutes, sign-up to 5 accounts per address per hour, and an account's settings to 512 KB. Behind a reverse proxy, set `TRUST_PROXY`, or every visitor shares the proxy's address and these limits.
+- **Closing sign-up.** `ACCOUNTS_SIGNUP=0` keeps existing accounts working but refuses new ones, for example once everyone in a class has an account.
+- **Signing out** removes the account's settings from that browser, which matters on shared computers. A factory reset signs out first, so it resets the browser without touching the account.
 
 ## Content filter
 

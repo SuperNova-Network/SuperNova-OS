@@ -1655,8 +1655,13 @@ function showNotification(title, body) {
 
 function execNext(id) {
   if (next == "reset") {
-    SnStore.clear();
-    restart();
+    // Sign out first, or the account would put everything back on the next start.
+    // The account itself keeps its settings: this resets the browser, not the account.
+    var signOut = window.SnAccount ? SnAccount.logout({ keepSettings: true }) : Promise.resolve();
+    signOut.then(function () {
+      SnStore.clear();
+      restart();
+    });
   } else if (next == "resetn") {
     resetNames();
   } else if (next == "removeapp") {

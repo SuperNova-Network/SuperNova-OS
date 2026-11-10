@@ -19,6 +19,16 @@ function port() {
   return value;
 }
 
+// Express "trust proxy": how many proxies in front of this server to believe about the
+// client's address (X-Forwarded-For) and protocol. Needed behind Fly.io, Render, nginx
+// and the like, or rate limits see every visitor as the proxy.
+function trustProxy() {
+  const value = (env.TRUST_PROXY ?? "").trim();
+  if (!value || value === "0" || value === "false") return false;
+  if (value === "true") return true;
+  return /^\d+$/.test(value) ? Number(value) : value; // a hop count, or addresses/subnets
+}
+
 // "a, b ,c" -> ["a", "b", "c"]
 const list = (value) => (value ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
 
@@ -29,6 +39,16 @@ export default {
   auth: {
     user: env.AUTH_USER || "admin",
     pass: env.AUTH_PASS || "",
+  },
+
+  trustProxy: trustProxy(),
+
+  // Accounts that carry settings between browsers. Off unless ACCOUNTS=1; then
+  // DATA_DIR must be on storage that survives restarts and deploys.
+  accounts: {
+    enabled: env.ACCOUNTS === "1",
+    signup: env.ACCOUNTS_SIGNUP !== "0",
+    dataDir: env.DATA_DIR || "data",
   },
 
   // URL prefixes the service worker intercepts. Both must start and end with "/".

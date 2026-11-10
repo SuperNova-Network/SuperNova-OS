@@ -16,6 +16,12 @@ docker build -t supernova-os .
 docker run -d --name supernova -p 3000:3000 -e AUTH_PASS=change-me supernova-os
 ```
 
+With [accounts](CONFIGURATION.md#accounts), keep the database in a volume:
+
+```sh
+docker run -d --name supernova -p 3000:3000 -e ACCOUNTS=1 -v supernova-data:/app/data supernova-os
+```
+
 ## Fly.io
 
 [`fly.toml`](../fly.toml) is included (app name `supernova-os`, region `iad`, health check on `/healthz`). Change `app` to a name you own, then:
@@ -28,9 +34,19 @@ fly deploy
 
 With `auto_stop_machines` the machine sleeps when idle and wakes on the next request, which adds a few seconds to the first load.
 
+For [accounts](CONFIGURATION.md#accounts), create a volume and uncomment the `[mounts]` section in `fly.toml`:
+
+```sh
+fly volumes create supernova_data --size 1
+fly secrets set ACCOUNTS=1
+fly deploy
+```
+
 ## Render
 
 [`render.yaml`](../render.yaml) is a blueprint: create a **Blueprint** from the repository in the dashboard. It builds the `Dockerfile` and uses `/healthz` for health checks. Add `AUTH_PASS` under Environment if you want a password. Render's free plan spins down when idle.
+
+[Accounts](CONFIGURATION.md#accounts) need a persistent disk, which Render's free plan does not have: on a paid plan, add a disk mounted at `/app/data` and set `ACCOUNTS=1`.
 
 ## Heroku, Railway and similar
 

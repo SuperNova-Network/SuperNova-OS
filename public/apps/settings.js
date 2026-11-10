@@ -425,6 +425,137 @@
     syncDesktop();
   }
 
+  // --- account ------------------------------------------------------------------------------------
+
+  {
+    const views = { loading: $("account-loading"), off: $("account-off"), out: $("account-out"), code: $("account-code"), in: $("account-in") };
+    const forms = { login: $("form-login"), register: $("form-register"), recover: $("form-recover") };
+    let afterCode = null; // what "I've saved it" does next
+
+    const show = (name) => Object.entries(views).forEach(([key, el]) => { el.hidden = key !== name; });
+    const formStatus = (form, message, state) => status(form.querySelector(".status"), message, state);
+
+    function showForm(mode) {
+      Object.entries(forms).forEach(([key, form]) => { form.hidden = key !== mode; formStatus(form, ""); });
+      forms[mode].elements.username.value ||= Object.values(forms).map((form) => form.elements.username.value).find(Boolean) ?? "";
+      forms[mode].elements[forms[mode].elements.username.value ? (mode === "recover" ? "code" : "password") : "username"].focus();
+    }
+    document.querySelectorAll("[data-show]").forEach((button) => button.addEventListener("click", () => showForm(button.dataset.show)));
+
+    function signedInView(user) {
+      text($("account-name"), user.username);
+      text($("account-avatar"), user.username.charAt(0).toUpperCase());
+      text($("account-tile"), `Signed in as ${user.username}`);
+      status($("account-status"), "");
+      show("in");
+    }
+
+    function signedOutView(state) {
+      text($("account-tile"), state.enabled ? "Sign in to keep your settings everywhere" : "Not available on this site");
+      if (!state.enabled) return show("off");
+      forms.login.querySelector("[data-show='register']").hidden = !state.signup;
+      show("out");
+      showForm("login");
+    }
+
+    /** Make the desktop (or this page) show settings that just changed. */
+    function reloadEverything() {
+      setTimeout(() => (os?.restart ? os.restart() : location.reload()), 600);
+    }
+
+    async function refresh() {
+      try {
+        const state = await SnAccount.status(true);
+        if (state.user) signedInView(state.user); else signedOutView(state);
+      } catch {
+        text($("account-loading").querySelector(".hint"), "Couldn't reach the server. Try again later.");
+      }
+    }
+
+    /** Run an account action from a form: busy state, errors shown under the form. */
+    function submitting(form, action) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = form.querySelector("button[type='submit']");
+        button.disabled = true;
+        formStatus(form, "");
+        try {
+          await action(form.elements);
+        } catch (err) {
+          formStatus(form, err.message, "error");
+        } finally {
+          button.disabled = false;
+        }
+      });
+    }
+
+    function afterSignIn(result, message) {
+      if (result.recoveryCode) {
+        text($("recovery-code"), result.recoveryCode);
+        show("code");
+        $("recovery-copy").focus();
+        afterCode = () => finish();
+      } else {
+        finish();
+      }
+      function finish() {
+        Object.values(forms).forEach((form) => form.reset());
+        signedInView(result.user);
+        if (result.changed) {
+          status($("account-status"), "Loading your settings…", "ok");
+          reloadEverything();
+        } else {
+          status($("account-status"), message, "ok");
+        }
+      }
+    }
+
+    submitting(forms.login, async (f) => {
+      afterSignIn(await SnAccount.login(f.username.value, f.password.value), "Signed in. This browser's settings are now saved to your account.");
+    });
+
+    submitting(forms.register, async (f) => {
+      if (f.password.value !== f.confirm.value) throw new Error("The passwords don't match.");
+      afterSignIn(await SnAccount.register(f.username.value, f.password.value), "Account created. This browser's settings are saved to it.");
+    });
+
+    submitting(forms.recover, async (f) => {
+      afterSignIn(await SnAccount.recover(f.username.value, f.code.value, f.password.value), "Password changed. You're signed in.");
+    });
+
+    $("recovery-copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText($("recovery-code").textContent);
+        text($("recovery-copy"), "Copied");
+      } catch {
+        getSelection().selectAllChildren($("recovery-code"));
+      }
+    });
+    $("recovery-done").addEventListener("click", () => { text($("recovery-copy"), "Copy"); afterCode?.(); afterCode = null; });
+
+    $("account-logout").addEventListener("click", async () => {
+      $("account-logout").disabled = true;
+      await SnAccount.logout();
+      status($("account-status"), "Signed out. Restarting…", "ok");
+      reloadEverything();
+    });
+
+    submitting($("form-password"), async (f) => {
+      await SnAccount.changePassword(f.current.value, f.password.value);
+      $("form-password").reset();
+      formStatus($("form-password"), "Password changed. Other browsers have been signed out.", "ok");
+    });
+
+    submitting($("form-delete"), async (f) => {
+      await SnAccount.deleteAccount(f.password.value);
+      $("form-delete").reset();
+      await refresh();
+      status(forms.login.querySelector(".status"), "Your account has been deleted.", "ok");
+    });
+
+    refresh();
+  }
+
   // --- backup (export / import) -----------------------------------------------------------------
 
   {

@@ -16,11 +16,13 @@ import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
 import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import config from "./config.js";
 import { createPolicy } from "./src/policy.js";
+import { createAccounts } from "./src/accounts.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
 const authEnabled = Boolean(config.auth.pass);
 const policy = createPolicy(config.filter);
+const accounts = await createAccounts(config.accounts);
 
 // Versions shown in Settings > About. Read once at startup.
 const readVersion = (url) => {
@@ -44,6 +46,7 @@ const info = {
     ].map(([label, name]) => [label, readVersion(new URL(`./node_modules/${name}/package.json`, import.meta.url))])
   ),
   filter: policy.enabled,
+  accounts: config.accounts.enabled,
 };
 
 // ---------------------------------------------------------------------------
@@ -63,6 +66,7 @@ wisp.options.hostname_blacklist = policy.wispBlacklist();
 // ---------------------------------------------------------------------------
 const app = express();
 app.disable("x-powered-by");
+app.set("trust proxy", config.trustProxy);
 app.use(compression());
 
 // Health checks (Fly.io, Render, Docker) cannot send credentials, so this sits
@@ -78,6 +82,8 @@ if (authEnabled) {
     realm: "SuperNova OS",
   }));
 }
+
+app.use("/api/account", accounts.router);
 
 app.get("/api/info", (_req, res) => {
   res.set("Cache-Control", "no-cache").json(info);
@@ -238,6 +244,7 @@ server.on("listening", async () => {
     }:${address.port}`
   );
   if (authEnabled) console.log(`Password protection is ON (user: ${config.auth.user})`);
+  if (config.accounts.enabled) console.log(`Accounts are ON (data in ${config.accounts.dataDir}${config.accounts.signup ? "" : ", sign-up closed"})`);
 
   // Only open a browser when explicitly asked to (local development). Doing it
   // unconditionally breaks headless hosts such as Docker, Fly.io and Render.
@@ -262,7 +269,7 @@ function shutdown(signal) {
   const force = setTimeout(() => process.exit(1), 5000);
   force.unref();
 
-  server.close(() => process.exit(0));
+  server.close(() => { accounts.close(); process.exit(0); });
   server.closeAllConnections?.();
 }
 

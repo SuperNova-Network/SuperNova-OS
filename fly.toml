@@ -8,6 +8,14 @@ primary_region = 'iad'
 
 [env]
   PORT = '3000'
+  # Fly's proxy sits in front of the app: trust it for the visitor's address.
+  TRUST_PROXY = '1'
+
+# Accounts (ACCOUNTS=1) need a volume for their database:
+#   fly volumes create supernova_data --size 1
+# [mounts]
+#   source = 'supernova_data'
+#   destination = '/app/data'
 
 [http_service]
   internal_port = 3000
