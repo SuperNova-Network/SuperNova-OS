@@ -11,9 +11,9 @@ var lockTaskbar = true, lockTaskbah = false, hide = true, preventHide = false;
 var windows = [], origNames = [], winCount = 0, hiddenApps = 5, permaStickied = 2;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
 var last = 0;
 var contextAssort = [
-  [0, 1, 2, 3],
+  [0, 1, 2, 3, 17],
   [4, 5, 6, 7],
-  [8, 9, 10],
+  [8, 9, 10, 18],
   [11, 12],
   [6, 7],
   [7],
@@ -40,23 +40,26 @@ var accents = ["#e0533d", "#43b84a", "#6b5cff", "#e8892e", "#8f5bd6", "#8a8fa8",
 var backgrounds = ["Adventure_Time.gif", "Bouncy.jpg", "space.jpg", "Flower.jpg", "Bucks.jpg", "Leaf.jpg", "LonelyRoad.jpg", "Flowers.jpg", "Mandelbrot.png", "Match.jpg", "rocks.png", "Andromeda.jpg", "CrabNebula.jpg", "OrionNebula.jpg", "Pillars.jpg", "Saturn.jpg", "WebbDeepField.jpg", "Synthwave.jpg", "NeonGrid.jpg", "Invaders.jpg", "Matrix.jpg"];
 contextShow = false, next = null;
 
-//load variables from localStorage
+// Load saved desktop state (see /proxy/store.js).
 var taskArr = [0, 2], oftenUsed = [];
-var tzIndex = localStorage.getItem("tzIndex") || 0, tzOffset = localStorage.getItem("tzOffset") || 0;
-var tmpArr = localStorage.getItem("taskArr");
+var tzIndex = SnStore.get("tzIndex") || 0, tzOffset = SnStore.get("tzOffset") || 0;
+var tmpArr = SnStore.get("taskArr");
 taskArr = tmpArr != null ? tmpArr.split(",") : taskArr;
-var DEF_WIN_W = parseInt(localStorage.getItem("winW")) || 60;
-var DEF_WIN_H = parseInt(localStorage.getItem("winH")) || 35;
-var ou = localStorage.getItem("oftenUsed");
+var DEF_WIN_W = parseInt(SnStore.get("winW")) || 60;
+var DEF_WIN_H = parseInt(SnStore.get("winH")) || 35;
+var ou = SnStore.get("oftenUsed");
 if (ou != null) { oftenUsed = ou.split(","); }
 var colId = 4, backId = 3; /*This changes the defualt wallpaper.*/
-var ci = localStorage.getItem("colId");
-if (ci != null) { colId = parseInt(ci); }
-var bi = localStorage.getItem("backId");
-if (bi != null) { backId = parseInt(bi); }
-lockTaskbar = localStorage.getItem("lockTaskbar") != "0";
+// Saved values can come from an older version or an imported backup: keep only
+// ones that make sense here, or setCols and classList.add would throw.
+var ci = parseInt(SnStore.get("colId"));
+if (ci >= 0 && ci < colors.length) { colId = ci; }
+var bi = parseInt(SnStore.get("backId"));
+if (bi >= 0 && bi <= backgrounds.length) { backId = bi; }
+if (!isFinite(Number(tzOffset))) { tzOffset = 0; }
+lockTaskbar = SnStore.get("lockTaskbar") != "0";
 document.getElementById("taskbar").className = lockTaskbar ? "locked" : "unlocked";
-document.body.classList.add(localStorage.getItem("viewmode") || "grid");
+document.body.classList.add(SnStore.get("viewmode") === "table" ? "table" : "grid");
 
 const service = "supernova";
 
@@ -86,11 +89,82 @@ var programData = [ //name, url, icon, keywords
 pl = programData.length;
 var viewerID = pl - 5, consoleID = pl - 4, errID = pl - 3, setID = pl - 2, explorerID = pl - 1;
 
+// ---------------------------------------------------------------------------
+// Custom apps: web apps the user puts on the desktop. They are stored in SnStore
+// under "customApps" as a JSON array of { name, url } and come after the built-in
+// apps, so adding one never changes the id of anything else (pins, launch counts
+// and saved names all refer to apps by id). A removed app leaves null in its slot
+// for the same reason.
+// ---------------------------------------------------------------------------
+var builtinCount = programData.length;
+var CUSTOM_APPS_MAX = 50, APP_NAME_MAX = 40;
+var LETTER_COLORS = ["#d9534f", "#e8892e", "#c9a227", "#43a047", "#16a085", "#2b8cd6", "#5c6bc0", "#8e44ad", "#d6457a", "#6d7b8a"];
+
+function isCustomApp(id) {
+  return Number(id) >= builtinCount;
+}
+
+function readCustomApps() {
+  try {
+    var list = JSON.parse(SnStore.get("customApps") || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeCustomApps(list) {
+  while (list.length && list[list.length - 1] == null) { list.pop(); }
+  SnStore.set("customApps", JSON.stringify(list));
+}
+
+function cleanAppName(name) {
+  return String(name == null ? "" : name).replace(/\s+/g, " ").trim().slice(0, APP_NAME_MAX).trim();
+}
+
+function removedApp() {
+  return { name: "", url: "", icon: { letter: "" }, keywords: "", removed: true };
+}
+
+// The programData entry for a stored custom app. Stored data may come from an import
+// or an old version, so it is validated again here: only http(s) addresses survive.
+function customAppEntry(app) {
+  var url = app && typeof app.url === "string" ? SnResolve.toUrl(app.url) : null;
+  if (!url) { return removedApp(); }
+  var host = new URL(url).hostname.replace(/^www\./, "");
+  var name = cleanAppName(app.name) || host;
+  var hash = 0;
+  for (var i = 0; i < host.length; i++) { hash = (hash * 31 + host.charCodeAt(i)) >>> 0; }
+  return {
+    name: name,
+    url: "",
+    proxy: url,
+    custom: true,
+    icon: { letter: name.charAt(0).toUpperCase(), color: LETTER_COLORS[hash % LETTER_COLORS.length] },
+    keywords: host + ",app,web" // a hostname: safe to insert as search-result markup
+  };
+}
+
+readCustomApps().forEach(function (app) { programData.push(customAppEntry(app)); });
+
+// The apps shown on the desktop, in the launcher and in search, by id.
+function desktopAppIds() {
+  var ids = [];
+  for (var i = 0; i < programData.length; i++) {
+    if (i < builtinCount - hiddenApps || (i >= builtinCount && !programData[i].removed)) { ids.push(i); }
+  }
+  return ids;
+}
+
+function desktopLink(id) {
+  return document.querySelector(".desktoplink[data-app='" + Number(id) + "']");
+}
+
 // Settings and the Console are pinned permanently. Listing them in taskArr as well pinned
 // them twice, which rewrote the icon's click handler to minWin(null) and made it crash
 // (this is how the File Explorer icon broke). Also drop duplicates and ids that no longer exist.
 taskArr = taskArr.map(Number).filter(function (id, index, all) {
-  return id >= 0 && id < programData.length && id !== setID && id !== consoleID && all.indexOf(id) === index;
+  return id >= 0 && id < programData.length && !programData[id].removed && id !== setID && id !== consoleID && all.indexOf(id) === index;
 });
 var defaultPage = "https://api.github.com/repos/SuperNova-Network/SuperNova-DY/contents"; // go to https://api.github.com/users/SuperNova-Network/repos and find "contents_url" to get the url for the default page. EX: https://media.discordapp.net/attachments/828071279424307221/1203153358597394534/image.png?ex=65d00ee2&is=65bd99e2&hm=9a4f32904842838ea9a40c8f45e2b860491aee8c4b55cb6fa4b7f995f5f64aff&=&format=webp&quality=lossless&width=1439&height=206
 // https://web.postman.co/
@@ -117,7 +191,7 @@ document.getElementsByClassName("contextitem")[9].addEventListener("mousedown", 
 document.getElementsByClassName("contextitem")[10].addEventListener("mousedown", function () { openSettings("appearance"); });
 document.getElementsByClassName("contextitem")[11].addEventListener("mousedown", function () {
   lockTaskbar = !lockTaskbar;
-  localStorage.setItem("lockTaskbar", lockTaskbar ? 1 : 0);
+  SnStore.set("lockTaskbar", lockTaskbar ? 1 : 0);
   document.getElementById("taskbar").className = lockTaskbar ? "locked" : "unlocked";
 });
 document.getElementsByClassName("contextitem")[12].addEventListener("mousedown", function () { toggleTaskbah(); });
@@ -125,6 +199,8 @@ document.getElementsByClassName("contextitem")[13].addEventListener("mousedown",
 document.getElementsByClassName("contextitem")[14].addEventListener("mousedown", function () { contextNewDir(false); });
 document.getElementsByClassName("contextitem")[15].addEventListener("mousedown", function () { contextNewDir(true); });
 document.getElementsByClassName("contextitem")[16].addEventListener("mousedown", function () { contextOpenHTML(); });
+document.getElementsByClassName("contextitem")[17].addEventListener("mousedown", function () { confirmRemoveApp(document.getElementById("context").getAttribute("target")); });
+document.getElementsByClassName("contextitem")[18].addEventListener("mousedown", function () { openAddAppDialog(); });
 
 document.getElementById("context").addEventListener("mousedown", function () { document.getElementById("context").style.display = "none"; preventHide = false; });
 document.getElementById("desktop").addEventListener("mousedown", function (event) {
@@ -145,29 +221,37 @@ document.getElementById("desktop").addEventListener("mousedown", function (event
 document.getElementById("search").addEventListener("mousedown", function (event) { showSearchFull(event); });
 document.getElementById("taskbar").addEventListener("mousemove", function (event) { event.stopPropagation(); });
 
-function setup() {
+// Desktop icons stay in id order: built-in apps first, then custom apps.
+function addDesktopIcon(id) {
   var parent = document.getElementById("desktop");
-  for (var i = 0; i < programData.length - hiddenApps; i++) {
-    if (i > oftenUsed.length - 1) { oftenUsed.push(0); }
-    else { oftenUsed[i] = parseInt(oftenUsed[i]); }
-    origNames.push(programData[i].name);
-    if (localStorage.getItem("customTitle" + i) != null) {
-      programData[i].name = localStorage.getItem("customTitle" + i);
-    }
-    var el = document.createElement("div");
-    el.className = "desktoplink";
-    el.title = programData[i].name;
-    el.setAttribute("selected", "false");
-    el.setAttribute("onclick", "selectIcon(event," + i + ",false)");
-    el.addEventListener("mousedown", function (event) { showContext(event, 0) });
-    el.innerHTML = "<div class='icon'></div> <p class='ddesc'>" + escapeHtml(programData[i].name) + "</p>";
-    setIcon(programData[i].icon, el.getElementsByClassName("icon")[0]);
-    /*var ext=getExtension(programData[i].url);
-    if (ext!=""&&!ext.includes("/")){
-      el.classList.add("file",getType(ext)[0],ext);
-    }*/
-    parent.appendChild(el);
+  var el = document.createElement("div");
+  el.className = "desktoplink";
+  el.title = programData[id].name;
+  el.setAttribute("data-app", id);
+  el.setAttribute("selected", "false");
+  el.setAttribute("onclick", "selectIcon(event," + id + ",false)");
+  el.addEventListener("mousedown", function (event) { showContext(event, 0) });
+  el.innerHTML = "<div class='icon'></div> <p class='ddesc'>" + escapeHtml(programData[id].name) + "</p>";
+  setIcon(programData[id].icon, el.getElementsByClassName("icon")[0]);
+  var links = parent.getElementsByClassName("desktoplink"), before = null;
+  for (var i = 0; i < links.length; i++) {
+    if (Number(links[i].getAttribute("data-app")) > id) { before = links[i]; break; }
   }
+  if (!before && links.length) { before = links[links.length - 1].nextSibling; }
+  parent.insertBefore(el, before);
+}
+
+function setup() {
+  for (var i = 0; i < programData.length; i++) {
+    oftenUsed[i] = parseInt(oftenUsed[i]) || 0;
+  }
+  for (var i = 0; i < builtinCount - hiddenApps; i++) {
+    origNames.push(programData[i].name);
+    if (SnStore.get("customTitle" + i) != null) {
+      programData[i].name = SnStore.get("customTitle" + i);
+    }
+  }
+  desktopAppIds().forEach(addDesktopIcon);
   //create cog
   document.getElementById("cog").setAttribute("d", genCog(19));
   // Draw the cog icon in the shared buffer before any copy of it is made. Looking it up
@@ -220,7 +304,7 @@ function genCog(r) {
 // A user-supplied wallpaper address. Only http(s) is accepted, and quotes are
 // escaped so the value cannot break out of the CSS url('...').
 function customBackgroundCss() {
-  var url = localStorage.getItem("backgroundUrl");
+  var url = SnStore.get("backgroundUrl");
   if (!url) return "";
   var parsed;
   try { parsed = new URL(url, location.href); } catch (e) { return ""; }
@@ -241,7 +325,7 @@ function factoryReset() {
     document.body.style.backgroundColor = 'black'; // Change background color to black
 
     setTimeout(function () {
-      localStorage.clear();
+      SnStore.clear();
       location.reload();
     }, 700);
   }, 1000);
@@ -249,7 +333,7 @@ function factoryReset() {
 
 function addWindow(id, title, contStr, w, h, type) {
   oftenUsed[id]++;
-  localStorage.setItem("oftenUsed", oftenUsed);
+  SnStore.set("oftenUsed", oftenUsed);
 
   // The Browser app (id 0) receives its first address or search as contStr.
   // contStr: the Browser (id 0) gets its first query, Settings (setID) the section to show.
@@ -318,7 +402,7 @@ function addWindow(id, title, contStr, w, h, type) {
     });
   }
 
-  if (id >= viewerID) {
+  if (id >= viewerID && !isCustomApp(id)) {
     elem.classList.add("system_window");
   }
 
@@ -360,12 +444,14 @@ function addWindow(id, title, contStr, w, h, type) {
   setTimeout(function () { elem.classList.remove("init"); }, 200);
   addTaskbarIcon(id, winCount, 2, data.name, data.icon, false);
   moveToTop(winCount);
-  if (id < consoleID || id == setID) { delayIframe(elem, tmpUrl, programData[id].proxy); }
+  if (id < consoleID || id == setID || isCustomApp(id)) { delayIframe(elem, tmpUrl, programData[id].proxy, programData[id].custom); }
   winCount++;
   return elem;
 }
 
-function delayIframe(elem, src, proxyTarget) {
+// checkFilter: ask the content filter first (custom apps). Built-in apps skip the
+// round trip; the Wisp server enforces the filter for every connection either way.
+function delayIframe(elem, src, proxyTarget, checkFilter) {
   setTimeout(function () {
     var iframe = elem.getElementsByClassName("frame")[0];
     var load = function (url) {
@@ -378,7 +464,7 @@ function delayIframe(elem, src, proxyTarget) {
       // Proxied apps only work once the service worker is active and the
       // transport is connected. Wait for that, then encode the URL with the
       // currently selected engine.
-      SnProxy.go(proxyTarget).then(load, function (err) {
+      (checkFilter ? SnProxy.open(proxyTarget) : SnProxy.go(proxyTarget)).then(load, function (err) {
         elem.getElementsByClassName("loadingoverlay")[0].style = "opacity: 0; background-color:transparent";
         openPopup("Proxy error", err.message);
       });
@@ -412,14 +498,17 @@ function addTaskbarIcon(id, count, actLvl, name, icon, stickied) {
   iconEl.setAttribute("activelevel", actLvl);
   iconEl.setAttribute("onclick", actLvl == 2 ? "minWin(" + count + ")" : "selectIcon(event," + id + ",true)");
   iconEl.innerHTML = "<div class='icon'></div>";
-  iconEl.addEventListener("mousedown", function (event) { showContext(event, id < errID ? (id == viewerID || id == consoleID ? 4 : 1) : 4) });
+  iconEl.addEventListener("mousedown", function (event) { showContext(event, id < errID || isCustomApp(id) ? (id == viewerID || id == consoleID ? 4 : 1) : 4) });
   setIcon(icon, iconEl.getElementsByClassName("icon")[0]);
   tbi.setAttribute("data-title", name);
   tbi.appendChild(iconEl);
   if (!stickied) {
     document.getElementById("taskbar").appendChild(tbi);
   } else {
-    document.getElementById("taskbar").insertBefore(tbi, elems[taskArr.length + permaStickied]);
+    // Insert before the first unpinned item. The reference must be the item (a child of
+    // the taskbar), not its icon, or insertBefore throws whenever a window is open.
+    var after = elems[taskArr.length + permaStickied];
+    document.getElementById("taskbar").insertBefore(tbi, after ? after.parentElement : null);
   }
 }
 
@@ -718,6 +807,7 @@ function moveToTop(id) {
 
 function selectIcon(evt, id, singleClick) {
   hideSearch();
+  if (programData[id] && programData[id].removed) { return; }
   if (!preventEvents) {
     var time = new Date().getTime();
     if (time - last < 500 || singleClick) {
@@ -733,7 +823,9 @@ function selectIcon(evt, id, singleClick) {
 }
 
 function editName(id) {
-  var p = document.getElementsByClassName("ddesc")[id];
+  var link = desktopLink(id);
+  if (!link) { return; }
+  var p = link.getElementsByClassName("ddesc")[0];
   var name = p.innerHTML;
   p.innerHTML = "<div contenteditable spellcheck='false' id='nameedit'>" + escapeHtml(name) + "</div>";
   var ne = document.getElementById("nameedit");
@@ -781,25 +873,40 @@ function setName(evt, id) {
         items[i].setAttribute("data-title", name);
       }
     }
-    localStorage.setItem("customTitle" + id, name);
+    if (isCustomApp(id)) {
+      // A custom app keeps its name in its own record; its letter icon follows the name.
+      var list = readCustomApps();
+      var slot = Number(id) - builtinCount;
+      if (list[slot]) { list[slot].name = name; writeCustomApps(list); }
+      programData[id].icon.letter = name.charAt(0).toUpperCase();
+      var link = desktopLink(id);
+      if (link) { setIcon(programData[id].icon, link.getElementsByClassName("icon")[0]); }
+    } else {
+      SnStore.set("customTitle" + id, name);
+    }
   }
 }
 
 function resetNames() {
   var icons = document.getElementsByClassName("taskbaritem");
   var titles = document.getElementsByClassName("wintitle");
-  var titles2 = document.getElementsByClassName("ddesc");
   for (var i = 0; i < titles.length; i++) {
     for (var n = 0; n < origNames.length; n++) {
       if (titles[i].textContent == programData[n].name) { titles[i].textContent = origNames[n]; }
     }
   }
+  // Built-in apps only: custom apps have no original name to go back to.
   for (var i = 0; i < icons.length; i++) {
-    icons[i].setAttribute("data-title", origNames[i]);
+    var type = Number(icons[i].firstChild && icons[i].firstChild.getAttribute("type"));
+    if (type >= 0 && type < origNames.length) { icons[i].setAttribute("data-title", origNames[type]); }
   }
-  for (var i = 0; i < titles2.length; i++) {
-    titles2[i].textContent = origNames[i];
-    localStorage.setItem("customTitle" + i, origNames[i]);
+  for (var i = 0; i < origNames.length; i++) {
+    var link = desktopLink(i);
+    if (link) {
+      link.title = origNames[i];
+      link.getElementsByClassName("ddesc")[0].textContent = origNames[i];
+    }
+    SnStore.remove("customTitle" + i);
   }
   for (var n = 0; n < origNames.length; n++) {
     programData[n].name = origNames[n];
@@ -977,11 +1084,12 @@ function fillHome() {
   var output = "";
   searchFor = -1;
   var locData = [];
-  for (var i = 0; i < programData.length - hiddenApps; i++) {
-    locData.push(programData[i]);
-    locData[i].index = i;
-    locData[i].oftenUsed = oftenUsed[i];
-  }
+  desktopAppIds().forEach(function (id) {
+    var app = programData[id];
+    app.index = id;
+    app.oftenUsed = oftenUsed[id];
+    locData.push(app);
+  });
   for (var i = 0; i < locData.length; i++) {
     for (var j = i + 1; j < locData.length; j++) {
       if (locData[i].oftenUsed < locData[j].oftenUsed) {
@@ -1097,7 +1205,7 @@ function powerOff(evt) {
   evt.stopPropagation();
 }
 
-// Names come from localStorage (user-renamed apps) and from remote APIs, so they
+// Names come from saved settings (user-renamed apps) and from remote APIs, so they
 // must never be interpreted as markup.
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, function (ch) {
@@ -1113,7 +1221,9 @@ function search() {
   // The query is plain text, not a pattern: typing "(" or "[" must not throw.
   var input = new RegExp(escapeRegExp(document.getElementById("search").value), "gi");
   var results = [];
-  for (var i = 0; i < programData.length - hiddenApps; i++) {
+  var ids = desktopAppIds();
+  for (var k = 0; k < ids.length; k++) {
+    var i = ids[k];
     var arr = programData[i].keywords.split(",");
     var newArr = [];
     for (var n = 0; n < arr.length; n++) {
@@ -1189,14 +1299,15 @@ function showContext(evt, type) {
       var tot = 0;
       var id = -1, elem = document.getElementsByClassName("desktoplink");
       var targ = getParent(evt.target, "desktoplink");
+      if (targ) { id = Number(targ.getAttribute("data-app")); }
       for (var i = 0; i < elem.length; i++) {
-        if (elem[i] == targ && id == -1) { id = i; }
         if (elem[i].getAttribute("selected") == "true") {
           tot++;
         }
       }
       document.getElementsByClassName("contextitem")[1].style.display = tot > 1 && id != -1 ? "block" : "none";
       document.getElementsByClassName("contextitem")[1].innerHTML = "Open All (" + tot + ")";
+      items[17].style.display = isCustomApp(id) ? "block" : "none";
       context.setAttribute("target", id);
       for (var i = 0; i < elem.length; i++) {
         if (elem[i] == evt.target) {
@@ -1255,15 +1366,6 @@ function showContext(evt, type) {
     evt.stopPropagation();
     //preventHide=true;
   }
-   var showSetUrl = false;
-   var showDelete = false;
-  if (id >= 0 && id < programData.length - hiddenApps) {
-    var app = programData[id];
-    if (!app.icon.url) {
-      showSetUrl = true;
-      showDelete = true;
-    }
-  }
 }
 
 function contextOpen(evt, mult) {
@@ -1275,9 +1377,9 @@ function contextOpen(evt, mult) {
   } else {
     var count = 0, ids = [];
     var elem = document.getElementsByClassName("desktoplink");
-    for (var i = 1; i < elem.length; i++) {
+    for (var i = 0; i < elem.length; i++) {
       if (elem[i].getAttribute("selected") == "true") {
-        ids.push(i);
+        ids.push(Number(elem[i].getAttribute("data-app")));
         setTimeout(function () { addWindow(ids[0], null, null, DEF_WIN_W, DEF_WIN_H); ids.splice(0, 1); }, 750 * count);
         count++;
       }
@@ -1317,7 +1419,7 @@ function contextPin(type) {
     icon.classList.add("stickied");
   }
   taskArr.push(id);
-  localStorage.setItem("taskArr", taskArr);
+  SnStore.set("taskArr", taskArr);
 }
 
 function contextUnpin() {
@@ -1337,7 +1439,7 @@ function contextUnpin() {
       break;
     }
   }
-  localStorage.setItem("taskArr", taskArr);
+  SnStore.set("taskArr", taskArr);
 }
 
 function contextAddWin(evt) {
@@ -1366,13 +1468,13 @@ function openSettings(section) {
 
 function selCol(id) {
   colId = id;
-  localStorage.setItem("colId", id);
+  SnStore.set("colId", id);
   setCols();
 }
 
 function selIco(id) {
   backId = id;
-  localStorage.setItem("backId", id);
+  SnStore.set("backId", id);
   setCols();
 }
 
@@ -1452,7 +1554,7 @@ function handleTaskbar() {
 // add to the local time.
 function setTimezone(value) {
   tzOffset = value === "local" ? 0 : Number(value) * 60 + new Date().getTimezoneOffset();
-  localStorage.setItem("tzOffset", tzOffset);
+  SnStore.set("tzOffset", tzOffset);
   newTime();
 }
 
@@ -1467,8 +1569,8 @@ function currentTimezone() {
 function setWindowSize(width, height) {
   DEF_WIN_W = parseInt(width) || DEF_WIN_W;
   DEF_WIN_H = parseInt(height) || DEF_WIN_H;
-  localStorage.setItem("winW", DEF_WIN_W);
-  localStorage.setItem("winH", DEF_WIN_H);
+  SnStore.set("winW", DEF_WIN_W);
+  SnStore.set("winH", DEF_WIN_H);
 }
 
 // What the Settings window (an iframe on this origin) may do to the desktop.
@@ -1479,7 +1581,7 @@ window.SnOS = {
     return {
       scheme: colId,
       wallpaper: backId,
-      customBackground: localStorage.getItem("backgroundUrl") || "",
+      customBackground: SnStore.get("backgroundUrl") || "",
       windowWidth: DEF_WIN_W,
       windowHeight: DEF_WIN_H,
       timezone: currentTimezone()
@@ -1488,13 +1590,16 @@ window.SnOS = {
   setScheme: selCol,
   setWallpaper: selIco,
   setCustomBackground: function (url) {
-    if (url) { localStorage.setItem("backgroundUrl", url); } else { localStorage.removeItem("backgroundUrl"); }
+    if (url) { SnStore.set("backgroundUrl", url); } else { SnStore.remove("backgroundUrl"); }
     setCols();
   },
   setWindowSize: setWindowSize,
   setTimezone: setTimezone,
   resetNames: resetNamesRelay,
-  factoryReset: resetAll
+  factoryReset: resetAll,
+  restart: restart,
+  addApp: addApp,
+  openAddApp: openAddAppDialog
 };
 
 newTime();
@@ -1550,12 +1655,20 @@ function showNotification(title, body) {
 
 function execNext(id) {
   if (next == "reset") {
-    localStorage.clear();
-    restart();
+    // Sign out first, or the account would put everything back on the next start.
+    // The account itself keeps its settings: this resets the browser, not the account.
+    var signOut = window.SnAccount ? SnAccount.logout({ keepSettings: true }) : Promise.resolve();
+    signOut.then(function () {
+      SnStore.clear();
+      restart();
+    });
   } else if (next == "resetn") {
     resetNames();
+  } else if (next == "removeapp") {
+    removeApp(pendingRemoval);
+    pendingRemoval = null;
   } else if (next == "welcome") {
-    localStorage.setItem("welcome-popup", "false");
+    SnStore.set("welcome-popup", "false");
     closeWin(id);
   }
 
@@ -1567,6 +1680,113 @@ function cancelPrompt(id) {
   closeWin(id);
 }
 
+// ---------------------------------------------------------------------------
+// Adding and removing custom apps
+// ---------------------------------------------------------------------------
+
+// Resolves to { id } or { error }. The content filter is asked first so a blocked
+// site never lands on the desktop.
+function addApp(name, address) {
+  var url = SnResolve.toUrl(address);
+  if (!url) { return Promise.resolve({ error: "Enter a web address, like example.com." }); }
+  var list = readCustomApps();
+  var live = list.filter(Boolean);
+  if (live.length >= CUSTOM_APPS_MAX) {
+    return Promise.resolve({ error: "You can add up to " + CUSTOM_APPS_MAX + " apps. Remove one first." });
+  }
+  for (var i = 0; i < live.length; i++) {
+    if (SnResolve.toUrl(live[i].url) === url) { return Promise.resolve({ error: "That site is already on your desktop." }); }
+  }
+  return SnProxy.verdict(new URL(url).hostname).then(function (result) {
+    if (result.blocked) { return { error: "That site is blocked by the content filter." }; }
+    list = readCustomApps(); // may have changed while the filter was asked
+    var base = cleanAppName(name) || new URL(url).hostname.replace(/^www\./, "");
+    var unique = base, n = 2;
+    while (programData.some(function (app) { return !app.removed && app.name === unique; })) {
+      unique = base.slice(0, APP_NAME_MAX - 4) + " (" + n++ + ")";
+    }
+    var slot = list.indexOf(null);
+    if (slot === -1) { slot = list.length; }
+    list[slot] = { name: unique, url: url };
+    writeCustomApps(list);
+    var id = builtinCount + slot;
+    programData[id] = customAppEntry(list[slot]);
+    oftenUsed[id] = 0;
+    addDesktopIcon(id);
+    return { id: id };
+  });
+}
+
+function removeApp(id) {
+  id = Number(id);
+  if (!isCustomApp(id) || !programData[id] || programData[id].removed) { return; }
+  // Close its windows (closed windows stay in the page, typed "null").
+  var wins = document.getElementsByClassName("window");
+  for (var i = 0; i < wins.length; i++) {
+    if (wins[i].getAttribute("type") == id && !wins[i].classList.contains("closed")) { closeWin(i); }
+  }
+  // Unpin it. closeWinHelper removes unpinned icons itself (about 400 ms after
+  // closeWin) through a live list of icons, so only the pinned one is removed here, and
+  // only once that has finished.
+  taskArr = taskArr.filter(function (pinned) { return Number(pinned) !== id; });
+  SnStore.set("taskArr", taskArr);
+  setTimeout(function () {
+    var icon = document.querySelector(".taskbaricon.stickied[type='" + id + "']");
+    if (icon) { icon.parentElement.remove(); }
+  }, 700);
+  var link = desktopLink(id);
+  if (link) { link.remove(); }
+  programData[id] = removedApp();
+  oftenUsed[id] = 0;
+  SnStore.set("oftenUsed", oftenUsed);
+  var list = readCustomApps();
+  list[id - builtinCount] = null;
+  writeCustomApps(list);
+}
+
+var pendingRemoval = null;
+
+function confirmRemoveApp(id) {
+  if (!isCustomApp(id) || programData[id].removed) { return; }
+  pendingRemoval = Number(id);
+  openPrompt("Remove app?", "Remove " + escapeHtml(programData[id].name) + " from your desktop?", "removeapp");
+}
+
+// The "Add an app" window. Both fields can be filled in ahead (the Browser's
+// "Add to desktop" does that).
+function openAddAppDialog(name, address) {
+  hideSearch();
+  programData[errID].icon.svg = "info_icon";
+  var win = addWindow(errID, "Add an app", "<form class='appform' novalidate>" +
+    "<label>Web address<input name='url' autocomplete='off' spellcheck='false' placeholder='example.com'></label>" +
+    "<label>Name<input name='name' autocomplete='off' maxlength='" + APP_NAME_MAX + "' placeholder='Optional'></label>" +
+    "<p class='apperror' role='alert'></p>" +
+    "<div class='appbuttons'><button class='promptbtn' type='submit'>Add</button><button class='promptbtn' type='button'>Cancel</button></div>" +
+    "</form>", 27, 13);
+  var form = win.getElementsByClassName("appform")[0];
+  var error = form.getElementsByClassName("apperror")[0];
+  var submit = form.querySelector("button[type='submit']");
+  form.elements.url.value = address || "";
+  form.elements.name.value = cleanAppName(name);
+  form.querySelector("button[type='button']").addEventListener("click", function () { closeWin(Number(win.id)); });
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    submit.disabled = true;
+    error.textContent = "";
+    addApp(form.elements.name.value, form.elements.url.value).then(function (result) {
+      submit.disabled = false;
+      if (result.error) {
+        error.textContent = result.error;
+        form.elements.url.focus();
+      } else {
+        closeWin(Number(win.id));
+      }
+    });
+  });
+  setTimeout(function () { form.elements[address ? "name" : "url"].focus(); }, 250);
+  return win;
+}
+
 function resetNamesRelay() {
   openPrompt("Reset Names?", "Do you want to reset all file names?", "resetn");
 }
@@ -1576,14 +1796,14 @@ function resetAll() {
 }
 
 // Check if the user has visited before
-if (!localStorage.getItem("visited-before")) {
+if (!SnStore.get("visited-before")) {
   // This is the user's first visit
   setTimeout(function() {
-    openPrompt("Welcome to SnOS!", "This is a simple operating system made by SuperNova-Network. It's a work in progress, so expect bugs and unfinished features. Enjoy your stay!", "welcome");
+    openPrompt("Welcome to SnOS!", "Do people even read this?? Don't you have school work to do? I KNOW your GPA is below a 3.0", "welcome");
   }, 3000);
 
   // Set the flag indicating the user has visited before
-  localStorage.setItem("visited-before", "true");
+  SnStore.set("visited-before", "true");
 }
 
 function toggleFullscreen() {
@@ -1854,11 +2074,11 @@ function toggleGT() {
   if (cl.contains("grid")) {
     cl.remove("grid");
     cl.add("table");
-    localStorage.setItem("viewmode", "table");
+    SnStore.set("viewmode", "table");
   } else {
     cl.remove("table");
     cl.add("grid");
-    localStorage.setItem("viewmode", "grid");
+    SnStore.set("viewmode", "grid");
   }
 }
 
@@ -1956,7 +2176,32 @@ function randWifi() {
 setInterval(randWifi, 3000);
 
 function setIcon(obj, elem) {
-  if (obj.url != undefined) {
+  if (obj.letter != undefined) {
+    // Custom apps: a coloured tile with the first letter, drawn here so the desktop
+    // never contacts the site (a favicon fetch would reveal the user's address).
+    var svgNs = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(svgNs, "svg");
+    svg.setAttribute("viewBox", "0 0 40 40");
+    svg.setAttribute("class", "letter_icon");
+    var rect = document.createElementNS(svgNs, "rect");
+    rect.setAttribute("x", "2"); rect.setAttribute("y", "2");
+    rect.setAttribute("width", "36"); rect.setAttribute("height", "36");
+    rect.setAttribute("rx", "8");
+    rect.setAttribute("fill", obj.color || LETTER_COLORS[0]);
+    var text = document.createElementNS(svgNs, "text");
+    text.setAttribute("x", "20"); text.setAttribute("y", "27.5");
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("font-size", "21");
+    text.setAttribute("font-family", "Segoe UI, system-ui, sans-serif");
+    text.setAttribute("font-weight", "600");
+    text.setAttribute("fill", "#fff");
+    text.textContent = obj.letter;
+    svg.appendChild(rect);
+    svg.appendChild(text);
+    elem.textContent = "";
+    elem.style.backgroundImage = "none";
+    elem.appendChild(svg);
+  } else if (obj.url != undefined) {
     elem.style.backgroundImage = "url(resources/media/app_icons/" + obj.url + ".png)";
   } else if (obj.svg != undefined) {
     var html = document.getElementById("svgbuffer").getElementsByClassName(obj.svg)[0].outerHTML;

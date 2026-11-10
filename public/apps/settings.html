@@ -21,6 +21,14 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg>
       <span>Home</span>
     </button>
+    <button class="nav-item" role="tab" data-panel="account" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+      <span>Account</span>
+    </button>
+    <button class="nav-item" role="tab" data-panel="admin" type="button" id="nav-admin" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+      <span>Admin</span>
+    </button>
     <button class="nav-item" role="tab" data-panel="proxy" type="button">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
       <span>Proxy</span>
@@ -44,6 +52,10 @@
     <section class="panel" id="panel-home" role="tabpanel" hidden>
       <header class="panel-head"><h2>Windows Settings</h2></header>
       <div class="home-tiles">
+        <button class="home-tile" type="button" data-go="account">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+          <span><strong>Account</strong><small id="account-tile">Sign in to keep your settings everywhere</small></span>
+        </button>
         <button class="home-tile" type="button" data-go="proxy">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
           <span><strong>Proxy</strong><small>Engine, connection, search, troubleshooting</small></span>
@@ -60,6 +72,227 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
           <span><strong>System</strong><small>Clock, reset, about</small></span>
         </button>
+      </div>
+    </section>
+
+    <!-- ===================== ACCOUNT ===================== -->
+    <section class="panel" id="panel-account" role="tabpanel" hidden>
+      <header class="panel-head">
+        <h2>Account</h2>
+        <p>Keep your apps, wallpaper, bookmarks and preferences in an account, and get them back in any browser.</p>
+      </header>
+
+      <div class="group" id="account-loading">
+        <p class="hint">Checking…</p>
+      </div>
+
+      <div class="group" id="account-off" hidden>
+        <h3>Accounts</h3>
+        <p class="hint">Accounts aren't available on this site, so your settings are saved in this browser only. To move them to another browser, use <a href="#system">System &gt; Backup</a>.</p>
+        <div class="buttons">
+          <a class="btn btn-primary" id="account-setup" href="/setup" target="_top" hidden>Set up this site</a>
+          <a class="btn btn-ghost" id="account-admin-signin" href="/signin" target="_top">Site admin? Sign in</a>
+        </div>
+        <p class="hint" id="account-setup-hint" hidden>Nobody manages this site yet. Whoever runs the server can set it up with the code in the server's log.</p>
+      </div>
+
+      <!-- signed out: one of three forms -->
+      <div class="group" id="account-out" hidden>
+        <form class="account-form" id="form-login" data-mode="login" novalidate>
+          <h3>Sign in</h3>
+          <label class="row column"><span class="row-label"><strong>Username</strong></span>
+            <input class="field" name="username" autocomplete="username" spellcheck="false" autocapitalize="off" required></label>
+          <label class="row column"><span class="row-label"><strong>Password</strong></span>
+            <input class="field" name="password" type="password" autocomplete="current-password" required></label>
+          <small class="status" role="status"></small>
+          <div class="buttons">
+            <button class="btn btn-primary" type="submit">Sign in</button>
+            <button class="btn btn-ghost" type="button" data-show="register">Create an account</button>
+            <button class="btn btn-ghost" type="button" data-show="recover">Forgot password?</button>
+          </div>
+          <p class="hint">Signing in replaces the settings in this browser with the ones in your account. A new account starts with this browser's settings.</p>
+        </form>
+
+        <form class="account-form" id="form-register" data-mode="register" novalidate hidden>
+          <h3>Create an account</h3>
+          <label class="row column"><span class="row-label"><strong>Username</strong><small>3 to 32 letters, numbers, dots, dashes or underscores.</small></span>
+            <input class="field" name="username" autocomplete="username" spellcheck="false" autocapitalize="off" maxlength="32" required></label>
+          <label class="row column"><span class="row-label"><strong>Password</strong><small>At least 8 characters.</small></span>
+            <input class="field" name="password" type="password" autocomplete="new-password" required></label>
+          <label class="row column"><span class="row-label"><strong>Confirm password</strong></span>
+            <input class="field" name="confirm" type="password" autocomplete="new-password" required></label>
+          <label class="row column" id="register-invite" hidden><span class="row-label"><strong>Invite code</strong><small>Ask whoever runs this site.</small></span>
+            <input class="field" name="invite" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+          <small class="status" role="status"></small>
+          <div class="buttons">
+            <button class="btn btn-primary" type="submit">Create account</button>
+            <button class="btn btn-ghost" type="button" data-show="login">I already have one</button>
+          </div>
+          <p class="hint">There's no email address: if you forget your password, the recovery code you get next is the only way back in.</p>
+        </form>
+
+        <form class="account-form" id="form-recover" data-mode="recover" novalidate hidden>
+          <h3>Forgot password</h3>
+          <label class="row column"><span class="row-label"><strong>Username</strong></span>
+            <input class="field" name="username" autocomplete="username" spellcheck="false" autocapitalize="off" required></label>
+          <label class="row column"><span class="row-label"><strong>Recovery code</strong><small>The code you saved when you created the account.</small></span>
+            <input class="field mono" name="code" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" required></label>
+          <label class="row column"><span class="row-label"><strong>New password</strong><small>At least 8 characters.</small></span>
+            <input class="field" name="password" type="password" autocomplete="new-password" required></label>
+          <small class="status" role="status"></small>
+          <div class="buttons">
+            <button class="btn btn-primary" type="submit">Reset password</button>
+            <button class="btn btn-ghost" type="button" data-show="login">Back to sign in</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- shown once after creating an account or using the recovery code -->
+      <div class="group" id="account-code" hidden>
+        <h3>Save your recovery code</h3>
+        <p class="hint">If you forget your password, this code is the only way back into your account. It works once and won't be shown again. Write it down or keep it in a password manager.</p>
+        <div class="recovery-code">
+          <code id="recovery-code"></code>
+          <button class="btn" id="recovery-copy" type="button">Copy</button>
+        </div>
+        <div class="buttons"><button class="btn btn-primary" id="recovery-done" type="button">I've saved it</button></div>
+      </div>
+
+      <!-- signed in -->
+      <div id="account-in" hidden>
+        <div class="group">
+          <div class="account-card card">
+            <span class="account-avatar" id="account-avatar" aria-hidden="true"></span>
+            <div>
+              <strong id="account-name"></strong>
+              <div class="hint" id="account-sync">Your settings are saved to your account.</div>
+            </div>
+          </div>
+          <p class="hint">Saved to your account: desktop apps and names, wallpaper and colours, bookmarks, and proxy, search and cloaking preferences. Browsing history stays in this browser.</p>
+          <div class="row">
+            <span class="row-label"><strong>Sign out</strong><small id="logout-hint">Removes your settings from this browser. They stay in your account.</small></span>
+            <button class="btn" id="account-logout" type="button">Sign out</button>
+          </div>
+          <small class="status" id="account-status" role="status"></small>
+        </div>
+
+        <div class="group">
+          <h3>Change password</h3>
+          <form class="account-form" id="form-password" novalidate>
+            <label class="row column"><span class="row-label"><strong>Current password</strong></span>
+              <input class="field" name="current" type="password" autocomplete="current-password" required></label>
+            <label class="row column"><span class="row-label"><strong>New password</strong><small>At least 8 characters. Other browsers signed in to this account are signed out.</small></span>
+              <input class="field" name="password" type="password" autocomplete="new-password" required></label>
+            <small class="status" role="status"></small>
+            <div class="buttons"><button class="btn" type="submit">Change password</button></div>
+          </form>
+        </div>
+
+        <div class="group">
+          <h3>Delete account</h3>
+          <form class="account-form" id="form-delete" novalidate>
+            <label class="row column"><span class="row-label"><strong>Password</strong><small>Deletes your account and the settings saved in it. This browser keeps its current settings. This can't be undone.</small></span>
+              <input class="field" name="password" type="password" autocomplete="current-password" required></label>
+            <small class="status" role="status"></small>
+            <div class="buttons"><button class="btn btn-danger" type="submit">Delete my account</button></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ADMIN (usernames in ADMINS) ===================== -->
+    <section class="panel" id="panel-admin" role="tabpanel" hidden>
+      <header class="panel-head">
+        <h2>Admin</h2>
+        <p>How this site uses accounts, who can join, and who can't.</p>
+      </header>
+
+      <div class="group" id="site-group">
+        <h3>Accounts</h3>
+        <p class="hint">Changes apply straight away, for everyone.</p>
+        <div class="choices" role="radiogroup" aria-label="Accounts" id="site-mode">
+          <label class="choice">
+            <input type="radio" name="site-mode" value="off">
+            <span class="choice-body">
+              <strong>Off</strong>
+              <small>No accounts. Anyone with the link uses the site. Admins can still sign in at /signin.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="site-mode" value="optional">
+            <span class="choice-body">
+              <strong>Optional</strong>
+              <small>People can create an account in Settings to keep their apps and preferences everywhere. The site stays open to everyone.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="site-mode" value="required">
+            <span class="choice-body">
+              <strong>Required</strong>
+              <small>Everyone signs in first, on a sign-in screen. Nobody can use the site or the proxy without an account; people who aren't signed in are disconnected.</small>
+            </span>
+          </label>
+        </div>
+        <small class="status" id="site-mode-locked" hidden></small>
+
+        <h3>Who can create an account</h3>
+        <div class="choices" role="radiogroup" aria-label="Sign-up" id="site-signup">
+          <label class="choice">
+            <input type="radio" name="site-signup" value="invite">
+            <span class="choice-body">
+              <strong>People with an invite code <span class="chip">Recommended</span></strong>
+              <small>Make codes below and share them.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="site-signup" value="open">
+            <span class="choice-body">
+              <strong>Anyone</strong>
+              <small>Anyone who finds the site can create an account.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="site-signup" value="closed">
+            <span class="choice-body">
+              <strong>Nobody</strong>
+              <small>No new accounts. Existing ones keep working.</small>
+            </span>
+          </label>
+        </div>
+        <small class="status" id="site-signup-locked" hidden></small>
+        <small class="status" id="site-status" role="status"></small>
+      </div>
+
+      <div class="group">
+        <h3>Invite codes</h3>
+        <p class="hint">New people need an invite code to create an account. A code works a set number of times and can expire; it's shown only once, when you create it.</p>
+        <form class="invite-form" id="invite-form" novalidate>
+          <label class="invite-label"><span>Label</span><input class="field" name="label" maxlength="60" placeholder="For example: Period 3" autocomplete="off"></label>
+          <label><span>Uses</span><input class="field" name="uses" type="number" min="1" max="1000" value="1" required></label>
+          <label><span>Expires</span>
+            <select class="field" name="days">
+              <option value="1">In 1 day</option>
+              <option value="7" selected>In 7 days</option>
+              <option value="30">In 30 days</option>
+              <option value="0">Never</option>
+            </select>
+          </label>
+          <button class="btn btn-primary" type="submit">Create code</button>
+        </form>
+        <div class="recovery-code" id="new-invite" hidden>
+          <code id="new-invite-code"></code>
+          <button class="btn" id="new-invite-copy" type="button">Copy</button>
+        </div>
+        <small class="status" id="invite-status" role="status"></small>
+        <div class="admin-list" id="invite-list"></div>
+      </div>
+
+      <div class="group">
+        <h3>Accounts</h3>
+        <p class="hint">Banning someone signs them out everywhere, cuts their open connections and keeps them from signing in. They see the reason when they try.</p>
+        <input class="field admin-search" id="people-search" type="search" placeholder="Search by username" autocomplete="off" spellcheck="false" aria-label="Search accounts">
+        <small class="status" id="people-status" role="status"></small>
+        <div class="admin-list" id="people-list"></div>
       </div>
     </section>
 
@@ -276,6 +509,28 @@
         </label>
       </div>
 
+      <div class="group">
+        <h3>Backup</h3>
+        <div class="row">
+          <span class="row-label"><strong>Export settings</strong><small>Save your apps, bookmarks, wallpaper and preferences to a file. Browsing history is not included.</small></span>
+          <button class="btn" id="export-settings" type="button">Export</button>
+        </div>
+        <div class="row">
+          <span class="row-label"><strong>Import settings</strong><small>Load a backup file, here or on another SuperNova site. It replaces your current settings.</small></span>
+          <button class="btn" id="import-settings" type="button">Import…</button>
+          <input type="file" id="import-file" accept=".json,application/json" hidden>
+        </div>
+        <div class="import-confirm" id="import-confirm" hidden>
+          <p id="import-summary"></p>
+          <ul class="import-warnings" id="import-warnings"></ul>
+          <div class="buttons">
+            <button class="btn btn-primary" id="import-apply" type="button">Replace my settings</button>
+            <button class="btn" id="import-cancel" type="button">Cancel</button>
+          </div>
+        </div>
+        <small class="status" id="backup-status" role="status"></small>
+      </div>
+
       <div class="group" data-needs-os>
         <h3>Data</h3>
         <div class="row">
@@ -307,6 +562,8 @@
   <script src="/assets/uv/uv.bundle.js"></script>
   <script src="/proxy/uv.config.js"></script>
   <script src="/proxy/store.js"></script>
+  <script src="/proxy/backup.js"></script>
+  <script src="/proxy/account.js"></script>
   <script src="/proxy/resolve.js"></script>
   <script src="/proxy/core.js"></script>
   <script src="/resources/scripts/theme.js"></script>

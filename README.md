@@ -35,7 +35,7 @@ SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has 
 
 ## Getting started
 
-You need Node.js 20 or newer.
+You need Node.js 20 or newer, or 22.13 or newer for accounts and the admin panel (they use its built-in SQLite).
 
 ```sh
 git clone https://github.com/SuperNova-Network/SuperNova-OS.git
@@ -46,6 +46,8 @@ npm start
 
 Then open http://localhost:3000.
 
+To manage the site (accounts, sign-up, invite codes, bans), use the setup link the server prints on its first start: it creates the first admin, who gets Settings > Admin.
+
 Other scripts:
 
 - `npm run dev` restarts the server when files change
@@ -55,11 +57,14 @@ Other scripts:
 
 - Browse: open SuperNova on the desktop, or switch the taskbar search to Web and type a URL or search.
 - Games: double click the icon on the desktop.
+- Your own apps: right click the desktop > Add an app…, or open the browser menu > Add to desktop. Right click an app you added to rename or remove it.
 - Switch engine: Settings > Proxy > Engine, or click the engine badge in the browser's address bar.
 - Change transport: Settings > Proxy > Connection. You can also set a custom Wisp server there.
 - Test the connection: Settings > Proxy > Troubleshooting > Run test.
 - Cloaking: Settings > Cloaking for the tab disguise, panic key (e.g. `Ctrl+Alt+P`) and open in about:blank.
 - Wallpaper and colors: Settings > Appearance, or right click the desktop.
+- Accounts (when the site has them on): Settings > Account to create one or sign in. Your apps, wallpaper, bookmarks and preferences follow you to any browser you sign in on.
+- Back up or move your setup: Settings > System > Backup exports your apps, bookmarks and preferences to a file and imports it again, on any SuperNova site.
 
 <details>
 <summary>Browser shortcuts</summary>
@@ -107,6 +112,9 @@ Everything is optional. Copy `.env.example` to `.env` or set these on your host.
 | `BLOCKED_HOSTS` | empty | Extra domains to block, comma separated |
 | `WISP_URL` | empty | Use an external Wisp server (`wss://...`) |
 | `OPEN_BROWSER` | empty | Set to `1` to open your browser on start |
+| `DATA_DIR` | `data` | Where accounts and the admin panel's choices are stored. Put it on a persistent disk |
+| `ACCOUNTS` / `ACCOUNTS_SIGNUP` / `ADMINS` | empty | Optional overrides for what Settings > Admin manages. Leave them unset to choose in the panel |
+| `TRUST_PROXY` | empty | Set to `1` behind a hosting platform's proxy (Fly.io, Render, nginx) |
 
 Full reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
 

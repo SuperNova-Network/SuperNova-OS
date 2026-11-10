@@ -474,6 +474,219 @@ select {
   color: #ff99a4;
 }
 
+/* account (Account page) */
+.account-form {
+  max-width: 420px;
+}
+
+.account-form h3 {
+  margin-top: 0;
+}
+
+.account-form .row.column {
+  padding-left: 0;
+  padding-right: 0;
+  background: none;
+}
+
+.account-form .field {
+  width: 100%;
+}
+
+.field.mono,
+.recovery-code code {
+  font-family: "Cascadia Mono", Consolas, "SF Mono", monospace;
+  letter-spacing: 0.04em;
+}
+
+.recovery-code {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 4px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+}
+
+.recovery-code code {
+  flex: 1;
+  font-size: 18px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+  padding: 14px 16px;
+}
+
+.account-avatar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* Layout rules (display: flex / block) must never un-hide something hidden, such as
+   the Admin item for people who aren't admins, or a note that doesn't apply. */
+[hidden] {
+  display: none !important;
+}
+
+/* links that look like buttons (Settings > Account when accounts are off) */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* admin (Admin page) */
+.invite-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.invite-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--w-sub);
+}
+
+.invite-form .invite-label {
+  flex: 1 1 180px;
+}
+
+.invite-form .field {
+  width: 100%;
+}
+
+.invite-form input[type="number"] {
+  width: 84px;
+}
+
+.admin-search {
+  width: min(320px, 100%);
+  margin-bottom: 6px;
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.admin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 10px 16px;
+  background: var(--w-card);
+}
+
+.admin-row .admin-main {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.admin-row strong {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.admin-row small {
+  display: block;
+  color: var(--w-sub);
+  font-size: 12.5px;
+}
+
+.admin-row .ban-reason {
+  color: #ff99a4;
+}
+
+.admin-row[data-dim] {
+  opacity: 0.6;
+}
+
+.admin-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  background: #4a4a4a;
+  font-weight: 600;
+}
+
+.chip-admin,
+.chip-banned,
+.chip-state {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  font-size: 11.5px;
+  line-height: 18px;
+  vertical-align: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.chip-banned {
+  background: rgba(255, 93, 115, 0.25);
+  color: #ffc2cb;
+}
+
+.ban-form {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ban-form .field {
+  flex: 1 1 220px;
+}
+
+/* import confirmation (System > Backup) */
+.import-confirm {
+  margin: 8px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--w-border, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.import-confirm p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.import-warnings {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #fce100;
+  font-size: 13px;
+}
+
+.import-warnings:empty {
+  display: none;
+}
+
 /* flash a row when it was reached from the search box */
 .flash {
   animation: flash 1.4s var(--w-ease);
@@ -490,6 +703,8 @@ select {
 
 .btn {
   position: relative;
+  flex: none;
+  white-space: nowrap;
   min-height: 32px;
   padding: 4px 20px;
   border: 2px solid transparent;

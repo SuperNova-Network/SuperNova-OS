@@ -27,7 +27,7 @@
   const tabs = [...document.querySelectorAll(".nav-item")];
 
   function showPanel(name) {
-    if (!document.getElementById(`panel-${name}`)) name = "home";
+    if (!document.getElementById(`panel-${name}`) || (name === "admin" && $("nav-admin").hidden)) name = "home";
     for (const tab of tabs) {
       const selected = tab.dataset.panel === name;
       tab.setAttribute("aria-selected", String(selected));
@@ -49,7 +49,9 @@
     });
   });
   window.addEventListener("hashchange", () => showPanel(location.hash.slice(1)));
-  showPanel(location.hash.slice(1) || "home");
+  // The Admin page only exists once the account check says so; remember if it was asked for.
+  const requestedPanel = location.hash.slice(1);
+  showPanel(requestedPanel || "home");
 
   // Home page tiles jump to their page
   document.querySelectorAll("[data-go]").forEach((tile) => tile.addEventListener("click", () => showPanel(tile.dataset.go)));
@@ -425,6 +427,418 @@
     syncDesktop();
   }
 
+  // --- account ------------------------------------------------------------------------------------
+
+  {
+    const views = { loading: $("account-loading"), off: $("account-off"), out: $("account-out"), code: $("account-code"), in: $("account-in") };
+    const forms = { login: $("form-login"), register: $("form-register"), recover: $("form-recover") };
+    let afterCode = null; // what "I've saved it" does next
+
+    const show = (name) => Object.entries(views).forEach(([key, el]) => { el.hidden = key !== name; });
+    const formStatus = (form, message, state) => status(form.querySelector(".status"), message, state);
+
+    function showForm(mode) {
+      Object.entries(forms).forEach(([key, form]) => { form.hidden = key !== mode; formStatus(form, ""); });
+      forms[mode].elements.username.value ||= Object.values(forms).map((form) => form.elements.username.value).find(Boolean) ?? "";
+      forms[mode].elements[forms[mode].elements.username.value ? (mode === "recover" ? "code" : "password") : "username"].focus();
+    }
+    document.querySelectorAll("[data-show]").forEach((button) => button.addEventListener("click", () => showForm(button.dataset.show)));
+
+    function signedInView(user) {
+      $("nav-admin").hidden = !user.admin;
+      if (user.admin) {
+        window.dispatchEvent(new Event("sn-admin"));
+        if (requestedPanel === "admin") showPanel("admin");
+      }
+      text($("account-name"), user.username);
+      text($("account-avatar"), user.username.charAt(0).toUpperCase());
+      text($("account-tile"), `Signed in as ${user.username}`);
+      status($("account-status"), "");
+      show("in");
+    }
+
+    function signedOutView(state) {
+      $("nav-admin").hidden = true;
+      // This site needs an account: signed out means back to the sign-in screen.
+      if (state.required) { window.top.location.href = "/signin"; return; }
+      text($("account-tile"), state.enabled ? "Sign in to keep your settings everywhere" : "Not available on this site");
+      if (!state.enabled) {
+        $("account-setup").hidden = !state.setup;
+        $("account-setup-hint").hidden = !state.setup;
+        return show("off");
+      }
+      forms.login.querySelector("[data-show='register']").hidden = !state.signup;
+      $("register-invite").hidden = !state.invite;
+      show("out");
+      showForm("login");
+    }
+
+    /** Make the desktop (or this page) show settings that just changed. */
+    function reloadEverything() {
+      setTimeout(() => (os?.restart ? os.restart() : location.reload()), 600);
+    }
+
+    async function refresh() {
+      try {
+        const state = await SnAccount.status(true);
+        if (state.required) text($("logout-hint"), "Removes your settings from this browser and returns to the sign-in screen. They stay in your account.");
+        if (state.user) signedInView(state.user); else signedOutView(state);
+      } catch {
+        text($("account-loading").querySelector(".hint"), "Couldn't reach the server. Try again later.");
+      }
+    }
+
+    /** Run an account action from a form: busy state, errors shown under the form. */
+    function submitting(form, action) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const button = form.querySelector("button[type='submit']");
+        button.disabled = true;
+        formStatus(form, "");
+        try {
+          await action(form.elements);
+        } catch (err) {
+          formStatus(form, err.message, "error");
+        } finally {
+          button.disabled = false;
+        }
+      });
+    }
+
+    function afterSignIn(result, message) {
+      if (result.recoveryCode) {
+        text($("recovery-code"), result.recoveryCode);
+        show("code");
+        $("recovery-copy").focus();
+        afterCode = () => finish();
+      } else {
+        finish();
+      }
+      function finish() {
+        Object.values(forms).forEach((form) => form.reset());
+        signedInView(result.user);
+        if (result.changed) {
+          status($("account-status"), "Loading your settings…", "ok");
+          reloadEverything();
+        } else {
+          status($("account-status"), message, "ok");
+        }
+      }
+    }
+
+    submitting(forms.login, async (f) => {
+      afterSignIn(await SnAccount.login(f.username.value, f.password.value), "Signed in. This browser's settings are now saved to your account.");
+    });
+
+    submitting(forms.register, async (f) => {
+      if (f.password.value !== f.confirm.value) throw new Error("The passwords don't match.");
+      afterSignIn(await SnAccount.register(f.username.value, f.password.value, f.invite.value), "Account created. This browser's settings are saved to it.");
+    });
+
+    submitting(forms.recover, async (f) => {
+      afterSignIn(await SnAccount.recover(f.username.value, f.code.value, f.password.value), "Password changed. You're signed in.");
+    });
+
+    $("recovery-copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText($("recovery-code").textContent);
+        text($("recovery-copy"), "Copied");
+      } catch {
+        getSelection().selectAllChildren($("recovery-code"));
+      }
+    });
+    $("recovery-done").addEventListener("click", () => { text($("recovery-copy"), "Copy"); afterCode?.(); afterCode = null; });
+
+    $("account-logout").addEventListener("click", async () => {
+      $("account-logout").disabled = true;
+      await SnAccount.logout();
+      status($("account-status"), "Signed out. Restarting…", "ok");
+      reloadEverything();
+    });
+
+    submitting($("form-password"), async (f) => {
+      await SnAccount.changePassword(f.current.value, f.password.value);
+      $("form-password").reset();
+      formStatus($("form-password"), "Password changed. Other browsers have been signed out.", "ok");
+    });
+
+    submitting($("form-delete"), async (f) => {
+      await SnAccount.deleteAccount(f.password.value);
+      $("form-delete").reset();
+      await refresh();
+      status(forms.login.querySelector(".status"), "Your account has been deleted.", "ok");
+    });
+
+    refresh();
+  }
+
+  // --- admin: invite codes and bans ------------------------------------------------------------
+
+  {
+    const el = (tag, className, content) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (content != null) node.textContent = content;
+      return node;
+    };
+    const button = (label, className, onClick) => {
+      const node = el("button", `btn ${className ?? ""}`.trim(), label);
+      node.type = "button";
+      node.addEventListener("click", onClick);
+      return node;
+    };
+    const day = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: new Date(ms).getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+    function ago(ms) {
+      if (!ms) return "never";
+      const minutes = Math.round((Date.now() - ms) / 60000);
+      if (minutes < 60) return "within the hour";
+      if (minutes < 60 * 24) return `${Math.round(minutes / 60)} h ago`;
+      return day(ms);
+    }
+
+    let loaded = false;
+    window.addEventListener("sn-admin", () => { if (!loaded) { loaded = true; loadSite(); loadInvites(); loadPeople(); } });
+
+    // Site settings: accounts off / optional / required, and who can sign up
+    const siteRadios = (name) => [...document.querySelectorAll(`input[name="site-${name}"]`)];
+    const FIXED_BY = { mode: "ACCOUNTS", signup: "ACCOUNTS_SIGNUP" };
+
+    function renderSite(site) {
+      for (const key of ["mode", "signup"]) {
+        for (const radio of siteRadios(key)) {
+          radio.checked = radio.value === site[key];
+          radio.disabled = site.locked[key];
+        }
+        const note = $(`site-${key}-locked`);
+        note.hidden = !site.locked[key];
+        text(note, `Fixed by ${FIXED_BY[key]} on the server. Remove it there to choose here.`);
+      }
+      // Sign-up only matters while accounts are on.
+      siteRadios("signup").forEach((radio) => { radio.closest(".choice").style.opacity = site.mode === "off" ? "0.55" : ""; });
+    }
+
+    async function loadSite() {
+      try {
+        renderSite(await SnAccount.admin.site());
+      } catch (err) {
+        status($("site-status"), err.message, "error");
+      }
+    }
+
+    for (const key of ["mode", "signup"]) {
+      siteRadios(key).forEach((radio) => radio.addEventListener("change", async () => {
+        if (!radio.checked) return;
+        const warning = key === "mode" && radio.value === "required"
+          ? " Everyone who isn't signed in now goes to the sign-in screen."
+          : key === "signup" && radio.value === "open" ? " Anyone who finds the site can join." : "";
+        try {
+          const site = await SnAccount.admin.setSite({ [key]: radio.value });
+          renderSite(site);
+          const labels = { off: "Accounts are off.", optional: "Accounts are optional.", required: "Sign-in is required.", invite: "New accounts need an invite code.", open: "Anyone can create an account.", closed: "Sign-up is closed." };
+          status($("site-status"), labels[radio.value] + warning, "ok");
+        } catch (err) {
+          status($("site-status"), err.message, "error");
+          loadSite();
+        }
+      }));
+    }
+
+    // Invite codes
+    async function loadInvites() {
+      try {
+        renderInvites(await SnAccount.admin.invites());
+      } catch (err) {
+        status($("invite-status"), err.message, "error");
+      }
+    }
+
+    function renderInvites(invites) {
+      $("invite-list").replaceChildren(...invites.map((invite) => {
+        const row = el("div", "admin-row");
+        if (invite.state !== "active") row.dataset.dim = "";
+        const main = el("div", "admin-main");
+        const title = el("strong", "", invite.label || "Invite code");
+        title.append(el("span", "chip-state", invite.state));
+        const used = `${invite.uses} of ${invite.maxUses} used`;
+        const expires = invite.expiresAt ? `${invite.state === "expired" ? "expired" : "expires"} ${day(invite.expiresAt)}` : "never expires";
+        main.append(title, el("small", "", `…${invite.hint} · ${used} · ${expires}${invite.createdBy ? ` · by ${invite.createdBy}` : ""}`));
+        row.append(main);
+        if (invite.state === "active") {
+          row.append(button("Revoke", "", async () => {
+            try {
+              await SnAccount.admin.revokeInvite(invite.id);
+              status($("invite-status"), "Code revoked. It can't be used any more.", "ok");
+              loadInvites();
+            } catch (err) {
+              status($("invite-status"), err.message, "error");
+            }
+          }));
+        }
+        return row;
+      }));
+      if (!invites.length) $("invite-list").append(el("p", "hint", "No invite codes yet."));
+    }
+
+    $("invite-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector("button[type='submit']");
+      submit.disabled = true;
+      try {
+        const { code, invite } = await SnAccount.admin.createInvite({ label: form.elements.label.value, maxUses: Number(form.elements.uses.value), expiresInDays: Number(form.elements.days.value) });
+        text($("new-invite-code"), code);
+        text($("new-invite-copy"), "Copy");
+        $("new-invite").hidden = false;
+        status($("invite-status"), `Code created for ${invite.maxUses} ${invite.maxUses === 1 ? "person" : "people"}. Copy it now: it won't be shown again.`, "ok");
+        form.elements.label.value = "";
+        loadInvites();
+      } catch (err) {
+        status($("invite-status"), err.message, "error");
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    $("new-invite-copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText($("new-invite-code").textContent);
+        text($("new-invite-copy"), "Copied");
+      } catch {
+        getSelection().selectAllChildren($("new-invite-code"));
+      }
+    });
+
+    // Accounts
+    let searchTimer = null;
+    $("people-search").addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(loadPeople, 250);
+    });
+
+    async function loadPeople() {
+      try {
+        renderPeople(await SnAccount.admin.users($("people-search").value.trim()));
+      } catch (err) {
+        status($("people-status"), err.message, "error");
+      }
+    }
+
+    function renderPeople(people) {
+      const me = SnAccount.user?.username.toLowerCase();
+      $("people-list").replaceChildren(...people.map((person) => {
+        const row = el("div", "admin-row");
+        row.append(el("span", "admin-avatar", person.username.charAt(0).toUpperCase()));
+        const main = el("div", "admin-main");
+        const name = el("strong", "", person.username);
+        if (person.admin) name.append(el("span", "chip-admin", person.serverAdmin ? "Admin (ADMINS)" : "Admin"));
+        if (person.banned) name.append(el("span", "chip-banned", "Banned"));
+        main.append(name, el("small", "", `Joined ${day(person.createdAt)} · last seen ${ago(person.lastSeenAt)}${person.invite ? ` · invite: ${person.invite}` : ""}`));
+        if (person.banned && person.banReason) main.append(el("small", "ban-reason", `Reason: ${person.banReason}`));
+        row.append(main);
+
+        if (!person.banned && !person.serverAdmin) {
+          row.append(person.admin
+            ? button("Remove admin", "btn-ghost", () => act(() => SnAccount.admin.removeAdmin(person.username), `${person.username} is no longer an admin.`))
+            : button("Make admin", "btn-ghost", () => act(() => SnAccount.admin.makeAdmin(person.username), `${person.username} is now an admin and has this page.`)));
+        }
+        if (person.banned) {
+          row.append(button("Unban", "", () => act(() => SnAccount.admin.unban(person.username), `${person.username} can sign in again.`)));
+        } else if (!person.admin && person.username.toLowerCase() !== me) {
+          row.append(button("Ban…", "btn-danger", () => {
+            // Ask for a reason in the row itself.
+            const form = el("form", "ban-form");
+            const reason = el("input", "field");
+            reason.placeholder = "Reason they'll see (optional)";
+            reason.maxLength = 200;
+            const confirm = el("button", "btn btn-danger", `Ban ${person.username}`);
+            confirm.type = "submit";
+            form.append(reason, confirm, button("Cancel", "", () => form.remove()));
+            form.addEventListener("submit", (event) => {
+              event.preventDefault();
+              act(() => SnAccount.admin.ban(person.username, reason.value), `${person.username} is banned and has been signed out everywhere.`);
+            });
+            row.querySelector(".ban-form")?.remove();
+            row.append(form);
+            reason.focus();
+          }));
+        }
+        return row;
+      }));
+      if (!people.length) $("people-list").append(el("p", "hint", $("people-search").value ? "No accounts match." : "No accounts yet."));
+    }
+
+    async function act(action, message) {
+      try {
+        await action();
+        status($("people-status"), message, "ok");
+        loadPeople();
+      } catch (err) {
+        status($("people-status"), err.message, "error");
+      }
+    }
+  }
+
+  // --- backup (export / import) -----------------------------------------------------------------
+
+  {
+    const backupStatus = $("backup-status");
+    const confirmBox = $("import-confirm");
+    let pending = null;
+
+    const hideConfirm = () => { confirmBox.hidden = true; pending = null; };
+
+    $("export-settings").addEventListener("click", () => {
+      hideConfirm();
+      const backup = SnBackup.create(SnStore);
+      const blob = new Blob([`${JSON.stringify(backup, null, 2)}\n`], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const now = new Date(); // name the file by the local date, not the UTC one in "exported"
+      const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      link.download = `supernova-settings-${day}.json`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+      const count = Object.keys(backup.settings).length;
+      status(backupStatus, `Saved ${count} setting${count === 1 ? "" : "s"} to ${link.download}.`, "ok");
+    });
+
+    $("import-settings").addEventListener("click", () => $("import-file").click());
+
+    $("import-file").addEventListener("change", async () => {
+      const file = $("import-file").files[0];
+      $("import-file").value = ""; // choosing the same file again still fires "change"
+      if (!file) return;
+      hideConfirm();
+      try {
+        if (file.size > 1_000_000) throw new Error("That file is too large to be a SuperNova backup.");
+        pending = SnBackup.parse(await file.text());
+      } catch (err) {
+        status(backupStatus, err.message, "error");
+        return;
+      }
+      const when = pending.exported ? ` from ${new Date(pending.exported).toLocaleDateString()}` : "";
+      text($("import-summary"), `Replace your current settings with the ${pending.count} in this backup${when}?` +
+        (pending.skipped ? ` ${pending.skipped} unreadable entr${pending.skipped === 1 ? "y" : "ies"} will be skipped.` : ""));
+      $("import-warnings").replaceChildren(...pending.warnings.map((warning) => text(document.createElement("li"), warning)));
+      status(backupStatus, "");
+      confirmBox.hidden = false;
+      $("import-apply").focus();
+    });
+
+    $("import-cancel").addEventListener("click", () => { hideConfirm(); status(backupStatus, "Import cancelled."); });
+
+    $("import-apply").addEventListener("click", () => {
+      if (!pending) return;
+      SnBackup.apply(SnStore, pending.settings);
+      hideConfirm();
+      status(backupStatus, "Settings restored. Restarting…", "ok");
+      // Restart so every part of the desktop reads the new settings.
+      setTimeout(() => (os?.restart ? os.restart() : location.reload()), 800);
+    });
+  }
+
   // --- find a setting -------------------------------------------------------------------------------
 
   const findInput = $("find");
@@ -435,7 +849,7 @@
     findIndex = [];
     document.querySelectorAll(".panel").forEach((panel) => {
       const panelName = panel.id.replace("panel-", "");
-      if (panelName === "home") return;
+      if (panelName === "home" || panelName === "admin") return;
       const pageTitle = panel.querySelector(".panel-head h2")?.textContent ?? panelName;
       panel.querySelectorAll(".group > h3, .row, .choice-body").forEach((el) => {
         const label = (el.matches("h3") ? el.textContent : el.querySelector("strong")?.textContent) ?? "";

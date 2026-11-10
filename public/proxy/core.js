@@ -303,6 +303,7 @@
     ready: ready,
     go: go,
     open: open,
+    verdict: verdict,
     encode: encode,
     decode: decode,
     engineForPath: engineForPath,

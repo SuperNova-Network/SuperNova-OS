@@ -9,3 +9,8 @@ services:
       # Optional: set AUTH_PASS in the dashboard to password-protect the site.
       - key: AUTH_PASS
         sync: false
+      # Render's proxy sits in front of the app: trust it for the visitor's address.
+      - key: TRUST_PROXY
+        value: "1"
+      # Accounts (ACCOUNTS=1) need a persistent disk at /app/data, which the free plan
+      # does not include.
