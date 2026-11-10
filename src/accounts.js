@@ -17,8 +17,8 @@ import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { createLimiter } from "./ratelimit.js";
 import {
-  AdminError, createInvite, listInvites, listUsers, newRecoveryCode, normalizeCode, openDatabase,
-  redeemInvite, revokeInvite, setBanned, sha256, transaction,
+  AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, newInviteCode, newRecoveryCode,
+  normalizeCode, openDatabase, redeemInvite, revokeInvite, setAdmin, setBanned, setSiteSetting, sha256, transaction,
 } from "./accountsdb.js";
 
 const scrypt = promisify(scryptCb);
@@ -103,25 +103,78 @@ function disabledRouter() {
   return router;
 }
 
-/**
- * Build the /api/account router. Resolves to
- * { router, userFor(req), sessionActive(hash), onBan(fn), close() }.
- * options:
- *   enabled     accounts on at all
- *   required    the site needs an account (app.js guards everything else)
- *   signup      "open" (anyone), "invite" (needs an invite code) or "closed"
- *   inviteCode  a fixed code accepted besides the generated ones (INVITE_CODE / AUTH_PASS)
- *   admins      usernames that may manage invite codes and bans
- *   dataDir     where accounts.db lives
- */
-export async function createAccounts({ enabled, required = false, signup = "open", inviteCode = "", admins = [], dataDir = "data" } = {}) {
-  if (!enabled) return { router: disabledRouter(), userFor: () => null, sessionActive: () => false, onBan() {}, close() {} };
-  const fixedInviteHash = inviteCode ? sha256(inviteCode) : null;
-  const adminNames = new Set(admins.map((name) => name.toLowerCase()));
-  const isAdmin = (user) => adminNames.has(user.username.toLowerCase());
-  const banListeners = [];
+/** Without a database (no node:sqlite, or DATA_DIR not writable): no accounts, no admin panel. */
+function unavailable() {
+  return {
+    router: disabledRouter(),
+    userFor: () => null,
+    sessionActive: () => false,
+    site: () => ({ mode: "off", signup: "closed", locked: { mode: true, signup: true } }),
+    setupCode: null,
+    onBan() {},
+    onSiteChange() {},
+    close() {},
+  };
+}
 
-  const db = await openDatabase(dataDir);
+/**
+ * Build the /api/account router. Resolves to { router, userFor(req), sessionActive(hash),
+ * site(), setupCode, onBan(fn), onSiteChange(fn), close() }.
+ * options (from config.accounts; see config.js):
+ *   mode, signup  fixed by the server when set; otherwise chosen in Settings > Admin
+ *   inviteCode    a fixed code accepted besides the generated ones (INVITE_CODE)
+ *   admins        usernames that are always admins (ADMINS)
+ *   authPass      the old site password (AUTH_PASS), accepted as an invite code when
+ *                 accounts are required and there is no INVITE_CODE
+ *   dataDir       where accounts.db lives
+ */
+export async function createAccounts({ mode: serverMode = null, signup: serverSignup = null, inviteCode = "", admins = [], authPass = "", dataDir = "data" } = {}) {
+  let db;
+  try {
+    db = await openDatabase(dataDir);
+  } catch (err) {
+    // Only fatal when the server's configuration asks for accounts.
+    if (serverMode && serverMode !== "off") throw err;
+    console.warn(`Accounts and the admin panel are unavailable: ${err.message}`);
+    return unavailable();
+  }
+
+  const serverAdmins = new Set(admins.map((name) => name.toLowerCase()));
+  const isAdmin = (user) => Boolean(user.is_admin) || serverAdmins.has(user.username.toLowerCase());
+  const banListeners = [];
+  const siteListeners = [];
+
+  // Site settings: the server's configuration wins, then the admin panel's choice.
+  // Read from the database at most every few seconds, so a change made with the
+  // command line reaches a running server too.
+  let siteCache = null;
+  function site() {
+    if (siteCache && Date.now() - siteCache.at < 5000) return siteCache.value;
+    const stored = getSiteSettings(db);
+    const mode = serverMode ?? stored.mode ?? "off";
+    // Before the admin panel, ACCOUNTS without ACCOUNTS_SIGNUP meant open sign-up
+    // unless sign-in was required or there was an invite code; keep that.
+    const fallback = serverMode ? (serverMode === "required" || inviteCode ? "invite" : "open") : "invite";
+    const signup = serverSignup ?? stored.signup ?? fallback;
+    const value = { mode, signup, locked: { mode: serverMode !== null, signup: serverSignup !== null } };
+    siteCache = { at: Date.now(), value };
+    return value;
+  }
+
+  function fixedInviteHash() {
+    const code = inviteCode || (site().mode === "required" ? authPass : "");
+    return code ? sha256(code) : null;
+  }
+
+  // First run: nobody can manage the site yet. A one-time code, printed in the
+  // server's log, lets whoever runs the server create the first admin at /setup.
+  function needsSetup() {
+    if (adminCount(db) > 0) return false;
+    if (!serverAdmins.size) return true;
+    const names = [...serverAdmins];
+    return !db.prepare(`SELECT 1 FROM users WHERE lower(username) IN (${names.map(() => "?").join(",")}) LIMIT 1`).get(...names);
+  }
+  let setupCode = needsSetup() ? newInviteCode() : null;
 
   const sql = {
     userByName: db.prepare("SELECT * FROM users WHERE username = ?"),
@@ -195,8 +248,14 @@ export async function createAccounts({ enabled, required = false, signup = "open
     const token = readCookie(req, COOKIE);
     if (!token) return null;
     req.sessionHash = sha256(token);
-    return sql.session.get(req.sessionHash, Date.now()) ?? null;
+    const user = sql.session.get(req.sessionHash, Date.now()) ?? null;
+    // With accounts off only admins are signed in (to reach the admin panel); other
+    // sessions simply wait until accounts are turned on again.
+    if (user && site().mode === "off" && !isAdmin(user)) return null;
+    return user;
   }
+
+  const offError = () => new HttpError(403, "Accounts are turned off on this site.");
 
   function requireUser(req) {
     const user = currentUser(req);
@@ -245,10 +304,45 @@ export async function createAccounts({ enabled, required = false, signup = "open
     }
     // "Last seen" for the admin list, written at most once an hour.
     if (user && Date.now() - (user.last_seen_at ?? 0) > 60 * 60 * 1000) sql.touch.run(Date.now(), user.id);
-    res.json({ enabled: true, required, signup: signup !== "closed", invite: signup === "invite", user: user ? publicUser(user) : null });
+    const { mode, signup } = site();
+    res.json({
+      mode,
+      enabled: mode !== "off",
+      required: mode === "required",
+      signup: mode !== "off" && signup !== "closed",
+      invite: signup === "invite",
+      setup: Boolean(setupCode) && needsSetup(),
+      user: user ? publicUser(user) : null,
+    });
+  }));
+
+  // First run: create the first admin with the code from the server's log.
+  router.post("/setup", handle(async (req, res) => {
+    if (!setupCode || !needsSetup()) throw new HttpError(409, "This site is already set up. Sign in instead.");
+    limit(limits.recoverIp, req.ip);
+    const { username, password } = readCredentials(req.body);
+    const given = Buffer.from(sha256(normalizeCode(req.body?.code)));
+    if (!timingSafeEqual(given, Buffer.from(sha256(normalizeCode(setupCode))))) throw new HttpError(403, "That setup code isn't right. It's in the server's log.");
+    if (!USERNAME.test(username)) throw new HttpError(400, "Usernames are 3 to 32 letters, numbers, dots, dashes or underscores.");
+    checkNewPassword(password);
+    if (sql.userByName.get(username)) throw new HttpError(409, "That username is taken. To make an existing account an admin, use `npm run admin -- make-admin <name>`.");
+    const passwordHash = await hashPassword(password);
+    if (!setupCode || !needsSetup()) throw new HttpError(409, "This site is already set up. Sign in instead.");
+    const recoveryCode = newRecoveryCode();
+    const now = Date.now();
+    const id = transaction(db, () => {
+      const newId = Number(sql.insertUser.run(username, passwordHash, sha256(normalizeCode(recoveryCode)), now, now, now, null).lastInsertRowid);
+      db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(newId);
+      return newId;
+    });
+    setupCode = null;
+    startSession(req, res, id);
+    res.status(201).json({ user: { username, admin: true }, recoveryCode });
   }));
 
   router.post("/register", handle(async (req, res) => {
+    const { mode, signup } = site();
+    if (mode === "off") throw offError();
     if (signup === "closed") throw new HttpError(403, "New accounts can't be created on this site.");
     const { username, password } = readCredentials(req.body);
     if (!USERNAME.test(username)) throw new HttpError(400, "Usernames are 3 to 32 letters, numbers, dots, dashes or underscores.");
@@ -256,7 +350,8 @@ export async function createAccounts({ enabled, required = false, signup = "open
     // Counted before the invite code is checked, so codes can't be guessed quickly.
     limit(limits.signupIp, req.ip);
     const given = String(req.body?.inviteCode ?? "").trim();
-    const fixedCode = Boolean(fixedInviteHash && given) && timingSafeEqual(Buffer.from(sha256(given)), Buffer.from(fixedInviteHash));
+    const fixedHash = fixedInviteHash();
+    const fixedCode = Boolean(fixedHash && given) && timingSafeEqual(Buffer.from(sha256(given)), Buffer.from(fixedHash));
     if (signup === "invite" && !given) throw new HttpError(403, "Enter an invite code.");
     if (sql.userByName.get(username)) throw new HttpError(409, "That username is taken.");
     const passwordHash = await hashPassword(password); // before the transaction: it awaits
@@ -291,6 +386,7 @@ export async function createAccounts({ enabled, required = false, signup = "open
     if (!user || !ok) throw new HttpError(401, "Wrong username or password.");
     // Only after the password: whether an account is banned isn't anyone else's business.
     if (user.banned_at) throw bannedError(user);
+    if (site().mode === "off" && !isAdmin(user)) throw offError();
     limits.loginUser.reset(username.toLowerCase());
     sql.touch.run(Date.now(), user.id);
     startSession(req, res, user.id);
@@ -319,6 +415,7 @@ export async function createAccounts({ enabled, required = false, signup = "open
     const given = Buffer.from(sha256(code));
     if (!user || !timingSafeEqual(expected, given)) throw new HttpError(401, "That username and recovery code don't match.");
     if (user.banned_at) throw bannedError(user);
+    if (site().mode === "off" && !isAdmin(user)) throw offError();
     const recoveryCode = newRecoveryCode();
     sql.setRecovery.run(await hashPassword(password), sha256(normalizeCode(recoveryCode)), Date.now(), user.id);
     sql.deleteAllSessions.run(user.id);
@@ -366,15 +463,47 @@ export async function createAccounts({ enabled, required = false, signup = "open
     return user;
   }
 
+  // Site settings: accounts off / optional / required, and who can sign up.
+  router.get("/admin/site", handle((req, res) => {
+    requireAdmin(req);
+    res.json(site());
+  }));
+
+  router.post("/admin/site", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const current = site();
+    for (const [key, variable] of [["mode", "ACCOUNTS"], ["signup", "ACCOUNTS_SIGNUP"]]) {
+      if (req.body?.[key] === undefined || req.body[key] === current[key]) continue;
+      if (current.locked[key]) throw new HttpError(409, `${variable} is set on the server, so this is fixed there.`);
+      setSiteSetting(db, key, req.body[key], admin.username);
+    }
+    siteCache = null;
+    const next = site();
+    for (const listener of siteListeners) listener(next);
+    res.json(next);
+  }));
+
+  router.post("/admin/users/:username/admin", handle((req, res) => {
+    requireAdmin(req);
+    setAdmin(db, req.params.username, true, { serverAdmins });
+    res.json({ ok: true });
+  }));
+
+  router.post("/admin/users/:username/unadmin", handle((req, res) => {
+    requireAdmin(req);
+    setAdmin(db, req.params.username, false, { serverAdmins });
+    res.json({ ok: true });
+  }));
+
   router.get("/admin/users", handle((req, res) => {
     requireAdmin(req);
-    res.json({ users: listUsers(db, { search: String(req.query.q ?? "").slice(0, 32), admins: adminNames }) });
+    res.json({ users: listUsers(db, { search: String(req.query.q ?? "").slice(0, 32), admins: serverAdmins }) });
   }));
 
   router.post("/admin/users/:username/ban", handle((req, res) => {
     const admin = requireAdmin(req);
     if (req.params.username.toLowerCase() === admin.username.toLowerCase()) throw new HttpError(400, "You can't ban yourself.");
-    const id = setBanned(db, req.params.username, true, { reason: req.body?.reason, admins: adminNames });
+    const id = setBanned(db, req.params.username, true, { reason: req.body?.reason, admins: serverAdmins });
     for (const listener of banListeners) listener(id);
     res.json({ ok: true });
   }));
@@ -432,8 +561,14 @@ export async function createAccounts({ enabled, required = false, signup = "open
     router,
     userFor,
     sessionActive,
+    /** { mode, signup, locked }: the current site settings. */
+    site,
+    /** The first-run code for /setup, while nobody can manage the site yet. */
+    get setupCode() { return setupCode && needsSetup() ? setupCode : null; },
     /** fn(userId) is called right after someone is banned from the web admin page. */
     onBan: (fn) => banListeners.push(fn),
+    /** fn(site) is called after the site settings change in the admin panel. */
+    onSiteChange: (fn) => siteListeners.push(fn),
     close: () => db.close(),
   };
 }

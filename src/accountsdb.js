@@ -75,6 +75,19 @@ const MIGRATIONS = [
       );
     `);
   },
+  // 3: site settings chosen in Settings > Admin, and admins as a flag on the account
+  (db) => {
+    const columns = new Set(db.prepare("PRAGMA table_info(users)").all().map((column) => column.name));
+    if (!columns.has("is_admin")) db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0");
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS site_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        updated_by TEXT
+      );
+    `);
+  },
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */
@@ -181,13 +194,55 @@ export function redeemInvite(db, value) {
   return changes ? row.id : null;
 }
 
+// --- site settings -------------------------------------------------------------------
+
+export const SITE_SETTINGS = {
+  // Accounts: off (none), optional (sign in from Settings) or required (sign-in screen).
+  mode: ["off", "optional", "required"],
+  // Who can create an account.
+  signup: ["invite", "open", "closed"],
+};
+
+export function getSiteSettings(db) {
+  const out = {};
+  for (const { key, value } of db.prepare("SELECT key, value FROM site_settings").all()) {
+    if (SITE_SETTINGS[key]?.includes(value)) out[key] = value;
+  }
+  return out;
+}
+
+export function setSiteSetting(db, key, value, updatedBy = null) {
+  if (!SITE_SETTINGS[key]) throw new AdminError(400, `Unknown setting "${key}".`);
+  if (!SITE_SETTINGS[key].includes(value)) throw new AdminError(400, `${key} must be one of: ${SITE_SETTINGS[key].join(", ")}.`);
+  db.prepare("INSERT INTO site_settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by")
+    .run(key, value, Date.now(), updatedBy);
+}
+
+// --- admins ------------------------------------------------------------------------
+
+/** Admins in the database (ADMINS on the server adds more; see isAdminName). */
+export function adminCount(db) {
+  return db.prepare("SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND banned_at IS NULL").get().n;
+}
+
+/** Make someone an admin, or not. `serverAdmins`: names from ADMINS, which stay admins. */
+export function setAdmin(db, username, admin, { serverAdmins = new Set() } = {}) {
+  const user = db.prepare("SELECT id, username, is_admin, banned_at FROM users WHERE username = ?").get(String(username ?? ""));
+  if (!user) throw new AdminError(404, "There's no account with that name.");
+  if (admin && user.banned_at) throw new AdminError(400, "Unban them first.");
+  if (!admin && serverAdmins.has(user.username.toLowerCase())) throw new AdminError(403, "They're an admin through ADMINS on the server; remove them there.");
+  if (!admin && user.is_admin && adminCount(db) <= 1 && !serverAdmins.size) throw new AdminError(400, "They're the only admin. Make someone else an admin first.");
+  db.prepare("UPDATE users SET is_admin = ? WHERE id = ?").run(admin ? 1 : 0, user.id);
+  return user.id;
+}
+
 // --- people and bans ---------------------------------------------------------------
 
 /** Everyone, newest first (at most 1000), optionally filtered by part of the name. */
 export function listUsers(db, { search = "", admins = new Set() } = {}) {
   const like = `%${String(search).replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
   return db.prepare(`
-    SELECT users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason,
+    SELECT users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin,
            invites.label AS invite_label, invites.hint AS invite_hint
     FROM users LEFT JOIN invites ON invites.id = users.invite_id
     WHERE users.username LIKE ? ESCAPE '\\'
@@ -199,7 +254,8 @@ export function listUsers(db, { search = "", admins = new Set() } = {}) {
     banned: Boolean(row.banned_at),
     bannedAt: row.banned_at,
     banReason: row.ban_reason,
-    admin: admins.has(row.username.toLowerCase()),
+    admin: Boolean(row.is_admin) || admins.has(row.username.toLowerCase()),
+    serverAdmin: admins.has(row.username.toLowerCase()),
     invite: row.invite_label || (row.invite_hint ? `…${row.invite_hint}` : null),
   }));
 }
@@ -209,9 +265,9 @@ export function listUsers(db, { search = "", admins = new Set() } = {}) {
  * deleted). Returns the user's id. `admins`: usernames that cannot be banned.
  */
 export function setBanned(db, username, banned, { reason = "", admins = new Set() } = {}) {
-  const user = db.prepare("SELECT id, username FROM users WHERE username = ?").get(String(username ?? ""));
+  const user = db.prepare("SELECT id, username, is_admin FROM users WHERE username = ?").get(String(username ?? ""));
   if (!user) throw new AdminError(404, "There's no account with that name.");
-  if (banned && admins.has(user.username.toLowerCase())) throw new AdminError(403, "Admins can't be banned. Remove them from ADMINS first.");
+  if (banned && (user.is_admin || admins.has(user.username.toLowerCase()))) throw new AdminError(403, "Admins can't be banned. Remove their admin role first.");
   transaction(db, () => {
     if (banned) {
       db.prepare("UPDATE users SET banned_at = ?, ban_reason = ? WHERE id = ?").run(Date.now(), String(reason ?? "").trim().slice(0, 200) || null, user.id);

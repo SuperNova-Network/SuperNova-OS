@@ -57,12 +57,15 @@ function client(ip = `198.51.100.${++clients}`) {
 let n = 0;
 const unique = (base) => `${base}${++n}`;
 
-test("accounts are off by default and say so", async () => {
+test("accounts are off by default and say so", options, async () => {
   const plain = await startServer();
   try {
-    const res = await fetch(plain.url + "/api/account");
-    assert.deepEqual(await res.json(), { enabled: false });
-    assert.equal((await fetch(plain.url + "/api/account/login", { method: "POST" })).status, 404);
+    const state = await (await fetch(plain.url + "/api/account")).json();
+    assert.equal(state.mode, "off");
+    assert.equal(state.enabled, false);
+    assert.equal(state.signup, false);
+    const register = await fetch(plain.url + "/api/account/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "someone", password: "password123" }) });
+    assert.equal(register.status, 403);
   } finally {
     await plain.stop();
   }
@@ -70,7 +73,7 @@ test("accounts are off by default and say so", async () => {
 
 test("sign up, get a recovery code and a secure session cookie", options, async () => {
   const browser = client();
-  assert.deepEqual((await browser.get("/")).data, { enabled: true, required: false, signup: true, invite: false, user: null });
+  assert.deepEqual((await browser.get("/")).data, { mode: "optional", enabled: true, required: false, signup: true, invite: false, setup: true, user: null });
   const res = await browser.post("/register", { username: unique("Ada"), password: "correct horse" });
   assert.equal(res.status, 201);
   assert.match(res.data.recoveryCode, /^[2-9A-Z]{5}(-[2-9A-Z]{5}){3}$/);

@@ -18,7 +18,23 @@
 
     <p class="message" id="loading">Loading…</p>
 
-    <p class="message" id="off" hidden>Accounts aren't turned on for this site. <a href="/">Go to the desktop</a></p>
+    <p class="message" id="off" hidden>Accounts are turned off on this site, so only admins can sign in. <a href="/">Go to the desktop</a></p>
+
+    <!-- first run: /setup -->
+    <section class="card" id="setup" hidden>
+      <h2>Set up SuperNova OS</h2>
+      <p class="hint">Create the admin account that manages this site: accounts, sign-up, invite codes and bans. The setup code is in the server's log.</p>
+      <form id="form-setup" novalidate>
+        <label>Setup code<input class="mono" name="code" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXXX-XXXXX" required></label>
+        <label>Username<small>3 to 32 letters, numbers, dots, dashes or underscores</small>
+          <input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" maxlength="32" required></label>
+        <label>Password<small>At least 8 characters</small>
+          <input name="password" type="password" autocomplete="new-password" required></label>
+        <label>Confirm password<input name="confirm" type="password" autocomplete="new-password" required></label>
+        <p class="error" role="alert"></p>
+        <button class="primary" type="submit">Create admin account</button>
+      </form>
+    </section>
 
     <!-- sign in / create account / forgot password -->
     <section class="card" id="forms" hidden>

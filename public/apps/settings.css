@@ -537,6 +537,19 @@ select {
   font-weight: 600;
 }
 
+/* Layout rules (display: flex / block) must never un-hide something hidden, such as
+   the Admin item for people who aren't admins, or a note that doesn't apply. */
+[hidden] {
+  display: none !important;
+}
+
+/* links that look like buttons (Settings > Account when accounts are off) */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 /* admin (Admin page) */
 .invite-form {
   display: flex;

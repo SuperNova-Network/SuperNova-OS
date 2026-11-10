@@ -19,7 +19,8 @@ docker run -d --name supernova -p 3000:3000 -e AUTH_PASS=change-me supernova-os
 With [accounts](CONFIGURATION.md#accounts), keep the database in a volume:
 
 ```sh
-docker run -d --name supernova -p 3000:3000 -e ACCOUNTS=1 -v supernova-data:/app/data supernova-os
+docker run -d --name supernova -p 3000:3000 -v supernova-data:/app/data supernova-os
+docker logs supernova      # the first start prints the setup link
 ```
 
 ## Fly.io
@@ -38,8 +39,8 @@ For [accounts](CONFIGURATION.md#accounts), create a volume and uncomment the `[m
 
 ```sh
 fly volumes create supernova_data --size 1
-fly secrets set ACCOUNTS=1
 fly deploy
+fly logs                   # the first start prints the setup link
 ```
 
 Manage invite codes and bans from your machine with `fly ssh console -C "npm run admin -- invite"` (see [invite codes and bans](CONFIGURATION.md#invite-codes-and-bans)).
@@ -48,7 +49,7 @@ Manage invite codes and bans from your machine with `fly ssh console -C "npm run
 
 [`render.yaml`](../render.yaml) is a blueprint: create a **Blueprint** from the repository in the dashboard. It builds the `Dockerfile` and uses `/healthz` for health checks. Add `AUTH_PASS` under Environment if you want a password. Render's free plan spins down when idle.
 
-[Accounts](CONFIGURATION.md#accounts) need a persistent disk, which Render's free plan does not have: on a paid plan, add a disk mounted at `/app/data` and set `ACCOUNTS=1`.
+[Accounts](CONFIGURATION.md#accounts) need a persistent disk, which Render's free plan does not have: on a paid plan, add a disk mounted at `/app/data`. The setup link is in the Logs tab after the first start.
 
 ## Heroku, Railway and similar
 
@@ -104,6 +105,6 @@ If your site must live on a host without WebSockets, run the server somewhere th
 
 1. Open the site, then **Settings > Proxy > Troubleshooting > Run test**. It should report "Working".
 2. Visit `/healthz`; it should print `ok`.
-3. If you set `AUTH_PASS`, confirm that a private window is asked for a login (or, with `ACCOUNTS=required`, sent to the sign-in screen).
+3. If you set `AUTH_PASS`, confirm that a private window is asked for a login (or, with sign-in required, sent to the sign-in screen).
 
 Running a proxy publicly has consequences for your IP address's reputation and for abuse; please read [SECURITY.md](../SECURITY.md).

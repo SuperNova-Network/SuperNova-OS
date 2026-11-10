@@ -13,18 +13,18 @@ Server settings come from environment variables, read in [`config.js`](../config
 | `BLOCKED_HOSTS` | *(empty)* | Extra blocked domains, comma separated. Subdomains are included |
 | `WISP_URL` | *(empty)* | Send browsers to an external Wisp server (`ws://` or `wss://` only) |
 | `OPEN_BROWSER` | *(empty)* | `1` opens a browser when the server starts. Never use it on a host |
-| `ACCOUNTS` | *(empty)* | `1` turns on optional [accounts](#accounts); `required` makes the whole site need one, with a sign-in screen instead of the Basic auth prompt. Needs Node.js 22.13+ and a persistent `DATA_DIR` |
-| `ADMINS` | *(empty)* | Usernames, comma separated, that get Settings > Admin: [invite codes and bans](#invite-codes-and-bans) |
-| `ACCOUNTS_SIGNUP` | see below | Who can create an account: `invite` (needs an invite code), `open` (anyone) or `0` (nobody). Default `invite` with `ACCOUNTS=required` or an `INVITE_CODE`, otherwise `open` |
-| `INVITE_CODE` | *(empty)* | A fixed invite code accepted besides the ones admins make. With `ACCOUNTS=required` and no `INVITE_CODE`, `AUTH_PASS` is accepted |
-| `DATA_DIR` | `data` | Where the accounts database (`accounts.db`) is kept |
+| `DATA_DIR` | `data` | Where the accounts database (`accounts.db`) is kept, including the choices made in Settings > Admin. Put it on persistent storage |
+| `ACCOUNTS` | *(empty)* | Optional override: `optional`, `required` or `off`. When set, the choice is fixed and shown locked in [Settings > Admin](#accounts) |
+| `ACCOUNTS_SIGNUP` | *(empty)* | Optional override: `invite`, `open` or `closed` |
+| `ADMINS` | *(empty)* | Usernames that are always admins, comma separated, besides those made admin in the panel |
+| `INVITE_CODE` | *(empty)* | A fixed invite code accepted besides the ones admins make. With accounts required and no `INVITE_CODE`, `AUTH_PASS` is accepted |
 | `TRUST_PROXY` | *(empty)* | Proxies in front of the server to trust for the visitor's address and protocol: a hop count (`1`), `true`, or addresses. Set it behind Fly.io, Render, nginx and the like |
 
 `GET /healthz` returns `ok` without authentication, for platform health checks.
 
 ## Authentication
 
-There are two ways to keep the site to the people you choose: one shared password (HTTP Basic auth, below), or [accounts with a sign-in screen](#signing-in-to-the-whole-site) (`ACCOUNTS=required`), which replaces it.
+There are two ways to keep the site to the people you choose: one shared password (HTTP Basic auth, below), or [accounts with a sign-in screen](#what-each-choice-does) (Settings > Admin > Accounts > Required), which replaces it while it is on.
 
 Set `AUTH_PASS` to password-protect the whole site. The credentials are checked with a constant-time comparison, and the **Wisp WebSocket upgrade is checked too**; Express middleware never sees WebSocket upgrades, so without this the proxy itself would stay open.
 
@@ -32,33 +32,56 @@ Basic auth sends the password with every request, so only use it over HTTPS (all
 
 ## Accounts
 
-Off by default. With `ACCOUNTS=1`, people can create an account under Settings > Account, and their settings follow them to any browser they sign in on: desktop apps and names, wallpaper and colours, bookmarks, and proxy, search and cloaking preferences. Browsing history is never sent to the server.
+Accounts are managed in **Settings > Admin**, with no restart: whether they are **off** (the default), **optional** (people can sign in from Settings > Account so their desktop apps and names, wallpaper and colours, bookmarks, and proxy, search and cloaking preferences follow them to any browser), or **required** (the whole site is behind a sign-in screen). Browsing history is never sent to the server.
 
-- **Storage.** One SQLite file, `DATA_DIR/accounts.db` (the built-in `node:sqlite`, so no extra dependency). Put `DATA_DIR` on storage that survives restarts and deploys: a Fly.io volume, a Render disk, a Docker volume, or a VPS's own disk. On an ephemeral filesystem every account disappears on the next deploy. Back the file up like any database.
+### First run
+
+On a fresh site nobody can open Settings > Admin yet, so the server prints a one-time setup link in its log:
+
+```
+Set up this site: create the first admin account at
+	http://localhost:3000/setup   with the code   ABCDE-FGHJK
+```
+
+Open it, enter the code and choose a username and password: that account is the site's first admin. Only someone who can read the server's log has the code, so a stranger who finds `/setup` can't claim the site. The code changes each time the server starts until an admin exists, and the page disappears once one does. On Fly.io the log is `fly logs`; on Render, the Logs tab. Alternatively, `npm run admin -- make-admin <name>` on the server makes any existing account an admin.
+
+Admins can sign in at `/signin` even while accounts are off, and give others the admin role from the account list (**Make admin**). The last admin can't be removed.
+
+### What each choice does
+
+- **Off.** No accounts: the site works as it always did, open to anyone (or behind `AUTH_PASS`). Other people's sessions pause and resume when accounts come back on; their data stays.
+- **Optional.** Settings > Account offers sign-in; the site itself stays open (and behind `AUTH_PASS`, if set).
+- **Required.** Instead of the browser's Basic auth prompt, visitors get a sign-in screen (sign in, create an account, forgot password) and land on the desktop, or the page they were heading to, once signed in. Pages, APIs and the proxy's WebSocket all need a signed-in session; only the sign-in screen, its static files, `/setup`, `/healthz` and `/api/info` stay open. Switching to required disconnects everyone who isn't signed in at once.
+
+**Who can create an account:** people with an **invite code** (the default; see below), **anyone**, or **nobody** (existing accounts keep working). A fixed code from `INVITE_CODE`, or, with accounts required and no `INVITE_CODE`, the old `AUTH_PASS`, is always accepted too. Wrong codes count towards the sign-up rate limit.
+
+**Environment variables still work** and win over the panel: `ACCOUNTS` and `ACCOUNTS_SIGNUP` fix those choices (the panel shows them locked), and `ADMINS` names accounts that are always admins. Leave them unset to manage everything in the panel.
+
+### How accounts work
+
+- **Storage.** One SQLite file, `DATA_DIR/accounts.db` (the built-in `node:sqlite` of Node.js 22.13+, so no extra dependency), which also holds the choices made in the admin panel. Put `DATA_DIR` on storage that survives restarts and deploys: a Fly.io volume, a Render disk, a Docker volume, or a VPS's own disk. On an ephemeral filesystem every account, and the admin panel's choices, disappear on the next deploy. Back the file up like any database. Without `node:sqlite` the site runs without accounts or an admin panel.
 - **No email.** Sign-up shows a one-time recovery code; with it a person can set a new password (and gets a new code). Without it, a forgotten password cannot be recovered.
 - **Passwords** are hashed with scrypt. Sessions are random tokens (only their hashes are stored) in an `HttpOnly`, `SameSite=Strict` cookie that lasts 30 days and renews while in use. Changing the password or using the recovery code signs out every other browser.
 - **Limits.** Sign-in is limited to 10 tries per username and 20 per address every 10 minutes, sign-up to 5 accounts per address per hour, and an account's settings to 512 KB. Behind a reverse proxy, set `TRUST_PROXY`, or every visitor shares the proxy's address and these limits.
-- **Closing sign-up.** `ACCOUNTS_SIGNUP=0` keeps existing accounts working but refuses new ones, for example once everyone in a class has an account.
 - **Signing out** removes the account's settings from that browser, which matters on shared computers. A factory reset signs out first, so it resets the browser without touching the account.
-
-### Signing in to the whole site
-
-`ACCOUNTS=required` puts the whole site behind an account. Instead of the browser's Basic auth prompt, visitors get a sign-in screen (sign in, create an account, forgot password) and land on the desktop, or the page they were heading to, once signed in. Pages, APIs and the proxy's WebSocket all need a signed-in session; only the sign-in screen, its static files, `/healthz` and `/api/info` stay open. Signing out returns to the sign-in screen.
-
-Creating an account needs an invite code (see below). The fixed code `INVITE_CODE`, or if that is empty the existing `AUTH_PASS`, is always accepted, so a site that used a shared password switches over by setting `ACCOUNTS=required` and nothing else: share the old password, and everyone picks their own login. Wrong codes count towards the sign-up rate limit. `ACCOUNTS_SIGNUP=open` lets anyone sign up (the server warns about it), and `ACCOUNTS_SIGNUP=0` closes sign-up entirely.
 
 ### Invite codes and bans
 
-List admins by username in `ADMINS` (for example `ADMINS=ms-rivera,it-dept`). They get an **Admin** page in Settings:
+Admins also find these in Settings > Admin:
 
 - **Invite codes.** Create a code for one person or a whole class: a label, how many sign-ups it allows (1 to 1000) and when it expires (1, 7 or 30 days, or never). The code is shown once, when created, and stored only as a hash; the list shows its last four characters, how many times it has been used and by whom it was made, and **Revoke** stops it at once. A sign-up that fails (a taken name, say) doesn't use the code up. Each account remembers which code it joined with.
-- **Accounts.** Search everyone, see when they joined and were last seen, and **ban** with an optional reason. A ban deletes all of that person's sessions, closes their open proxy connections immediately, and refuses their sign-in with the reason; it is only revealed after a correct password. **Unban** lets them back in. Admins can't be banned (remove them from `ADMINS` first), and can't ban themselves.
+- **Accounts.** Search everyone, see when they joined and were last seen, and **ban** with an optional reason. A ban deletes all of that person's sessions, closes their open proxy connections immediately, and refuses their sign-in with the reason; it is only revealed after a correct password. **Unban** lets them back in. Admins can't be banned (remove their admin role first), and can't ban themselves.
 
-With `ACCOUNTS=1` (optional accounts) the proxy itself stays open to everyone, so a ban only keeps someone out of their account; use `ACCOUNTS=required` to keep them off the site.
+With optional accounts the proxy itself stays open to everyone, so a ban only keeps someone out of their account; require sign-in to keep them off the site.
 
-The same works from the command line, on the server, also while it is running (a ban there reaches open connections within 30 seconds). It needs no admin account, so it is also how you get the first invite code or recover from a mistake:
+The same works from the command line, on the server, also while it is running (setting changes reach it within seconds, a ban reaches open connections within 30). It needs no admin account, so it is also how you get the first invite code or recover from a mistake:
 
 ```sh
+npm run admin -- status
+npm run admin -- accounts off|optional|required
+npm run admin -- signup invite|open|closed
+npm run admin -- make-admin some-name
+npm run admin -- remove-admin some-name
 npm run admin -- invite --uses 30 --days 7 --label "Period 3"
 npm run admin -- invites
 npm run admin -- revoke 4

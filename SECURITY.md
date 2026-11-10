@@ -7,12 +7,13 @@ Please **do not open a public issue** for a security problem. Use GitHub's priva
 ## What the project defends against
 
 - **Server-side request forgery.** The Wisp server refuses streams to loopback, private, link-local and reserved addresses, so the proxy cannot be used to reach the server's own network or a cloud metadata endpoint (`169.254.169.254`). This is covered by tests.
-- **Unauthenticated access** (optional). With `AUTH_PASS` set, the pages, the APIs *and* the WebSocket upgrade require credentials, checked in constant time. With `ACCOUNTS=required` they require a signed-in account session instead, and creating an account requires the invite code. Covered by tests.
+- **Unauthenticated access** (optional). With `AUTH_PASS` set, the pages, the APIs *and* the WebSocket upgrade require credentials, checked in constant time. With accounts required (Settings > Admin) they require a signed-in account session instead, and creating an account requires an invite code. Covered by tests.
+- **Claiming a fresh site.** The first admin is created at `/setup` with a one-time code that only appears in the server's log; the page closes once an admin exists.
 - **Secrets in the repository.** Earlier versions shipped a hardcoded Basic-auth password in `app.js`. It is gone, but it remains in git history: **change it if you ever used it.**
 - **Injection through settings.** App names, wallpaper addresses, custom tab icons and panic destinations are validated or escaped (only `http(s)` addresses; no `javascript:` or `data:`).
 - **The proxy's own scripts being served as HTML.** Subresource requests under a proxy prefix get a real 404.
-- **Unwanted members** (with `ACCOUNTS=required`). Sign-up needs an invite code; admins' codes are limited in uses and time, stored only as hashes, and revocable. A ban ends every session of the account and closes its open proxy connections.
-- **Account attacks** (with `ACCOUNTS=1`). Passwords are hashed with scrypt; session tokens are stored only as hashes; the session cookie is `HttpOnly` and `SameSite=Strict`; account requests must be JSON and same-origin; sign-in, sign-up and recovery are rate limited; a wrong username and a wrong password get the same answer in the same time. Covered by tests.
+- **Unwanted members** (with accounts required). Sign-up needs an invite code; admins' codes are limited in uses and time, stored only as hashes, and revocable. A ban ends every session of the account and closes its open proxy connections.
+- **Account attacks. Passwords are hashed with scrypt; session tokens are stored only as hashes; the session cookie is `HttpOnly` and `SameSite=Strict`; account requests must be JSON and same-origin; sign-in, sign-up and recovery are rate limited; a wrong username and a wrong password get the same answer in the same time. Covered by tests.
 
 ## What it does not defend against
 
@@ -25,8 +26,9 @@ Please **do not open a public issue** for a security problem. Use GitHub's priva
 ## Running a public instance
 
 1. Serve it over HTTPS only.
-2. Set `AUTH_PASS`, or `ACCOUNTS=required` with an invite code, or accept that anyone can use your server as a proxy.
-3. Keep dependencies current (`npm outdated`, `npm audit`): the proxy engines are third-party code that handles untrusted pages.
-4. Do not run it on a machine that has access to private networks you care about, even though the proxy refuses to connect to them.
-5. Understand your hosting provider's terms: many forbid open proxies.
-6. With accounts on, keep `DATA_DIR` on persistent storage, back up `accounts.db`, and set `TRUST_PROXY` behind a reverse proxy so rate limits see real addresses.
+2. Set `AUTH_PASS`, or require accounts (Settings > Admin) with invite codes, or accept that anyone can use your server as a proxy.
+3. Finish setup (the link in the server's log) before sharing the address.
+4. Keep dependencies current (`npm outdated`, `npm audit`): the proxy engines are third-party code that handles untrusted pages.
+5. Do not run it on a machine that has access to private networks you care about, even though the proxy refuses to connect to them.
+6. Understand your hosting provider's terms: many forbid open proxies.
+7. With accounts on, keep `DATA_DIR` on persistent storage, back up `accounts.db`, and set `TRUST_PROXY` behind a reverse proxy so rate limits see real addresses.

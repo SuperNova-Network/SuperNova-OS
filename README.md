@@ -46,6 +46,8 @@ npm start
 
 Then open http://localhost:3000.
 
+To manage the site (accounts, sign-up, invite codes, bans), use the setup link the server prints on its first start: it creates the first admin, who gets Settings > Admin.
+
 Other scripts:
 
 - `npm run dev` restarts the server when files change
@@ -110,9 +112,8 @@ Everything is optional. Copy `.env.example` to `.env` or set these on your host.
 | `BLOCKED_HOSTS` | empty | Extra domains to block, comma separated |
 | `WISP_URL` | empty | Use an external Wisp server (`wss://...`) |
 | `OPEN_BROWSER` | empty | Set to `1` to open your browser on start |
-| `ACCOUNTS` | empty | `1` lets people sign in to keep their settings in an account; `required` puts the whole site behind a sign-in screen (needs a persistent disk) |
-| `ADMINS` | empty | Usernames that can make invite codes and ban accounts (Settings > Admin) |
-| `INVITE_CODE` | empty | A fixed invite code besides the ones admins make. With `ACCOUNTS=required` it defaults to `AUTH_PASS` |
+| `DATA_DIR` | `data` | Where accounts and the admin panel's choices are stored. Put it on a persistent disk |
+| `ACCOUNTS` / `ACCOUNTS_SIGNUP` / `ADMINS` | empty | Optional overrides for what Settings > Admin manages. Leave them unset to choose in the panel |
 | `TRUST_PROXY` | empty | Set to `1` behind a hosting platform's proxy (Fly.io, Render, nginx) |
 
 Full reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)

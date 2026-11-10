@@ -20,11 +20,14 @@ import { createAccounts } from "./src/accounts.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
-// With ACCOUNTS=required, the account sign-in screen replaces HTTP Basic auth.
-const accountsRequired = config.accounts.required;
-const authEnabled = Boolean(config.auth.pass) && !accountsRequired;
 const policy = createPolicy(config.filter);
-const accounts = await createAccounts(config.accounts);
+const accounts = await createAccounts({ ...config.accounts, authPass: config.auth.pass });
+
+// Accounts can be switched off, optional or required at any time in Settings > Admin,
+// so these are asked per request. When sign-in is required, the account sign-in
+// screen replaces the HTTP Basic auth prompt (AUTH_PASS).
+const accountsRequired = () => accounts.site().mode === "required";
+const basicAuthOn = () => Boolean(config.auth.pass) && !accountsRequired();
 
 // Versions shown in Settings > About. Read once at startup.
 const readVersion = (url) => {
@@ -48,7 +51,6 @@ const info = {
     ].map(([label, name]) => [label, readVersion(new URL(`./node_modules/${name}/package.json`, import.meta.url))])
   ),
   filter: policy.enabled,
-  accounts: config.accounts.enabled,
 };
 
 // ---------------------------------------------------------------------------
@@ -77,18 +79,19 @@ app.get("/healthz", (_req, res) => {
   res.type("text/plain").set("Cache-Control", "no-store").send("ok");
 });
 
-if (authEnabled) {
-  app.use(basicAuth({
+if (config.auth.pass) {
+  const basic = basicAuth({
     users: { [config.auth.user]: config.auth.pass },
     challenge: true,
     realm: "SuperNova OS",
-  }));
+  });
+  app.use((req, res, next) => (basicAuthOn() ? basic(req, res, next) : next()));
 }
 
 app.use("/api/account", accounts.router);
 
 app.get("/api/info", (_req, res) => {
-  res.set("Cache-Control", "no-cache").json(info);
+  res.set("Cache-Control", "no-cache").json({ ...info, accounts: accounts.site().mode });
 });
 
 // Where "next" may send someone after signing in: a path on this site, nothing else.
@@ -101,13 +104,20 @@ app.get("/signin", (req, res) => {
   res.set("Cache-Control", "no-store").sendFile(join(publicPath, "signin.html"));
 });
 
-if (accountsRequired) {
-  // Open without an account: the sign-in screen and the static files it uses (none
-  // of them are private). Everything else, the proxy's WebSocket included (see the
-  // upgrade handler), needs a signed-in session.
+// First run: create the first admin (the code is in the server's log). The same page
+// as the sign-in screen, which shows the setup form on this path.
+app.get("/setup", (_req, res) => {
+  if (!accounts.setupCode) return res.redirect(303, "/signin");
+  res.set("Cache-Control", "no-store").sendFile(join(publicPath, "signin.html"));
+});
+
+{
+  // When sign-in is required: open without an account are the sign-in screen and the
+  // static files it uses (none of them private). Everything else, the proxy's
+  // WebSocket included (see the upgrade handler), needs a signed-in session.
   const open = /^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$)/;
   app.use((req, res, next) => {
-    if (open.test(req.path) || accounts.userFor(req)) return next();
+    if (!accountsRequired() || open.test(req.path) || accounts.userFor(req)) return next();
     const dest = req.get("sec-fetch-dest");
     // Without fetch metadata (old browsers, scripts), only an explicit text/html counts.
     const navigation = req.method === "GET" && (dest ? ["document", "iframe", "frame"].includes(dest) : (req.get("accept") ?? "").includes("text/html"));
@@ -241,11 +251,9 @@ function safeEqual(a, b) {
 
 // The Express auth middleware does not see WebSocket upgrades, so check here.
 function isAuthorized(req) {
-  if (accountsRequired) {
-    req.account = accounts.userFor(req); // remembered so the socket can be tracked
-    return Boolean(req.account);
-  }
-  if (!authEnabled) return true;
+  req.account = accounts.userFor(req); // remembered so the socket can be tracked
+  if (accountsRequired()) return Boolean(req.account);
+  if (!basicAuthOn()) return true;
   const header = req.headers.authorization || "";
   if (!header.startsWith("Basic ")) return false;
   const [user, ...rest] = Buffer.from(header.slice(6), "base64").toString().split(":");
@@ -256,31 +264,36 @@ server.on("upgrade", (req, socket, head) => {
   const { pathname } = new URL(req.url, "http://localhost");
   if (pathname !== wispPath) return socket.destroy();
   if (!isAuthorized(req)) {
-    const challenge = authEnabled ? "WWW-Authenticate: Basic realm=\"SuperNova OS\"\r\n" : "";
+    const challenge = basicAuthOn() ? "WWW-Authenticate: Basic realm=\"SuperNova OS\"\r\n" : "";
     socket.end(`HTTP/1.1 401 Unauthorized\r\n${challenge}Connection: close\r\n\r\n`);
     return;
   }
-  if (req.account) trackSocket(socket, req.account.id, req.sessionHash);
+  trackSocket(socket, req.account?.id ?? null, req.account ? req.sessionHash : null);
   wisp.routeRequest(req, socket, head);
 });
 
-// With ACCOUNTS=required, the proxy's WebSockets belong to a session. A ban from the
-// admin page closes that person's sockets at once; every 30 seconds the rest are
-// checked, which catches bans from the command line, sign-outs and expiry.
-const accountSockets = new Map(); // socket -> { userId, sessionHash }
+// Every proxy WebSocket, with the account session it was opened under (if any). While
+// sign-in is required, a socket needs a live session: a ban from the admin page closes
+// that person's sockets at once, switching to "required" closes everyone else's, and
+// every 30 seconds the rest are checked, which catches bans from the command line,
+// sign-outs and expiry.
+const proxySockets = new Map(); // socket -> { userId, sessionHash }
 
 function trackSocket(socket, userId, sessionHash) {
-  accountSockets.set(socket, { userId, sessionHash });
-  socket.once("close", () => accountSockets.delete(socket));
+  proxySockets.set(socket, { userId, sessionHash });
+  socket.once("close", () => proxySockets.delete(socket));
+}
+
+function closeUnauthorizedSockets() {
+  if (!accountsRequired()) return;
+  for (const [socket, owner] of proxySockets) if (!accounts.sessionActive(owner.sessionHash)) socket.destroy();
 }
 
 accounts.onBan((userId) => {
-  for (const [socket, owner] of accountSockets) if (owner.userId === userId) socket.destroy();
+  for (const [socket, owner] of proxySockets) if (owner.userId === userId) socket.destroy();
 });
-
-setInterval(() => {
-  for (const [socket, owner] of accountSockets) if (!accounts.sessionActive(owner.sessionHash)) socket.destroy();
-}, 30_000).unref();
+accounts.onSiteChange(closeUnauthorizedSockets);
+setInterval(closeUnauthorizedSockets, 30_000).unref();
 
 server.on("listening", async () => {
   const address = server.address();
@@ -295,18 +308,20 @@ server.on("listening", async () => {
       address.family === "IPv6" ? `[${address.address}]` : address.address
     }:${address.port}`
   );
-  if (authEnabled) console.log(`Password protection is ON (user: ${config.auth.user})`);
-  if (config.accounts.enabled) {
-    const { signup, admins, inviteCode } = config.accounts;
-    const details = [`data in ${config.accounts.dataDir}`, { open: "anyone can sign up", invite: "sign-up needs an invite code", closed: "sign-up closed" }[signup]];
-    if (admins.length) details.push(`admins: ${admins.join(", ")}`);
-    console.log(`Accounts are ${accountsRequired ? "REQUIRED" : "ON"} (${details.join(", ")})`);
-    if (accountsRequired && signup === "open") {
-      console.warn("Warning: anyone who finds this site can create an account and use the proxy. Remove ACCOUNTS_SIGNUP=open to require invite codes.");
-    }
-    if (signup === "invite" && !inviteCode && !admins.length) {
-      console.warn("Note: sign-up needs an invite code. Make one with `npm run admin -- invite`, or set ADMINS to make them in Settings > Admin.");
-    }
+  const { mode, signup } = accounts.site();
+  if (basicAuthOn()) console.log(`Password protection is ON (user: ${config.auth.user})`);
+  const signupText = { open: "anyone can sign up", invite: "sign-up needs an invite code", closed: "sign-up closed" }[signup];
+  console.log(`Accounts: ${mode}${mode === "off" ? "" : `, ${signupText}`} (change in Settings > Admin; data in ${config.accounts.dataDir})`);
+  if (mode === "required" && signup === "open") {
+    console.warn("Warning: anyone who finds this site can create an account and use the proxy.");
+  }
+  if (accounts.setupCode) {
+    // First run: whoever can read this log creates the first admin.
+    console.log("");
+    console.log("Set up this site: create the first admin account at");
+    console.log(`\thttp://localhost:${address.port}/setup   with the code   ${accounts.setupCode}`);
+    console.log("(The code is new each time the server starts, until an admin exists.)");
+    console.log("");
   }
 
   // Only open a browser when explicitly asked to (local development). Doing it

@@ -17,6 +17,9 @@ export function loadBrowserScript(relativePath, globals = {}) {
 }
 
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createServer } from "node:net";
 
 function freePort() {
@@ -36,8 +39,15 @@ function freePort() {
  */
 export async function startServer(env = {}) {
   const port = await freePort();
+  // Every server opens an accounts database; keep it out of the repository.
+  const ownDataDir = env.DATA_DIR ? null : mkdtempSync(join(tmpdir(), "sn-test-"));
   const child = spawn(process.execPath, [root + "app.js"], {
-    env: { ...process.env, PORT: String(port), AUTH_PASS: "", OPEN_BROWSER: "0", ...env },
+    env: {
+      ...process.env, PORT: String(port), AUTH_PASS: "", OPEN_BROWSER: "0",
+      ACCOUNTS: "", ACCOUNTS_SIGNUP: "", ADMINS: "", INVITE_CODE: "",
+      DATA_DIR: ownDataDir ?? env.DATA_DIR,
+      ...env,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -56,6 +66,14 @@ export async function startServer(env = {}) {
   return {
     port,
     url: `http://127.0.0.1:${port}`,
-    stop: () => new Promise((resolve) => { child.once("exit", resolve); child.kill("SIGTERM"); }),
+    /** Everything the server has printed so far. */
+    get output() { return output; },
+    stop: () => new Promise((resolve) => {
+      child.once("exit", () => {
+        if (ownDataDir) rmSync(ownDataDir, { recursive: true, force: true });
+        resolve();
+      });
+      child.kill("SIGTERM");
+    }),
   };
 }

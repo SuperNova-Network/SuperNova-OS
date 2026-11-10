@@ -75,7 +75,7 @@ test("everything else needs an account: pages, APIs and the proxy itself", optio
 
 test("the status says sign-in is required and sign-up needs an invite code", options, async () => {
   const state = await (await page("/api/account")).json();
-  assert.deepEqual(state, { enabled: true, required: true, signup: true, invite: true, user: null });
+  assert.deepEqual(state, { mode: "required", enabled: true, required: true, signup: true, invite: true, setup: true, user: null });
 });
 
 test("creating an account needs the invite code", options, async () => {

@@ -197,10 +197,10 @@ test("a database from before invite codes and bans is upgraded in place", option
     old.close();
 
     const db = await openDatabase(dir);
-    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 2);
+    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 3);
     const columns = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
-    for (const name of ["banned_at", "ban_reason", "last_seen_at", "invite_id"]) assert.ok(columns.includes(name), name);
-    assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = 'invites'").get());
+    for (const name of ["banned_at", "ban_reason", "last_seen_at", "invite_id", "is_admin"]) assert.ok(columns.includes(name), name);
+    for (const table of ["invites", "site_settings"]) assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = ?").get(table), table);
     assert.equal(db.prepare("SELECT settings FROM users WHERE username = 'early'").get().settings, '{"colId":"2"}', "data kept");
     db.close();
     // Opening again is a no-op.

@@ -46,6 +46,7 @@
         if (result.recoveryCode) {
           $("recovery-code").textContent = result.recoveryCode;
           $("forms").hidden = true;
+          $("setup").hidden = true;
           $("footnote").hidden = true;
           $("code").hidden = false;
           $("copy").focus();
@@ -65,6 +66,10 @@
     return SnAccount.register(f.username.value, f.password.value, f.invite.value);
   });
   submitting(forms.recover, (f) => SnAccount.recover(f.username.value, f.code.value, f.password.value));
+  submitting($("form-setup"), (f) => {
+    if (f.password.value !== f.confirm.value) return Promise.reject(new Error("The passwords don't match."));
+    return SnAccount.setup(f.code.value, f.username.value, f.password.value);
+  });
 
   $("copy").addEventListener("click", async () => {
     try {
@@ -78,8 +83,15 @@
 
   SnAccount.status().then((state) => {
     $("loading").hidden = true;
-    if (!state.enabled) { $("off").hidden = false; return; }
     if (state.user) { proceed(); return; }
+    if (location.pathname === "/setup" && state.setup) {
+      $("footnote").hidden = true;
+      $("setup").hidden = false;
+      $("form-setup").elements.code.focus();
+      return;
+    }
+    // Accounts off: only admins sign in (to reach Settings > Admin).
+    if (!state.enabled) $("off").hidden = false;
     $("tab-register").hidden = !state.signup;
     $("invite-field").hidden = !state.invite;
     forms.register.elements.invite.required = Boolean(state.invite);

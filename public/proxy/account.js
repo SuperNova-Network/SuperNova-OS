@@ -229,6 +229,11 @@
     return call("POST", "/login", { username: username, password: password }).then(signedIn);
   }
 
+  /** First run: create the first admin with the code from the server's log. */
+  function setup(code, username, password) {
+    return call("POST", "/setup", { code: code, username: username, password: password }).then(signedIn);
+  }
+
   function recover(username, recoveryCode, newPassword) {
     return call("POST", "/recover", { username: username, recoveryCode: recoveryCode, newPassword: newPassword }).then(signedIn);
   }
@@ -274,6 +279,10 @@
     invites: function () { return call("GET", "/admin/invites").then(function (data) { return data.invites; }); },
     createInvite: function (options) { return call("POST", "/admin/invites", options); },
     revokeInvite: function (id) { return call("POST", "/admin/invites/" + path(id) + "/revoke", {}); },
+    site: function () { return call("GET", "/admin/site"); },
+    setSite: function (changes) { return call("POST", "/admin/site", changes); },
+    makeAdmin: function (username) { return call("POST", "/admin/users/" + path(username) + "/admin", {}); },
+    removeAdmin: function (username) { return call("POST", "/admin/users/" + path(username) + "/unadmin", {}); },
   };
 
   window.SnAccount = {
@@ -286,6 +295,7 @@
     register: register,
     login: login,
     recover: recover,
+    setup: setup,
     logout: logout,
     changePassword: changePassword,
     deleteAccount: deleteAccount,

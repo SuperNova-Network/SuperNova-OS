@@ -462,7 +462,11 @@
       // This site needs an account: signed out means back to the sign-in screen.
       if (state.required) { window.top.location.href = "/signin"; return; }
       text($("account-tile"), state.enabled ? "Sign in to keep your settings everywhere" : "Not available on this site");
-      if (!state.enabled) return show("off");
+      if (!state.enabled) {
+        $("account-setup").hidden = !state.setup;
+        $("account-setup-hint").hidden = !state.setup;
+        return show("off");
+      }
       forms.login.querySelector("[data-show='register']").hidden = !state.signup;
       $("register-invite").hidden = !state.invite;
       show("out");
@@ -593,7 +597,51 @@
     }
 
     let loaded = false;
-    window.addEventListener("sn-admin", () => { if (!loaded) { loaded = true; loadInvites(); loadPeople(); } });
+    window.addEventListener("sn-admin", () => { if (!loaded) { loaded = true; loadSite(); loadInvites(); loadPeople(); } });
+
+    // Site settings: accounts off / optional / required, and who can sign up
+    const siteRadios = (name) => [...document.querySelectorAll(`input[name="site-${name}"]`)];
+    const FIXED_BY = { mode: "ACCOUNTS", signup: "ACCOUNTS_SIGNUP" };
+
+    function renderSite(site) {
+      for (const key of ["mode", "signup"]) {
+        for (const radio of siteRadios(key)) {
+          radio.checked = radio.value === site[key];
+          radio.disabled = site.locked[key];
+        }
+        const note = $(`site-${key}-locked`);
+        note.hidden = !site.locked[key];
+        text(note, `Fixed by ${FIXED_BY[key]} on the server. Remove it there to choose here.`);
+      }
+      // Sign-up only matters while accounts are on.
+      siteRadios("signup").forEach((radio) => { radio.closest(".choice").style.opacity = site.mode === "off" ? "0.55" : ""; });
+    }
+
+    async function loadSite() {
+      try {
+        renderSite(await SnAccount.admin.site());
+      } catch (err) {
+        status($("site-status"), err.message, "error");
+      }
+    }
+
+    for (const key of ["mode", "signup"]) {
+      siteRadios(key).forEach((radio) => radio.addEventListener("change", async () => {
+        if (!radio.checked) return;
+        const warning = key === "mode" && radio.value === "required"
+          ? " Everyone who isn't signed in now goes to the sign-in screen."
+          : key === "signup" && radio.value === "open" ? " Anyone who finds the site can join." : "";
+        try {
+          const site = await SnAccount.admin.setSite({ [key]: radio.value });
+          renderSite(site);
+          const labels = { off: "Accounts are off.", optional: "Accounts are optional.", required: "Sign-in is required.", invite: "New accounts need an invite code.", open: "Anyone can create an account.", closed: "Sign-up is closed." };
+          status($("site-status"), labels[radio.value] + warning, "ok");
+        } catch (err) {
+          status($("site-status"), err.message, "error");
+          loadSite();
+        }
+      }));
+    }
 
     // Invite codes
     async function loadInvites() {
@@ -682,12 +730,17 @@
         row.append(el("span", "admin-avatar", person.username.charAt(0).toUpperCase()));
         const main = el("div", "admin-main");
         const name = el("strong", "", person.username);
-        if (person.admin) name.append(el("span", "chip-admin", "Admin"));
+        if (person.admin) name.append(el("span", "chip-admin", person.serverAdmin ? "Admin (ADMINS)" : "Admin"));
         if (person.banned) name.append(el("span", "chip-banned", "Banned"));
         main.append(name, el("small", "", `Joined ${day(person.createdAt)} · last seen ${ago(person.lastSeenAt)}${person.invite ? ` · invite: ${person.invite}` : ""}`));
         if (person.banned && person.banReason) main.append(el("small", "ban-reason", `Reason: ${person.banReason}`));
         row.append(main);
 
+        if (!person.banned && !person.serverAdmin) {
+          row.append(person.admin
+            ? button("Remove admin", "btn-ghost", () => act(() => SnAccount.admin.removeAdmin(person.username), `${person.username} is no longer an admin.`))
+            : button("Make admin", "btn-ghost", () => act(() => SnAccount.admin.makeAdmin(person.username), `${person.username} is now an admin and has this page.`)));
+        }
         if (person.banned) {
           row.append(button("Unban", "", () => act(() => SnAccount.admin.unban(person.username), `${person.username} can sign in again.`)));
         } else if (!person.admin && person.username.toLowerCase() !== me) {

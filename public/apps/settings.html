@@ -89,6 +89,11 @@
       <div class="group" id="account-off" hidden>
         <h3>Accounts</h3>
         <p class="hint">Accounts aren't available on this site, so your settings are saved in this browser only. To move them to another browser, use <a href="#system">System &gt; Backup</a>.</p>
+        <div class="buttons">
+          <a class="btn btn-primary" id="account-setup" href="/setup" target="_top" hidden>Set up this site</a>
+          <a class="btn btn-ghost" id="account-admin-signin" href="/signin" target="_top">Site admin? Sign in</a>
+        </div>
+        <p class="hint" id="account-setup-hint" hidden>Nobody manages this site yet. Whoever runs the server can set it up with the code in the server's log.</p>
       </div>
 
       <!-- signed out: one of three forms -->
@@ -199,8 +204,64 @@
     <section class="panel" id="panel-admin" role="tabpanel" hidden>
       <header class="panel-head">
         <h2>Admin</h2>
-        <p>Who can join this site, and who can't.</p>
+        <p>How this site uses accounts, who can join, and who can't.</p>
       </header>
+
+      <div class="group" id="site-group">
+        <h3>Accounts</h3>
+        <p class="hint">Changes apply straight away, for everyone.</p>
+        <div class="choices" role="radiogroup" aria-label="Accounts" id="site-mode">
+          <label class="choice">
+            <input type="radio" name="site-mode" value="off">
+            <span class="choice-body">
+              <strong>Off</strong>
+              <small>No accounts. Anyone with the link uses the site. Admins can still sign in at /signin.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="site-mode" value="optional">
+            <span class="choice-body">
+              <strong>Optional</strong>
+              <small>People can create an account in Settings to keep their apps and preferences everywhere. The site stays open to everyone.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="site-mode" value="required">
+            <span class="choice-body">
+              <strong>Required</strong>
+              <small>Everyone signs in first, on a sign-in screen. Nobody can use the site or the proxy without an account; people who aren't signed in are disconnected.</small>
+            </span>
+          </label>
+        </div>
+        <small class="status" id="site-mode-locked" hidden></small>
+
+        <h3>Who can create an account</h3>
+        <div class="choices" role="radiogroup" aria-label="Sign-up" id="site-signup">
+          <label class="choice">
+            <input type="radio" name="site-signup" value="invite">
+            <span class="choice-body">
+              <strong>People with an invite code <span class="chip">Recommended</span></strong>
+              <small>Make codes below and share them.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="site-signup" value="open">
+            <span class="choice-body">
+              <strong>Anyone</strong>
+              <small>Anyone who finds the site can create an account.</small>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="site-signup" value="closed">
+            <span class="choice-body">
+              <strong>Nobody</strong>
+              <small>No new accounts. Existing ones keep working.</small>
+            </span>
+          </label>
+        </div>
+        <small class="status" id="site-signup-locked" hidden></small>
+        <small class="status" id="site-status" role="status"></small>
+      </div>
 
       <div class="group">
         <h3>Invite codes</h3>
