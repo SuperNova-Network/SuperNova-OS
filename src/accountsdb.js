@@ -220,7 +220,14 @@ export function setSiteSetting(db, key, value, updatedBy = null) {
 
 // --- admins ------------------------------------------------------------------------
 
-/** Admins in the database (ADMINS on the server adds more; see isAdminName). */
+/** Whether any name in ADMINS has an account (only then is it a working admin). */
+function serverAdminExists(db, serverAdmins) {
+  const names = [...serverAdmins];
+  if (!names.length) return false;
+  return Boolean(db.prepare(`SELECT 1 FROM users WHERE lower(username) IN (${names.map(() => "?").join(",")}) AND banned_at IS NULL LIMIT 1`).get(...names));
+}
+
+/** Admins in the database (ADMINS on the server adds more). */
 export function adminCount(db) {
   return db.prepare("SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND banned_at IS NULL").get().n;
 }
@@ -231,7 +238,7 @@ export function setAdmin(db, username, admin, { serverAdmins = new Set() } = {})
   if (!user) throw new AdminError(404, "There's no account with that name.");
   if (admin && user.banned_at) throw new AdminError(400, "Unban them first.");
   if (!admin && serverAdmins.has(user.username.toLowerCase())) throw new AdminError(403, "They're an admin through ADMINS on the server; remove them there.");
-  if (!admin && user.is_admin && adminCount(db) <= 1 && !serverAdmins.size) throw new AdminError(400, "They're the only admin. Make someone else an admin first.");
+  if (!admin && user.is_admin && adminCount(db) <= 1 && !serverAdminExists(db, serverAdmins)) throw new AdminError(400, "They're the only admin. Make someone else an admin first.");
   db.prepare("UPDATE users SET is_admin = ? WHERE id = ?").run(admin ? 1 : 0, user.id);
   return user.id;
 }

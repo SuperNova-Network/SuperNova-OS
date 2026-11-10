@@ -35,7 +35,7 @@ SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has 
 
 ## Getting started
 
-You need Node.js 20 or newer.
+You need Node.js 20 or newer, or 22.13 or newer for accounts and the admin panel (they use its built-in SQLite).
 
 ```sh
 git clone https://github.com/SuperNova-Network/SuperNova-OS.git

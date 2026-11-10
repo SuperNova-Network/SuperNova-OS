@@ -209,3 +209,18 @@ test("a database from before invite codes and bans is upgraded in place", option
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("the last admin can't be removed just because ADMINS names someone without an account", options, async () => {
+  const { openDatabase, setAdmin } = await import("../src/accountsdb.js");
+  const dir = mkdtempSync(join(tmpdir(), "sn-lastadmin-"));
+  try {
+    const db = await openDatabase(dir);
+    db.prepare("INSERT INTO users (username, password_hash, recovery_hash, created_at, updated_at, is_admin) VALUES ('only', 'x', 'y', 1, 1, 1)").run();
+    assert.throws(() => setAdmin(db, "only", false, { serverAdmins: new Set(["ghost"]) }), /only admin/);
+    db.prepare("INSERT INTO users (username, password_hash, recovery_hash, created_at, updated_at) VALUES ('Ghost', 'x', 'y', 1, 1)").run();
+    setAdmin(db, "only", false, { serverAdmins: new Set(["ghost"]) }); // now ADMINS has a real account
+    db.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
