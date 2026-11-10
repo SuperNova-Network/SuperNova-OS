@@ -27,7 +27,7 @@
   const tabs = [...document.querySelectorAll(".nav-item")];
 
   function showPanel(name) {
-    if (!document.getElementById(`panel-${name}`)) name = "home";
+    if (!document.getElementById(`panel-${name}`) || (name === "admin" && $("nav-admin").hidden)) name = "home";
     for (const tab of tabs) {
       const selected = tab.dataset.panel === name;
       tab.setAttribute("aria-selected", String(selected));
@@ -49,7 +49,9 @@
     });
   });
   window.addEventListener("hashchange", () => showPanel(location.hash.slice(1)));
-  showPanel(location.hash.slice(1) || "home");
+  // The Admin page only exists once the account check says so; remember if it was asked for.
+  const requestedPanel = location.hash.slice(1);
+  showPanel(requestedPanel || "home");
 
   // Home page tiles jump to their page
   document.querySelectorAll("[data-go]").forEach((tile) => tile.addEventListener("click", () => showPanel(tile.dataset.go)));
@@ -443,6 +445,11 @@
     document.querySelectorAll("[data-show]").forEach((button) => button.addEventListener("click", () => showForm(button.dataset.show)));
 
     function signedInView(user) {
+      $("nav-admin").hidden = !user.admin;
+      if (user.admin) {
+        window.dispatchEvent(new Event("sn-admin"));
+        if (requestedPanel === "admin") showPanel("admin");
+      }
       text($("account-name"), user.username);
       text($("account-avatar"), user.username.charAt(0).toUpperCase());
       text($("account-tile"), `Signed in as ${user.username}`);
@@ -451,6 +458,7 @@
     }
 
     function signedOutView(state) {
+      $("nav-admin").hidden = true;
       // This site needs an account: signed out means back to the sign-in screen.
       if (state.required) { window.top.location.href = "/signin"; return; }
       text($("account-tile"), state.enabled ? "Sign in to keep your settings everywhere" : "Not available on this site");
@@ -560,6 +568,163 @@
     refresh();
   }
 
+  // --- admin: invite codes and bans ------------------------------------------------------------
+
+  {
+    const el = (tag, className, content) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (content != null) node.textContent = content;
+      return node;
+    };
+    const button = (label, className, onClick) => {
+      const node = el("button", `btn ${className ?? ""}`.trim(), label);
+      node.type = "button";
+      node.addEventListener("click", onClick);
+      return node;
+    };
+    const day = (ms) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric", year: new Date(ms).getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+    function ago(ms) {
+      if (!ms) return "never";
+      const minutes = Math.round((Date.now() - ms) / 60000);
+      if (minutes < 60) return "within the hour";
+      if (minutes < 60 * 24) return `${Math.round(minutes / 60)} h ago`;
+      return day(ms);
+    }
+
+    let loaded = false;
+    window.addEventListener("sn-admin", () => { if (!loaded) { loaded = true; loadInvites(); loadPeople(); } });
+
+    // Invite codes
+    async function loadInvites() {
+      try {
+        renderInvites(await SnAccount.admin.invites());
+      } catch (err) {
+        status($("invite-status"), err.message, "error");
+      }
+    }
+
+    function renderInvites(invites) {
+      $("invite-list").replaceChildren(...invites.map((invite) => {
+        const row = el("div", "admin-row");
+        if (invite.state !== "active") row.dataset.dim = "";
+        const main = el("div", "admin-main");
+        const title = el("strong", "", invite.label || "Invite code");
+        title.append(el("span", "chip-state", invite.state));
+        const used = `${invite.uses} of ${invite.maxUses} used`;
+        const expires = invite.expiresAt ? `${invite.state === "expired" ? "expired" : "expires"} ${day(invite.expiresAt)}` : "never expires";
+        main.append(title, el("small", "", `…${invite.hint} · ${used} · ${expires}${invite.createdBy ? ` · by ${invite.createdBy}` : ""}`));
+        row.append(main);
+        if (invite.state === "active") {
+          row.append(button("Revoke", "", async () => {
+            try {
+              await SnAccount.admin.revokeInvite(invite.id);
+              status($("invite-status"), "Code revoked. It can't be used any more.", "ok");
+              loadInvites();
+            } catch (err) {
+              status($("invite-status"), err.message, "error");
+            }
+          }));
+        }
+        return row;
+      }));
+      if (!invites.length) $("invite-list").append(el("p", "hint", "No invite codes yet."));
+    }
+
+    $("invite-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const submit = form.querySelector("button[type='submit']");
+      submit.disabled = true;
+      try {
+        const { code, invite } = await SnAccount.admin.createInvite({ label: form.elements.label.value, maxUses: Number(form.elements.uses.value), expiresInDays: Number(form.elements.days.value) });
+        text($("new-invite-code"), code);
+        text($("new-invite-copy"), "Copy");
+        $("new-invite").hidden = false;
+        status($("invite-status"), `Code created for ${invite.maxUses} ${invite.maxUses === 1 ? "person" : "people"}. Copy it now: it won't be shown again.`, "ok");
+        form.elements.label.value = "";
+        loadInvites();
+      } catch (err) {
+        status($("invite-status"), err.message, "error");
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    $("new-invite-copy").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText($("new-invite-code").textContent);
+        text($("new-invite-copy"), "Copied");
+      } catch {
+        getSelection().selectAllChildren($("new-invite-code"));
+      }
+    });
+
+    // Accounts
+    let searchTimer = null;
+    $("people-search").addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(loadPeople, 250);
+    });
+
+    async function loadPeople() {
+      try {
+        renderPeople(await SnAccount.admin.users($("people-search").value.trim()));
+      } catch (err) {
+        status($("people-status"), err.message, "error");
+      }
+    }
+
+    function renderPeople(people) {
+      const me = SnAccount.user?.username.toLowerCase();
+      $("people-list").replaceChildren(...people.map((person) => {
+        const row = el("div", "admin-row");
+        row.append(el("span", "admin-avatar", person.username.charAt(0).toUpperCase()));
+        const main = el("div", "admin-main");
+        const name = el("strong", "", person.username);
+        if (person.admin) name.append(el("span", "chip-admin", "Admin"));
+        if (person.banned) name.append(el("span", "chip-banned", "Banned"));
+        main.append(name, el("small", "", `Joined ${day(person.createdAt)} · last seen ${ago(person.lastSeenAt)}${person.invite ? ` · invite: ${person.invite}` : ""}`));
+        if (person.banned && person.banReason) main.append(el("small", "ban-reason", `Reason: ${person.banReason}`));
+        row.append(main);
+
+        if (person.banned) {
+          row.append(button("Unban", "", () => act(() => SnAccount.admin.unban(person.username), `${person.username} can sign in again.`)));
+        } else if (!person.admin && person.username.toLowerCase() !== me) {
+          row.append(button("Ban…", "btn-danger", () => {
+            // Ask for a reason in the row itself.
+            const form = el("form", "ban-form");
+            const reason = el("input", "field");
+            reason.placeholder = "Reason they'll see (optional)";
+            reason.maxLength = 200;
+            const confirm = el("button", "btn btn-danger", `Ban ${person.username}`);
+            confirm.type = "submit";
+            form.append(reason, confirm, button("Cancel", "", () => form.remove()));
+            form.addEventListener("submit", (event) => {
+              event.preventDefault();
+              act(() => SnAccount.admin.ban(person.username, reason.value), `${person.username} is banned and has been signed out everywhere.`);
+            });
+            row.querySelector(".ban-form")?.remove();
+            row.append(form);
+            reason.focus();
+          }));
+        }
+        return row;
+      }));
+      if (!people.length) $("people-list").append(el("p", "hint", $("people-search").value ? "No accounts match." : "No accounts yet."));
+    }
+
+    async function act(action, message) {
+      try {
+        await action();
+        status($("people-status"), message, "ok");
+        loadPeople();
+      } catch (err) {
+        status($("people-status"), err.message, "error");
+      }
+    }
+  }
+
   // --- backup (export / import) -----------------------------------------------------------------
 
   {
@@ -631,7 +796,7 @@
     findIndex = [];
     document.querySelectorAll(".panel").forEach((panel) => {
       const panelName = panel.id.replace("panel-", "");
-      if (panelName === "home") return;
+      if (panelName === "home" || panelName === "admin") return;
       const pageTitle = panel.querySelector(".panel-head h2")?.textContent ?? panelName;
       panel.querySelectorAll(".group > h3, .row, .choice-body").forEach((el) => {
         const label = (el.matches("h3") ? el.textContent : el.querySelector("strong")?.textContent) ?? "";

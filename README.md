@@ -111,7 +111,8 @@ Everything is optional. Copy `.env.example` to `.env` or set these on your host.
 | `WISP_URL` | empty | Use an external Wisp server (`wss://...`) |
 | `OPEN_BROWSER` | empty | Set to `1` to open your browser on start |
 | `ACCOUNTS` | empty | `1` lets people sign in to keep their settings in an account; `required` puts the whole site behind a sign-in screen (needs a persistent disk) |
-| `INVITE_CODE` | empty | Needed to create an account. With `ACCOUNTS=required` it defaults to `AUTH_PASS` |
+| `ADMINS` | empty | Usernames that can make invite codes and ban accounts (Settings > Admin) |
+| `INVITE_CODE` | empty | A fixed invite code besides the ones admins make. With `ACCOUNTS=required` it defaults to `AUTH_PASS` |
 | `TRUST_PROXY` | empty | Set to `1` behind a hosting platform's proxy (Fly.io, Render, nginx) |
 
 Full reference: [docs/CONFIGURATION.md](docs/CONFIGURATION.md)

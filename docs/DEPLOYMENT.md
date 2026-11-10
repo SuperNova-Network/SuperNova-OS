@@ -42,6 +42,8 @@ fly secrets set ACCOUNTS=1
 fly deploy
 ```
 
+Manage invite codes and bans from your machine with `fly ssh console -C "npm run admin -- invite"` (see [invite codes and bans](CONFIGURATION.md#invite-codes-and-bans)).
+
 ## Render
 
 [`render.yaml`](../render.yaml) is a blueprint: create a **Blueprint** from the repository in the dashboard. It builds the `Dockerfile` and uses `/healthz` for health checks. Add `AUTH_PASS` under Environment if you want a password. Render's free plan spins down when idle.

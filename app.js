@@ -241,7 +241,10 @@ function safeEqual(a, b) {
 
 // The Express auth middleware does not see WebSocket upgrades, so check here.
 function isAuthorized(req) {
-  if (accountsRequired) return Boolean(accounts.userFor(req));
+  if (accountsRequired) {
+    req.account = accounts.userFor(req); // remembered so the socket can be tracked
+    return Boolean(req.account);
+  }
   if (!authEnabled) return true;
   const header = req.headers.authorization || "";
   if (!header.startsWith("Basic ")) return false;
@@ -257,8 +260,27 @@ server.on("upgrade", (req, socket, head) => {
     socket.end(`HTTP/1.1 401 Unauthorized\r\n${challenge}Connection: close\r\n\r\n`);
     return;
   }
+  if (req.account) trackSocket(socket, req.account.id, req.sessionHash);
   wisp.routeRequest(req, socket, head);
 });
+
+// With ACCOUNTS=required, the proxy's WebSockets belong to a session. A ban from the
+// admin page closes that person's sockets at once; every 30 seconds the rest are
+// checked, which catches bans from the command line, sign-outs and expiry.
+const accountSockets = new Map(); // socket -> { userId, sessionHash }
+
+function trackSocket(socket, userId, sessionHash) {
+  accountSockets.set(socket, { userId, sessionHash });
+  socket.once("close", () => accountSockets.delete(socket));
+}
+
+accounts.onBan((userId) => {
+  for (const [socket, owner] of accountSockets) if (owner.userId === userId) socket.destroy();
+});
+
+setInterval(() => {
+  for (const [socket, owner] of accountSockets) if (!accounts.sessionActive(owner.sessionHash)) socket.destroy();
+}, 30_000).unref();
 
 server.on("listening", async () => {
   const address = server.address();
@@ -275,12 +297,15 @@ server.on("listening", async () => {
   );
   if (authEnabled) console.log(`Password protection is ON (user: ${config.auth.user})`);
   if (config.accounts.enabled) {
-    const details = [`data in ${config.accounts.dataDir}`];
-    if (!config.accounts.signup) details.push("sign-up closed");
-    else if (config.accounts.inviteCode) details.push("sign-up needs the invite code");
+    const { signup, admins, inviteCode } = config.accounts;
+    const details = [`data in ${config.accounts.dataDir}`, { open: "anyone can sign up", invite: "sign-up needs an invite code", closed: "sign-up closed" }[signup]];
+    if (admins.length) details.push(`admins: ${admins.join(", ")}`);
     console.log(`Accounts are ${accountsRequired ? "REQUIRED" : "ON"} (${details.join(", ")})`);
-    if (accountsRequired && config.accounts.signup && !config.accounts.inviteCode) {
-      console.warn("Warning: anyone who finds this site can create an account and use the proxy. Set INVITE_CODE (or AUTH_PASS) to limit sign-up.");
+    if (accountsRequired && signup === "open") {
+      console.warn("Warning: anyone who finds this site can create an account and use the proxy. Remove ACCOUNTS_SIGNUP=open to require invite codes.");
+    }
+    if (signup === "invite" && !inviteCode && !admins.length) {
+      console.warn("Note: sign-up needs an invite code. Make one with `npm run admin -- invite`, or set ADMINS to make them in Settings > Admin.");
     }
   }
 

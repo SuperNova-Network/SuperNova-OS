@@ -13,11 +13,13 @@
  * asks for the password again.
  */
 import express from "express";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
+import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { createLimiter } from "./ratelimit.js";
+import {
+  AdminError, createInvite, listInvites, listUsers, newRecoveryCode, normalizeCode, openDatabase,
+  redeemInvite, revokeInvite, setBanned, sha256, transaction,
+} from "./accountsdb.js";
 
 const scrypt = promisify(scryptCb);
 
@@ -53,18 +55,6 @@ async function checkPassword(password, stored) {
   });
   return key.length === want.length && timingSafeEqual(key, want);
 }
-
-const sha256 = (value) => createHash("sha256").update(value).digest("hex");
-
-// 20 characters from an alphabet without look-alikes (no 0/O, 1/I/L): about 100 bits.
-const CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
-function newRecoveryCode() {
-  const bytes = randomBytes(20);
-  let code = "";
-  for (let i = 0; i < 20; i++) code += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
-  return code.match(/.{5}/g).join("-");
-}
-const normalizeCode = (code) => String(code ?? "").toUpperCase().replace(/[^0-9A-Z]/g, "");
 
 function readCookie(req, name) {
   for (const part of (req.headers.cookie ?? "").split(";")) {
@@ -105,34 +95,6 @@ function mergeSettings(current, change) {
   return { next, json };
 }
 
-function openDatabase(dataDir, DatabaseSync) {
-  mkdirSync(dataDir, { recursive: true });
-  const db = new DatabaseSync(join(dataDir, "accounts.db"));
-  db.exec(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON;
-    PRAGMA busy_timeout = 2000;
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY,
-      username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-      password_hash TEXT NOT NULL,
-      recovery_hash TEXT NOT NULL,
-      settings TEXT NOT NULL DEFAULT '{}',
-      revision INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS sessions (
-      token_hash TEXT PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      created_at INTEGER NOT NULL,
-      expires_at INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
-  `);
-  return db;
-}
-
 /** The router for /api/account when accounts are off: it only says so. */
 function disabledRouter() {
   const router = express.Router();
@@ -142,32 +104,37 @@ function disabledRouter() {
 }
 
 /**
- * Build the /api/account router. Resolves to { router, userFor(req), close() }.
- * options: { enabled, required, signup, inviteCode, dataDir }
+ * Build the /api/account router. Resolves to
+ * { router, userFor(req), sessionActive(hash), onBan(fn), close() }.
+ * options:
+ *   enabled     accounts on at all
  *   required    the site needs an account (app.js guards everything else)
- *   inviteCode  when set, needed to create an account
+ *   signup      "open" (anyone), "invite" (needs an invite code) or "closed"
+ *   inviteCode  a fixed code accepted besides the generated ones (INVITE_CODE / AUTH_PASS)
+ *   admins      usernames that may manage invite codes and bans
+ *   dataDir     where accounts.db lives
  */
-export async function createAccounts({ enabled, required = false, signup = true, inviteCode = "", dataDir = "data" } = {}) {
-  if (!enabled) return { router: disabledRouter(), userFor: () => null, close() {} };
-  const inviteHash = inviteCode ? sha256(inviteCode) : null;
+export async function createAccounts({ enabled, required = false, signup = "open", inviteCode = "", admins = [], dataDir = "data" } = {}) {
+  if (!enabled) return { router: disabledRouter(), userFor: () => null, sessionActive: () => false, onBan() {}, close() {} };
+  const fixedInviteHash = inviteCode ? sha256(inviteCode) : null;
+  const adminNames = new Set(admins.map((name) => name.toLowerCase()));
+  const isAdmin = (user) => adminNames.has(user.username.toLowerCase());
+  const banListeners = [];
 
-  let DatabaseSync;
-  try {
-    ({ DatabaseSync } = await import("node:sqlite"));
-  } catch {
-    throw new Error(`ACCOUNTS=1 needs Node.js 22.13 or newer (node:sqlite); this is ${process.version}.`);
-  }
-  const db = openDatabase(dataDir, DatabaseSync);
+  const db = await openDatabase(dataDir);
 
   const sql = {
     userByName: db.prepare("SELECT * FROM users WHERE username = ?"),
     userById: db.prepare("SELECT * FROM users WHERE id = ?"),
-    insertUser: db.prepare("INSERT INTO users (username, password_hash, recovery_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"),
+    insertUser: db.prepare("INSERT INTO users (username, password_hash, recovery_hash, created_at, updated_at, last_seen_at, invite_id) VALUES (?, ?, ?, ?, ?, ?, ?)"),
+    touch: db.prepare("UPDATE users SET last_seen_at = ? WHERE id = ?"),
     setPassword: db.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?"),
     setRecovery: db.prepare("UPDATE users SET password_hash = ?, recovery_hash = ?, updated_at = ? WHERE id = ?"),
     setSettings: db.prepare("UPDATE users SET settings = ?, revision = revision + 1, updated_at = ? WHERE id = ? RETURNING revision"),
     deleteUser: db.prepare("DELETE FROM users WHERE id = ?"),
-    session: db.prepare("SELECT users.*, sessions.expires_at AS session_expires FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ?"),
+    // A banned account has no sessions, and gets none: checked here as well, so a ban
+    // made from the command line takes effect even for a session created meanwhile.
+    session: db.prepare("SELECT users.*, sessions.expires_at AS session_expires FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ? AND users.banned_at IS NULL"),
     insertSession: db.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)"),
     extendSession: db.prepare("UPDATE sessions SET expires_at = ? WHERE token_hash = ?"),
     deleteSession: db.prepare("DELETE FROM sessions WHERE token_hash = ?"),
@@ -194,7 +161,11 @@ export async function createAccounts({ enabled, required = false, signup = true,
     if (wait) throw new HttpError(429, "Too many attempts. Try again later.", { retryAfter: wait });
   }
 
-  const publicUser = (user) => ({ username: user.username });
+  const publicUser = (user) => (isAdmin(user) ? { username: user.username, admin: true } : { username: user.username });
+
+  function bannedError(user) {
+    return new HttpError(403, `This account has been suspended.${user.ban_reason ? ` Reason: ${user.ban_reason}` : ""}`);
+  }
 
   function startSession(req, res, userId) {
     const token = randomBytes(32).toString("base64url");
@@ -272,32 +243,41 @@ export async function createAccounts({ enabled, required = false, signup = true,
       sql.extendSession.run(Date.now() + SESSION_DAYS * DAY, req.sessionHash);
       setCookie(req, res, readCookie(req, COOKIE), SESSION_DAYS * DAY);
     }
-    res.json({ enabled: true, required, signup, invite: Boolean(inviteHash), user: user ? publicUser(user) : null });
+    // "Last seen" for the admin list, written at most once an hour.
+    if (user && Date.now() - (user.last_seen_at ?? 0) > 60 * 60 * 1000) sql.touch.run(Date.now(), user.id);
+    res.json({ enabled: true, required, signup: signup !== "closed", invite: signup === "invite", user: user ? publicUser(user) : null });
   }));
 
   router.post("/register", handle(async (req, res) => {
-    if (!signup) throw new HttpError(403, "New accounts can't be created on this site.");
+    if (signup === "closed") throw new HttpError(403, "New accounts can't be created on this site.");
     const { username, password } = readCredentials(req.body);
     if (!USERNAME.test(username)) throw new HttpError(400, "Usernames are 3 to 32 letters, numbers, dots, dashes or underscores.");
     checkNewPassword(password);
-    // Counted before the invite code is checked, so the code can't be guessed quickly.
+    // Counted before the invite code is checked, so codes can't be guessed quickly.
     limit(limits.signupIp, req.ip);
-    if (inviteHash) {
-      const given = Buffer.from(sha256(String(req.body?.inviteCode ?? "").trim()));
-      if (!timingSafeEqual(given, Buffer.from(inviteHash))) throw new HttpError(403, "That invite code isn't right.");
-    }
+    const given = String(req.body?.inviteCode ?? "").trim();
+    const fixedCode = Boolean(fixedInviteHash && given) && timingSafeEqual(Buffer.from(sha256(given)), Buffer.from(fixedInviteHash));
+    if (signup === "invite" && !given) throw new HttpError(403, "Enter an invite code.");
     if (sql.userByName.get(username)) throw new HttpError(409, "That username is taken.");
+    const passwordHash = await hashPassword(password); // before the transaction: it awaits
     const recoveryCode = newRecoveryCode();
     const now = Date.now();
-    let id;
-    try {
-      ({ lastInsertRowid: id } = sql.insertUser.run(username, await hashPassword(password), sha256(normalizeCode(recoveryCode)), now, now));
-    } catch (err) {
-      // Lost a race for the same name between the check and the insert.
-      if (/UNIQUE/.test(err.message)) throw new HttpError(409, "That username is taken.");
-      throw err;
-    }
-    startSession(req, res, Number(id));
+    // One transaction, so a failed sign-up gives the invite code's use back.
+    const id = transaction(db, () => {
+      let inviteId = null;
+      if (signup === "invite" && !fixedCode) {
+        inviteId = redeemInvite(db, given);
+        if (inviteId === null) throw new HttpError(403, "That invite code isn't right, or it has expired or been used up.");
+      }
+      try {
+        return Number(sql.insertUser.run(username, passwordHash, sha256(normalizeCode(recoveryCode)), now, now, now, inviteId).lastInsertRowid);
+      } catch (err) {
+        // Lost a race for the same name between the check and the insert.
+        if (/UNIQUE/.test(err.message)) throw new HttpError(409, "That username is taken.");
+        throw err;
+      }
+    });
+    startSession(req, res, id);
     res.status(201).json({ user: { username }, recoveryCode });
   }));
 
@@ -309,7 +289,10 @@ export async function createAccounts({ enabled, required = false, signup = true,
     const user = sql.userByName.get(username);
     const ok = await checkPassword(password, user ? user.password_hash : dummyHash);
     if (!user || !ok) throw new HttpError(401, "Wrong username or password.");
+    // Only after the password: whether an account is banned isn't anyone else's business.
+    if (user.banned_at) throw bannedError(user);
     limits.loginUser.reset(username.toLowerCase());
+    sql.touch.run(Date.now(), user.id);
     startSession(req, res, user.id);
     res.json({ user: publicUser(user) });
   }));
@@ -335,6 +318,7 @@ export async function createAccounts({ enabled, required = false, signup = true,
     const expected = Buffer.from(user ? user.recovery_hash : sha256("no such user"));
     const given = Buffer.from(sha256(code));
     if (!user || !timingSafeEqual(expected, given)) throw new HttpError(401, "That username and recovery code don't match.");
+    if (user.banned_at) throw bannedError(user);
     const recoveryCode = newRecoveryCode();
     sql.setRecovery.run(await hashPassword(password), sha256(normalizeCode(recoveryCode)), Date.now(), user.id);
     sql.deleteAllSessions.run(user.id);
@@ -374,6 +358,50 @@ export async function createAccounts({ enabled, required = false, signup = true,
     res.json({ revision });
   }));
 
+  // --- admin: invite codes and bans (usernames in ADMINS) ----------------------------
+
+  function requireAdmin(req) {
+    const user = requireUser(req);
+    if (!isAdmin(user)) throw new HttpError(403, "Only admins can do that.");
+    return user;
+  }
+
+  router.get("/admin/users", handle((req, res) => {
+    requireAdmin(req);
+    res.json({ users: listUsers(db, { search: String(req.query.q ?? "").slice(0, 32), admins: adminNames }) });
+  }));
+
+  router.post("/admin/users/:username/ban", handle((req, res) => {
+    const admin = requireAdmin(req);
+    if (req.params.username.toLowerCase() === admin.username.toLowerCase()) throw new HttpError(400, "You can't ban yourself.");
+    const id = setBanned(db, req.params.username, true, { reason: req.body?.reason, admins: adminNames });
+    for (const listener of banListeners) listener(id);
+    res.json({ ok: true });
+  }));
+
+  router.post("/admin/users/:username/unban", handle((req, res) => {
+    requireAdmin(req);
+    setBanned(db, req.params.username, false);
+    res.json({ ok: true });
+  }));
+
+  router.get("/admin/invites", handle((req, res) => {
+    requireAdmin(req);
+    res.json({ invites: listInvites(db) });
+  }));
+
+  router.post("/admin/invites", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const { label, maxUses, expiresInDays } = req.body ?? {};
+    res.status(201).json(createInvite(db, { label, maxUses, expiresInDays, createdBy: admin.username }));
+  }));
+
+  router.post("/admin/invites/:id/revoke", handle((req, res) => {
+    requireAdmin(req);
+    revokeInvite(db, req.params.id);
+    res.json({ ok: true });
+  }));
+
   router.use((req, res) => res.status(404).json({ error: "Not found." }));
 
   // eslint-disable-next-line no-unused-vars
@@ -382,17 +410,30 @@ export async function createAccounts({ enabled, required = false, signup = true,
       if (err.extra.retryAfter) res.set("Retry-After", String(err.extra.retryAfter));
       return res.status(err.status).json({ error: err.message });
     }
+    if (err instanceof AdminError) return res.status(err.status).json({ error: err.message });
     if (err.type === "entity.too.large") return res.status(413).json({ error: "Your settings are too large to save to your account." });
     if (err.type === "entity.parse.failed") return res.status(400).json({ error: "That request isn't valid JSON." });
     console.error(err);
     res.status(500).json({ error: "Something went wrong on the server." });
   });
 
-  /** The signed-in user ({ username }) for a request (or WebSocket upgrade), or null. */
+  /** The signed-in user ({ id, username, admin }) for a request or WebSocket upgrade, or null. Sets req.sessionHash. */
   function userFor(req) {
     const user = currentUser(req);
-    return user ? publicUser(user) : null;
+    return user ? { id: user.id, ...publicUser(user) } : null;
   }
 
-  return { router, userFor, close: () => db.close() };
+  /** Whether a session (by hash) is still valid: not signed out, expired or banned. */
+  function sessionActive(hash) {
+    return Boolean(hash && sql.session.get(hash, Date.now()));
+  }
+
+  return {
+    router,
+    userFor,
+    sessionActive,
+    /** fn(userId) is called right after someone is banned from the web admin page. */
+    onBan: (fn) => banListeners.push(fn),
+    close: () => db.close(),
+  };
 }

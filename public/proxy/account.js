@@ -263,7 +263,19 @@
     });
   }
 
+  // Admin requests (usernames in ADMINS): invite codes and bans.
+  var path = encodeURIComponent;
+  var admin = {
+    users: function (search) { return call("GET", "/admin/users?q=" + path(search || "")).then(function (data) { return data.users; }); },
+    ban: function (username, reason) { return call("POST", "/admin/users/" + path(username) + "/ban", { reason: reason || "" }); },
+    unban: function (username) { return call("POST", "/admin/users/" + path(username) + "/unban", {}); },
+    invites: function () { return call("GET", "/admin/invites").then(function (data) { return data.invites; }); },
+    createInvite: function (options) { return call("POST", "/admin/invites", options); },
+    revokeInvite: function (id) { return call("POST", "/admin/invites/" + path(id) + "/revoke", {}); },
+  };
+
   window.SnAccount = {
+    admin: admin,
     status: status,
     start: start,
     stop: stop,

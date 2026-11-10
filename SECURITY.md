@@ -11,6 +11,7 @@ Please **do not open a public issue** for a security problem. Use GitHub's priva
 - **Secrets in the repository.** Earlier versions shipped a hardcoded Basic-auth password in `app.js`. It is gone, but it remains in git history: **change it if you ever used it.**
 - **Injection through settings.** App names, wallpaper addresses, custom tab icons and panic destinations are validated or escaped (only `http(s)` addresses; no `javascript:` or `data:`).
 - **The proxy's own scripts being served as HTML.** Subresource requests under a proxy prefix get a real 404.
+- **Unwanted members** (with `ACCOUNTS=required`). Sign-up needs an invite code; admins' codes are limited in uses and time, stored only as hashes, and revocable. A ban ends every session of the account and closes its open proxy connections.
 - **Account attacks** (with `ACCOUNTS=1`). Passwords are hashed with scrypt; session tokens are stored only as hashes; the session cookie is `HttpOnly` and `SameSite=Strict`; account requests must be JSON and same-origin; sign-in, sign-up and recovery are rate limited; a wrong username and a wrong password get the same answer in the same time. Covered by tests.
 
 ## What it does not defend against

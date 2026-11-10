@@ -14,8 +14,9 @@ Server settings come from environment variables, read in [`config.js`](../config
 | `WISP_URL` | *(empty)* | Send browsers to an external Wisp server (`ws://` or `wss://` only) |
 | `OPEN_BROWSER` | *(empty)* | `1` opens a browser when the server starts. Never use it on a host |
 | `ACCOUNTS` | *(empty)* | `1` turns on optional [accounts](#accounts); `required` makes the whole site need one, with a sign-in screen instead of the Basic auth prompt. Needs Node.js 22.13+ and a persistent `DATA_DIR` |
-| `INVITE_CODE` | *(empty)* | When set, needed to create an account. With `ACCOUNTS=required` and no `INVITE_CODE`, `AUTH_PASS` is used as the invite code |
-| `ACCOUNTS_SIGNUP` | `1` | `0` stops new sign-ups; existing accounts keep working |
+| `ADMINS` | *(empty)* | Usernames, comma separated, that get Settings > Admin: [invite codes and bans](#invite-codes-and-bans) |
+| `ACCOUNTS_SIGNUP` | see below | Who can create an account: `invite` (needs an invite code), `open` (anyone) or `0` (nobody). Default `invite` with `ACCOUNTS=required` or an `INVITE_CODE`, otherwise `open` |
+| `INVITE_CODE` | *(empty)* | A fixed invite code accepted besides the ones admins make. With `ACCOUNTS=required` and no `INVITE_CODE`, `AUTH_PASS` is accepted |
 | `DATA_DIR` | `data` | Where the accounts database (`accounts.db`) is kept |
 | `TRUST_PROXY` | *(empty)* | Proxies in front of the server to trust for the visitor's address and protocol: a hop count (`1`), `true`, or addresses. Set it behind Fly.io, Render, nginx and the like |
 
@@ -44,7 +45,29 @@ Off by default. With `ACCOUNTS=1`, people can create an account under Settings >
 
 `ACCOUNTS=required` puts the whole site behind an account. Instead of the browser's Basic auth prompt, visitors get a sign-in screen (sign in, create an account, forgot password) and land on the desktop, or the page they were heading to, once signed in. Pages, APIs and the proxy's WebSocket all need a signed-in session; only the sign-in screen, its static files, `/healthz` and `/api/info` stay open. Signing out returns to the sign-in screen.
 
-Creating an account needs the invite code: `INVITE_CODE`, or, if that is empty, the existing `AUTH_PASS`. So a site that used a shared password switches over by setting `ACCOUNTS=required` and nothing else; share the old password as the invite code, and everyone picks their own login. Wrong invite codes count towards the sign-up rate limit. Without any invite code the server warns at start-up, because anyone who finds the site could then create an account and use the proxy. Once everyone has an account, `ACCOUNTS_SIGNUP=0` closes sign-up entirely.
+Creating an account needs an invite code (see below). The fixed code `INVITE_CODE`, or if that is empty the existing `AUTH_PASS`, is always accepted, so a site that used a shared password switches over by setting `ACCOUNTS=required` and nothing else: share the old password, and everyone picks their own login. Wrong codes count towards the sign-up rate limit. `ACCOUNTS_SIGNUP=open` lets anyone sign up (the server warns about it), and `ACCOUNTS_SIGNUP=0` closes sign-up entirely.
+
+### Invite codes and bans
+
+List admins by username in `ADMINS` (for example `ADMINS=ms-rivera,it-dept`). They get an **Admin** page in Settings:
+
+- **Invite codes.** Create a code for one person or a whole class: a label, how many sign-ups it allows (1 to 1000) and when it expires (1, 7 or 30 days, or never). The code is shown once, when created, and stored only as a hash; the list shows its last four characters, how many times it has been used and by whom it was made, and **Revoke** stops it at once. A sign-up that fails (a taken name, say) doesn't use the code up. Each account remembers which code it joined with.
+- **Accounts.** Search everyone, see when they joined and were last seen, and **ban** with an optional reason. A ban deletes all of that person's sessions, closes their open proxy connections immediately, and refuses their sign-in with the reason; it is only revealed after a correct password. **Unban** lets them back in. Admins can't be banned (remove them from `ADMINS` first), and can't ban themselves.
+
+With `ACCOUNTS=1` (optional accounts) the proxy itself stays open to everyone, so a ban only keeps someone out of their account; use `ACCOUNTS=required` to keep them off the site.
+
+The same works from the command line, on the server, also while it is running (a ban there reaches open connections within 30 seconds). It needs no admin account, so it is also how you get the first invite code or recover from a mistake:
+
+```sh
+npm run admin -- invite --uses 30 --days 7 --label "Period 3"
+npm run admin -- invites
+npm run admin -- revoke 4
+npm run admin -- users [search]
+npm run admin -- ban some-name Sharing the link
+npm run admin -- unban some-name
+```
+
+On Fly.io, run it on the machine: `fly ssh console -C "npm run admin -- invite"`.
 
 ## Content filter
 
