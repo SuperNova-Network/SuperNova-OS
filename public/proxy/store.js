@@ -87,6 +87,19 @@
       notify(key, defaults[key]);
     },
 
+    /** Every value that has been set (defaults not included), as { key: value }. */
+    entries: function () {
+      var out = {};
+      Object.keys(memory).forEach(function (key) { out[key] = memory[key]; });
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var key = localStorage.key(i);
+          if (key !== null && key.indexOf(PREFIX) === 0) out[key.slice(PREFIX.length)] = localStorage.getItem(key);
+        }
+      } catch (e) { /* storage blocked: memory is all there is */ }
+      return out;
+    },
+
     /**
      * Factory reset: erase everything this origin keeps in localStorage (settings,
      * and the proxied sites' saved data too), then announce it as "*".

@@ -276,6 +276,28 @@
         </label>
       </div>
 
+      <div class="group">
+        <h3>Backup</h3>
+        <div class="row">
+          <span class="row-label"><strong>Export settings</strong><small>Save your apps, bookmarks, wallpaper and preferences to a file. Browsing history is not included.</small></span>
+          <button class="btn" id="export-settings" type="button">Export</button>
+        </div>
+        <div class="row">
+          <span class="row-label"><strong>Import settings</strong><small>Load a backup file, here or on another SuperNova site. It replaces your current settings.</small></span>
+          <button class="btn" id="import-settings" type="button">Import…</button>
+          <input type="file" id="import-file" accept=".json,application/json" hidden>
+        </div>
+        <div class="import-confirm" id="import-confirm" hidden>
+          <p id="import-summary"></p>
+          <ul class="import-warnings" id="import-warnings"></ul>
+          <div class="buttons">
+            <button class="btn btn-primary" id="import-apply" type="button">Replace my settings</button>
+            <button class="btn" id="import-cancel" type="button">Cancel</button>
+          </div>
+        </div>
+        <small class="status" id="backup-status" role="status"></small>
+      </div>
+
       <div class="group" data-needs-os>
         <h3>Data</h3>
         <div class="row">
@@ -307,6 +329,7 @@
   <script src="/assets/uv/uv.bundle.js"></script>
   <script src="/proxy/uv.config.js"></script>
   <script src="/proxy/store.js"></script>
+  <script src="/proxy/backup.js"></script>
   <script src="/proxy/resolve.js"></script>
   <script src="/proxy/core.js"></script>
   <script src="/resources/scripts/theme.js"></script>

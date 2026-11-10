@@ -50,13 +50,16 @@ var DEF_WIN_H = parseInt(SnStore.get("winH")) || 35;
 var ou = SnStore.get("oftenUsed");
 if (ou != null) { oftenUsed = ou.split(","); }
 var colId = 4, backId = 3; /*This changes the defualt wallpaper.*/
-var ci = SnStore.get("colId");
-if (ci != null) { colId = parseInt(ci); }
-var bi = SnStore.get("backId");
-if (bi != null) { backId = parseInt(bi); }
+// Saved values can come from an older version or an imported backup: keep only
+// ones that make sense here, or setCols and classList.add would throw.
+var ci = parseInt(SnStore.get("colId"));
+if (ci >= 0 && ci < colors.length) { colId = ci; }
+var bi = parseInt(SnStore.get("backId"));
+if (bi >= 0 && bi <= backgrounds.length) { backId = bi; }
+if (!isFinite(Number(tzOffset))) { tzOffset = 0; }
 lockTaskbar = SnStore.get("lockTaskbar") != "0";
 document.getElementById("taskbar").className = lockTaskbar ? "locked" : "unlocked";
-document.body.classList.add(SnStore.get("viewmode") || "grid");
+document.body.classList.add(SnStore.get("viewmode") === "table" ? "table" : "grid");
 
 const service = "supernova";
 
@@ -1594,6 +1597,7 @@ window.SnOS = {
   setTimezone: setTimezone,
   resetNames: resetNamesRelay,
   factoryReset: resetAll,
+  restart: restart,
   addApp: addApp,
   openAddApp: openAddAppDialog
 };

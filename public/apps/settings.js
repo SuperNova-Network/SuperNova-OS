@@ -425,6 +425,67 @@
     syncDesktop();
   }
 
+  // --- backup (export / import) -----------------------------------------------------------------
+
+  {
+    const backupStatus = $("backup-status");
+    const confirmBox = $("import-confirm");
+    let pending = null;
+
+    const hideConfirm = () => { confirmBox.hidden = true; pending = null; };
+
+    $("export-settings").addEventListener("click", () => {
+      hideConfirm();
+      const backup = SnBackup.create(SnStore);
+      const blob = new Blob([`${JSON.stringify(backup, null, 2)}\n`], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const now = new Date(); // name the file by the local date, not the UTC one in "exported"
+      const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      link.download = `supernova-settings-${day}.json`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+      const count = Object.keys(backup.settings).length;
+      status(backupStatus, `Saved ${count} setting${count === 1 ? "" : "s"} to ${link.download}.`, "ok");
+    });
+
+    $("import-settings").addEventListener("click", () => $("import-file").click());
+
+    $("import-file").addEventListener("change", async () => {
+      const file = $("import-file").files[0];
+      $("import-file").value = ""; // choosing the same file again still fires "change"
+      if (!file) return;
+      hideConfirm();
+      try {
+        if (file.size > 1_000_000) throw new Error("That file is too large to be a SuperNova backup.");
+        pending = SnBackup.parse(await file.text());
+      } catch (err) {
+        status(backupStatus, err.message, "error");
+        return;
+      }
+      const when = pending.exported ? ` from ${new Date(pending.exported).toLocaleDateString()}` : "";
+      text($("import-summary"), `Replace your current settings with the ${pending.count} in this backup${when}?` +
+        (pending.skipped ? ` ${pending.skipped} unreadable entr${pending.skipped === 1 ? "y" : "ies"} will be skipped.` : ""));
+      $("import-warnings").replaceChildren(...pending.warnings.map((warning) => text(document.createElement("li"), warning)));
+      status(backupStatus, "");
+      confirmBox.hidden = false;
+      $("import-apply").focus();
+    });
+
+    $("import-cancel").addEventListener("click", () => { hideConfirm(); status(backupStatus, "Import cancelled."); });
+
+    $("import-apply").addEventListener("click", () => {
+      if (!pending) return;
+      SnBackup.apply(SnStore, pending.settings);
+      hideConfirm();
+      status(backupStatus, "Settings restored. Restarting…", "ok");
+      // Restart so every part of the desktop reads the new settings.
+      setTimeout(() => (os?.restart ? os.restart() : location.reload()), 800);
+    });
+  }
+
   // --- find a setting -------------------------------------------------------------------------------
 
   const findInput = $("find");

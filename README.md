@@ -61,6 +61,7 @@ Other scripts:
 - Test the connection: Settings > Proxy > Troubleshooting > Run test.
 - Cloaking: Settings > Cloaking for the tab disguise, panic key (e.g. `Ctrl+Alt+P`) and open in about:blank.
 - Wallpaper and colors: Settings > Appearance, or right click the desktop.
+- Back up or move your setup: Settings > System > Backup exports your apps, bookmarks and preferences to a file and imports it again, on any SuperNova site.
 
 <details>
 <summary>Browser shortcuts</summary>

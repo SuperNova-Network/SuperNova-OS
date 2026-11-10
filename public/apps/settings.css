@@ -474,6 +474,30 @@ select {
   color: #ff99a4;
 }
 
+/* import confirmation (System > Backup) */
+.import-confirm {
+  margin: 8px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--w-border, rgba(255, 255, 255, 0.12));
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.import-confirm p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.import-warnings {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #fce100;
+  font-size: 13px;
+}
+
+.import-warnings:empty {
+  display: none;
+}
+
 /* flash a row when it was reached from the search box */
 .flash {
   animation: flash 1.4s var(--w-ease);
