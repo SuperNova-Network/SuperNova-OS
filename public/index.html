@@ -1,57 +1,44 @@
 <!DOCTYPE html>
-<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
-<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
-<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]>      <html class="no-js"> <!--<![endif]-->
-<html>
+<html lang="en">
 
 <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0b14">
+
+  <!-- The tab title and icon are set by the cloak (resources/scripts/cloak.js); these are the pre-JS defaults. -->
+  <title>Classes</title>
+  <link rel="icon" href="https://www.google.com/s2/favicons?domain=classroom.google.com&sz=64" type="image/png" id="favicon">
+  <link rel="apple-touch-icon" href="./resources/media/app_icons/SuperNova.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+
   <!-- CSS -->
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,900" rel="stylesheet" type="text/css">
   <link href="https://fonts.googleapis.com/css?family=VT323" rel="stylesheet">
   <link href="https://picturelements.github.io/PeOS/console.css" rel="stylesheet" type="text/css">
   <link rel="stylesheet" href="./resources/css/styles.css">
 
-  <!-- TAB CUSTOMIZATION -->
-  <link rel="icon" href="https://ssl.gstatic.com/classroom/favicon.png" type="image/png" id="favicon">
-  <title>Home</title>
+  <!-- The terminal's data files. Deferred so a slow third-party host cannot block the desktop from appearing. -->
+  <script defer src="https://picturelements.github.io/PeOS/console_load.js"></script>
+  <script defer src="./resources/scripts/console.js"></script>
 
-  <!-- JS -->
-  <script src="https://picturelements.github.io/PeOS/console_load.js"></script>
-  <script src="./resources/scripts/console.js"></script>
-
-  <!-- Essential META Tags -->
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-
-  <!-- Search Engine -->
+  <!-- Search engines and link previews -->
   <meta name="description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
-
-  <!-- Schema.org for Google -->
   <meta itemprop="name" content="SuperNova OS - Educational Space Website">
   <meta itemprop="description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
-
-  <!-- Twitter -->
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="SuperNova OS - Educational Space Website">
   <meta name="twitter:description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
-
-  <!-- Open Graph general (Facebook, Pinterest & Google+) -->
-  <meta name="og:title" content="SuperNova OS - Educational Space Website">
-  <meta name="og:description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
-  <meta name="og:image" content="./resources/media/app_icons/SuperNova.png">
-  <meta name="og:url" content="https://mathematic-file.vercel.app/">
-  <meta name="og:site_name" content="SuperNova OS - Educational Space Website">
-  <meta name="og:type" content="website">
+  <meta property="og:title" content="SuperNova OS - Educational Space Website">
+  <meta property="og:description" content="SuperNova OS: An interactive, educational space-themed website for students to explore science, technology, and the wonders of the universe. Discover learning tools, resources, and a cosmic digital environment designed for education.">
+  <meta property="og:image" content="./resources/media/app_icons/SuperNova.png">
+  <meta property="og:site_name" content="SuperNova OS - Educational Space Website">
+  <meta property="og:type" content="website">
 </head>
 
 <body oncontextmenu="return contextShow">
-  <!--[if lt IE 7]>
-    <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
-  <![endif]-->
-
-  <audio id="taskbahSound" loop preload="auto">
+  <noscript><p style="position:fixed;inset:0;z-index:999999;margin:0;padding:2em;background:#0b0b14;color:#ececf6;font:16px system-ui,sans-serif">SuperNova OS needs JavaScript. Please enable it and reload.</p></noscript>
+  <audio id="taskbahSound" loop preload="none">
     <source src="https://picturelements.github.io/images/win_icons/LockIt.mp3">
   </audio>
 
@@ -86,6 +73,8 @@
     <!--15-->
     <div class="contextitem">Open in new explorer</div>
     <div class="contextitem">Open as HTML</div>
+    <div class="contextitem">Remove from desktop</div>
+    <div class="contextitem">Add an app…</div>
   </div>
   <div id="searchbar">
     <div id="searchbarbar" expanded="false">
@@ -147,7 +136,7 @@
       <div id="second"></div>
       <div id="seconddot"></div>
     </div>
-    <p onclick="openSettings()" id="edittime">Edit time and date...</p>
+    <p onclick="openSettings('system')" id="edittime">Time zone settings…</p>
   </div>
   <div id="taskbar" style="bottom: 0vw">
     <div id="home">
@@ -169,11 +158,18 @@
     </form>
     <!--After end-->
 
-    <button id="switch" class="switch">OFF</button>
+    <button id="switch" class="switch" type="button" aria-pressed="false" title="Switch between searching apps and searching the web">Apps</button>
 
-    <script src="./index.js"></script>
-    <script src="./uv/bundle.js"></script>
-    <script src="./uv/config.js"></script>
+    <script src="/proxy/config.js"></script>
+    <script src="/assets/uv/uv.bundle.js"></script>
+    <script src="/proxy/uv.config.js"></script>
+    <script src="/proxy/store.js"></script>
+    <script src="/proxy/backup.js"></script>
+    <script src="/proxy/account.js"></script>
+    <script src="/proxy/resolve.js"></script>
+    <script src="/proxy/core.js"></script>
+    <script src="./resources/scripts/websearch.js"></script>
+    <script src="./resources/scripts/cloak.js"></script>
     <script src="./resources/scripts/shortcuts.js"></script>
 
     <div id="infocorner">
@@ -198,206 +194,20 @@
     </div>
   </div>
   <div id="loadscreen"></div>
+
+  <!-- Shown instead of the desktop on narrow screens (see the end of styles.css) -->
+  <div id="small-screen">
+    <div class="box">
+      <img src="./resources/media/app_icons/SuperNova.png" alt="" width="84" height="84">
+      <h1>SuperNova OS</h1>
+      <p>The desktop needs a larger screen. These work on any device:</p>
+      <a href="./apps/browser.html">Open the Browser</a>
+      <a class="secondary" href="./apps/settings.html">Open Settings</a>
+    </div>
+  </div>
   <style id="specCols"></style>
 
   <!--HTML buffers-->
-  <div id="settingsbuffer" style="display:none">
-    <div id="settingscontainer">
-      <h>Time and Date</h>
-      <p>Time zone:</p>
-      <select id="timezone" onchange="updateTime()">
-        <option>Local</option>
-        <option>Custom offset</option>
-      </select>
-      <input id="prectz" disabled="true" placeholder="Time offset in minutes" oninput="newTime()"></input>
-      <input id="dateset" type="date" oninput="newTime()"></input>
-      <p id="tzlbl"></p>
-      <br>
-      <button onclick="setTime()">Set time</button>
-      <h>Filenames</h>
-      <p>Reset all filenames to their defaults. This action will take effect immediately and cannot be undone.</p>
-      <button onclick="resetNamesRelay()">Reset to default</button>
-      <h>System data</h>
-      <p>Factory reset system data. All saved data will be deleted and the system will restart. This action cannot be
-        undone.
-      </p>
-      <button onclick="factoryReset()">Factory reset</button>
-
-      <h>Windows</h>
-      <p>Set the default size of opened window. Default is 60x35.<br><br><span id="winW">Window width: 40</span></p>
-      <input class="sizeslider" type="range" min="20" max="100" value="40" oninput="updateSize(0)"></input>
-      <p id="winH">Window height: 25</p>
-      <input class="sizeslider" type="range" min="15" max="80" value="25" oninput="updateSize(1)"></input>
-      <h id="backH">Color scheme/Backgrounds</h>
-      <p>Color scheme</p>
-      <div id="colorbar"></div>
-      <br>
-
-      <p>Custom background URL:</p>
-      <input type="text" id="customBackgroundInput" placeholder="Enter URL">
-      <button onclick="changeBackground()">Apply Background</button>
-
-      <script>
-        // Function to change the background-image of the desktop.
-        function changeBackground() {
-          const customBackgroundInput = document.getElementById("customBackgroundInput");
-          const css = ".backOverride { background-image: url('" + customBackgroundInput.value + "'); }";
-          document.getElementById("specCols").innerHTML += css;
-
-          // Save the background URL to localStorage
-          localStorage.setItem('backgroundUrl', customBackgroundInput.value);
-        }
-
-        // Code to apply the saved background URL when the page loads
-        window.onload = function () {
-          setTimeout(function () {
-            const savedBackgroundUrl = localStorage.getItem('backgroundUrl');
-            if (savedBackgroundUrl) {
-              const css = ".backOverride { background-image: url('" + savedBackgroundUrl + "'); }";
-              document.getElementById("specCols").innerHTML += css;
-              document.getElementById("customBackgroundInput").value = savedBackgroundUrl;
-            }
-          }, 2000); // Wait for 2 seconds
-        };
-      </script>
-
-      <!--Make a color rgb picker that changes the background-color for id "desktopwrapper"-->
-
-      <input type="color" id="colorPicker" value="#ffffff">
-      <button onclick="changeColor()" id="submitColor">Submit</button>
-
-      <script>
-        function changeColor() {
-          const colorPicker = document.getElementById('colorPicker');
-          const desktopWrapper = document.getElementById('desktopwrapper');
-          const submitButton = document.getElementById('submitColor');
-
-          submitButton.addEventListener('click', function () {
-            desktopWrapper.style.backgroundColor = colorPicker.value;
-            desktopWrapper.style.backgroundImage = "none";
-          });
-        };
-      </script>
-
-      <br>
-      <p>Desktop background</p>
-      <div id="backbar"></div>
-      <div id="preview" class="grad backOverride"></div>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <br>
-      <h>Cloaking Features</h>
-
-      <script>
-        function aboutBlank() {
-          // Open a new window with about:blank
-          var newWindow = window.open('about:blank');
-
-          // Check if the new window is opened successfully
-          if (newWindow) {
-            // Insert an <iframe> element into the new window
-            var iframeElement = newWindow.document.createElement('iframe');
-            iframeElement.src = window.location.href;  // Set the source URL to the current website's URL
-            iframeElement.style.width = '100%';
-            iframeElement.style.height = '100%';
-            iframeElement.style.border = 'none';  // Remove iframe border
-
-            // Append the iframe to the body of the new window
-            newWindow.document.body.appendChild(iframeElement);
-
-            // Style the body to prevent scrolling
-            newWindow.document.body.style.margin = '0';
-            newWindow.document.body.style.overflow = 'hidden';
-          } else {
-            alert('Pop-up blocked. Please allow pop-ups for this site.');
-          };
-        }
-      </script>
-
-      <p>Open this url in about:blank</p>
-      <button onclick="aboutBlank()" id="openWindowBtn">about:blank</button>
-
-      <!-- Favicon Input -->
-      <p>Favicon URL:</p>
-      <input type="text" id="faviconInput" placeholder="Enter Favicon URL">
-      <button onclick="changeFavicon()">Apply Favicon</button>
-
-      <!-- Title Input -->
-      <p>Title:</p>
-      <input type="text" id="titleInput" placeholder="Enter Title">
-      <button onclick="changeTitle()">Apply Title</button>
-
-      <script>
-        // Function to change the favicon
-        function changeFavicon() {
-          const faviconInput = document.getElementById("faviconInput");
-          const favicon = document.getElementById("favicon");
-          favicon.href = faviconInput.value;
-        }
-
-        // Function to change the title
-        function changeTitle() {
-          const titleInput = document.getElementById("titleInput");
-          document.title = titleInput.value;
-        }
-      </script>
-
-
-
-      <h>Panic key / Shortcuts</h>
-      <p>Set a key combination to quickly hide all windows and open a new window with a predefined URL. This action
-        cannot be undone.</p>
-      <input id="panickey" placeholder="Key combination" oninput="setPanicKey()"></input>
-      <input id="panicurl" placeholder="URL" oninput="setPanicURL()"></input>
-      <button onclick="setPanic()">Set panic key</button>
-
-      <script>
-        function setPanicKey() {
-          const panicKey = document.getElementById('panickey').value;
-          localStorage.setItem('panicKey', panicKey);
-        }
-
-        function setPanicURL() {
-          let panicURL = document.getElementById('panicurl').value;
-          if (!panicURL.startsWith('http://') && !panicURL.startsWith('https://')) {
-            panicURL = 'http://' + panicURL;
-          }
-          localStorage.setItem('panicURL', panicURL);
-        }
-
-        function setPanic() {
-          setPanicKey();
-          setPanicURL();
-        }
-
-        document.addEventListener('keydown', function (event) {
-          const key = event.key;
-          const panicKey = localStorage.getItem('panicKey');
-          if (key === panicKey) {
-            const panicURL = localStorage.getItem('panicURL');
-            window.location.href = panicURL;
-          }
-        });
-      </script>
-
-      <br>
-      <br>
-      <br>
-
-
-    </div>
-  </div>
   <div id="resultsbuffer" style="display:none">
     <div id="resultsbar">
       <div id="innerresults">

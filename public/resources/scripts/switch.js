@@ -1,26 +1,23 @@
-document.addEventListener('DOMContentLoaded', (event) => {
-    const button = document.getElementById('switch');
-    let enabled = false;
+/*
+ * The taskbar search box has two modes: searching the desktop's apps ("Apps") and
+ * searching the web ("Web"), which opens a Browser window (see websearch.js).
+ */
+document.addEventListener('DOMContentLoaded', function () {
+  var button = document.getElementById('switch');
+  var appsBox = document.getElementById('search');
+  var webForm = document.getElementById('fs');
+  if (!button || !appsBox || !webForm) return;
 
-    button.addEventListener('click', () => {
-        if (enabled === true) {
-            enabled = false;
-            
-            document.getElementById('search').style.display = 'block';
-            document.getElementById('fs').style.display = 'none';
+  function setWebMode(web) {
+    appsBox.style.display = web ? 'none' : 'block';
+    webForm.style.display = web ? 'block' : 'none';
+    button.classList.toggle('enabled', web);
+    button.setAttribute('aria-pressed', String(web));
+    button.textContent = web ? 'Web' : 'Apps';
+    if (web) document.getElementById('is').focus();
+  }
 
-            button.classList.remove('enabled');
-            button.style.backgroundColor = 'rgb(255 255 255 / 84%)';
-            button.innerHTML = 'OFF';
-        } else if (enabled === false) {
-            enabled = true;
-
-            document.getElementById('search').style.display = 'none';
-            document.getElementById('fs').style.display = 'block';
-
-            button.classList.add('enabled');
-            button.style.backgroundColor = 'rgb(146 146 146)';
-            button.innerHTML = 'ON';
-        }
-    });
+  button.addEventListener('click', function () {
+    setWebMode(!button.classList.contains('enabled'));
+  });
 });

@@ -8,17 +8,6 @@ body {
   font-family: Roboto, Arial, sans-serif;
 }
 
-#version_text {
-  z-index: 9999;
-  position: absolute;
-  top: 8px;
-  right: 46px;
-  margin: 0;
-  padding: 0;
-  font-size: 19px;
-  color: #fff;
-}
-
 body.scaling .content {
   pointer-events: none;
 }
@@ -423,6 +412,73 @@ body.scaling .content {
   background-color: #ddd;
 }
 
+/* The "Add an app" window (see openAddAppDialog in main.js). */
+.appform {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  width: 100%;
+  text-align: left;
+}
+
+.appform label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  font-size: 0.9em;
+  color: #333;
+}
+
+.appform input {
+  font: inherit;
+  padding: 0.35em 0.5em;
+  border: 1px solid #bbb;
+  outline: none;
+  color: #111;
+  background: #fff;
+}
+
+.appform input:focus {
+  border-color: #0078d7;
+}
+
+.appform .apperror {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.85em;
+  color: #c42b1c;
+}
+
+.appform .appbuttons {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.appform .promptbtn {
+  width: auto;
+  height: auto;
+  min-width: 5.5em;
+  padding: 0.35em 1em;
+  margin: 0 0 0 0.5em;
+}
+
+.appform .promptbtn[type="submit"] {
+  background-color: #0078d7;
+  color: #fff;
+}
+
+.appform .promptbtn[type="submit"]:hover {
+  background-color: #106ebe;
+}
+
+.appform .promptbtn:disabled {
+  opacity: 0.6;
+}
+
+.letter_icon {
+  stroke: none;
+}
+
 .resize {
   display: block;
   position: absolute;
@@ -439,8 +495,7 @@ body.scaling .content {
   right: -0.4em;
 }
 
-.window[type="error"] .resize,
-.window[type="settings"] .resize {
+.window[type="error"] .resize {
   display: none;
 }
 
@@ -485,125 +540,6 @@ body.scaling .content {
 .resize[scale="thlw"] {
   top: -0.4em;
   left: -0.4em;
-}
-
-#settingscontainer {
-  position: absolute;
-  display: block;
-  width: 90%;
-  left: 5%;
-}
-
-#settingscontainer h {
-  display: block;
-  position: relative;
-  width: 100%;
-  margin-top: 3vw;
-  padding-bottom: 0.3vw;
-  font-size: 1.5vw;
-  border-bottom: 0.2vw solid #ddd;
-  color: #444;
-  text-indent: 2%;
-}
-
-#settingscontainer p {
-  display: block;
-  position: relative;
-  font-size: 1vw;
-  color: #444;
-  margin-top: 0.75vw;
-  margin-bottom: 0;
-  left: 2%;
-}
-
-#settingscontainer input,
-#settingscontainer select,
-#settingscontainer button {
-  display: block;
-  position: relative;
-  background-color: #eee;
-  border: 0.15vw solid #999;
-  color: #444;
-  width: 15vw;
-  height: 1.5vw;
-  margin: 0.5vw;
-  margin-left: 2%;
-  outline: none;
-  text-indent: 0.3vw;
-  line-height: 1.5vw;
-  box-sizing: content-box;
-  font-size: 1vw;
-}
-
-#settingscontainer input[disabled] {
-  opacity: 0.5;
-}
-
-#settingscontainer button {
-  text-indent: 0;
-  line-height: 1.5vw;
-  width: 11vw;
-}
-
-#settingscontainer button:hover {
-  background-color: #ddd;
-  border: 0.15vw solid #bbb;
-}
-
-#colorbar,
-#backbar {
-  display: block;
-  position: relative;
-  width: 96%;
-  height: 4.5vw;
-  left: 2%;
-  top: 0.5vw;
-}
-
-.coloroption,
-.backoption {
-  display: block;
-  position: relative;
-  float: left;
-  width: 4.5vw;
-  height: 4.5vw;
-  margin-right: 1vw;
-  margin-bottom: 0.5vw;
-}
-
-.coloroption[selected],
-.backoption[selected] {
-  outline: 0.5vw solid #111;
-}
-
-#backbar {
-  height: 11vw;
-  width: 45%;
-  float: left;
-}
-
-.backoption {
-  background-size: 100% 100%;
-  margin-bottom: 1vw;
-}
-
-.col {
-  display: block;
-  position: relative;
-  width: 4.5vw;
-  height: 1.5vw;
-}
-
-#preview {
-  width: 55%;
-  display: block;
-  position: relative;
-  height: 16.5vw;
-  float: right;
-  background-size: 100% 100%;
-  margin-top: 0.5vw;
-  margin-bottom: 2vw;
-  background-color: #ccc;
 }
 
 #clockbar {
@@ -1819,3 +1755,62 @@ div[data-title]:hover:before {
 /*PURPLE - #317, #74a, #85f*/
 /*DARK - #222, #333, #777*/
 /*LIGHT - #999, #aaa, #ddd*/
+
+/* The taskbar's Apps/Web mode switch: the original "on" colour (switch.js toggles the class). */
+.switch.enabled {
+  background-color: rgb(146 146 146);
+}
+
+/*
+ * The desktop's geometry scales with the viewport width, so it is unusable on a phone.
+ * Narrow screens get links to the two responsive apps instead.
+ */
+#small-screen {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  #small-screen {
+    display: flex;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 200000;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #222;
+    color: #fff;
+    font: 16px/1.5 Roboto, Arial, sans-serif;
+    text-align: center;
+  }
+
+  #small-screen .box {
+    max-width: 22em;
+  }
+
+  #small-screen h1 {
+    margin: 0.6em 0 0.2em;
+    font-size: 1.5em;
+  }
+
+  #small-screen p {
+    margin: 0 0 1.2em;
+    color: #ccc;
+  }
+
+  #small-screen a {
+    display: block;
+    margin: 0.5em 0;
+    padding: 0.8em 1em;
+    background: #53f;
+    color: #fff;
+    text-decoration: none;
+  }
+
+  #small-screen a.secondary {
+    background: #555;
+  }
+}

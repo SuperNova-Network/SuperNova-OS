@@ -1,0 +1,257 @@
+/* The sign-in screen (ACCOUNTS=required): a lock screen over the default wallpaper. */
+
+* {
+  box-sizing: border-box;
+}
+
+/* Layout rules below (display: flex) must not un-hide hidden forms and panels. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  font-family: var(--font);
+  color: var(--text);
+  background: #05050c url("/resources/media/wallpapers/space.jpg") center / cover no-repeat fixed;
+}
+
+/* Dim and blur the wallpaper like a lock screen */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgb(5 5 14 / 55%);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.signin {
+  position: relative;
+  width: min(100%, 400px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 10%);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.card {
+  width: 100%;
+  padding: 20px;
+  background: rgb(20 20 34 / 72%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+.tabs {
+  display: flex;
+  margin: -4px 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  flex: 1;
+  padding: 8px 4px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 14px;
+}
+
+label small,
+.hint {
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.hint {
+  margin: 0 0 4px;
+  line-height: 1.45;
+}
+
+input {
+  height: 38px;
+  padding: 0 11px;
+  border: 2px solid rgb(255 255 255 / 22%);
+  background: rgb(0 0 0 / 35%);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+input:hover {
+  border-color: rgb(255 255 255 / 38%);
+}
+
+input:focus {
+  border-color: var(--accent);
+  background: rgb(0 0 0 / 50%);
+}
+
+.mono,
+.code code {
+  font-family: var(--mono);
+  letter-spacing: 0.04em;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary {
+  height: 40px;
+  margin-top: 4px;
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.link {
+  align-self: center;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link:hover {
+  color: var(--text);
+}
+
+.error {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.error:empty {
+  min-height: 0;
+}
+
+.code {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-strong);
+  background: rgb(0 0 0 / 30%);
+}
+
+.code code {
+  flex: 1;
+  font-size: 15px;
+  white-space: nowrap;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.code button {
+  flex: none;
+  padding: 6px 14px;
+  border: 0;
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+#code .primary {
+  width: 100%;
+}
+
+.message,
+.footnote {
+  margin: 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.message a {
+  color: var(--text);
+}
+
+.footnote {
+  font-size: 12.5px;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  body::before {
+    backdrop-filter: none;
+    background: rgb(5 5 14 / 85%);
+  }
+}

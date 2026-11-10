@@ -1,0 +1,6 @@
+# The proxy endpoints serve other people's websites; keep crawlers out of them.
+User-agent: *
+Disallow: /service/
+Disallow: /scram/
+Disallow: /wisp/
+Disallow: /api/

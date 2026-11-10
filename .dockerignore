@@ -1,29 +1,34 @@
-# Node
+# Dependencies are installed inside the image.
 node_modules
 npm-debug.log
 
-# VCS
+# Version control and CI
 .git
+.github
 .gitignore
 
-# Local env
+# Local configuration and secrets: pass these as environment variables instead
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 
-# Backups and logs
-*.bak
-backups/
-*.log
+# Local accounts database
+data
 
-# Editors & OS
-.DS_Store
+# Not needed at runtime
+test
+e2e
+docs
+*.md
+!LICENSE
 .vscode
 .idea
+.DS_Store
+*.log
 
-# Ignore legacy/duplicate Docker file, but keep the canonical 'Dockerfile'
-DockerFile
-
-# Misc
+# Deployment descriptors
+Dockerfile
 .dockerignore
 fly.toml
+render.yaml
+app.json

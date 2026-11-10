@@ -1,0 +1,68 @@
+# Changelog
+
+All notable changes. The project follows [Semantic Versioning](https://semver.org/); this section has not been released yet.
+
+## Unreleased
+
+A ground-up modernisation of the proxy, the settings, the cloak and the interface. Highlights first; every change is its own commit in the history.
+
+### Fixed
+
+- Pin to taskbar from a desktop icon threw, and pinned nothing, whenever an unpinned window was open.
+- **The proxy returned a 404 the first time it was used** and worked on the second try. The service worker was registered but not yet active when the page navigated. Navigations now wait for activation, the worker takes control immediately, and a navigation that still arrives without it gets a page that starts the worker and reloads instead of a 404. Desktop apps (YouTube, Reddit, ...) never registered the worker at all.
+- About one fresh visit in five failed with `wasm not loaded yet` (libcurl's start-up race), a second "fails the first time" bug found by repeated fresh-profile testing.
+- Scramjet never finished loading large sites (Wikipedia, GitHub, DuckDuckGo, ...): sub-resources whose responses set cookies deadlocked against the page's message queue. Small pages worked, which hid it.
+- Scramjet could not start when its worker won a race to create its IndexedDB schema, and failed every request when its config arrived by message.
+- Typing `(` or `[` into the launcher search threw on every keystroke.
+- Renaming an app threw on every keystroke (a call to a function that no longer existed), and names were inserted as HTML.
+- The battery indicator threw in Firefox and Safari; the low-battery popup contained profanity.
+- A saved custom wallpaper was never restored on reload.
+- The File Explorer sidebar called the GitHub API on every page load (60 requests/hour per IP).
+- The 404 page referenced missing files, called `play()` unguarded and contained profanity.
+- The File Explorer taskbar icon did nothing and threw an error: it was pinned twice by default, which rewrote its click handler to a call that crashes. Settings now has that permanent slot.
+- Wrong search keywords on most apps (copied from the PeOS template).
+- Web search navigated the *whole desktop* away to the site.
+- Cross-origin app windows could not use fullscreen, gamepads or autoplay.
+- `package.json` declared an ISC license although the project is AGPL-3.0.
+
+### Added
+
+- **Site settings in the admin panel.** Accounts (off, optional, required) and who can sign up are chosen in Settings > Admin and apply at once, with no restart; switching to required disconnects everyone who isn't signed in. Admins are a role given in the account list. A fresh site prints a one-time setup link with a code in the server's log to create the first admin. `ACCOUNTS`, `ACCOUNTS_SIGNUP` and `ADMINS` still work, as overrides the panel shows locked, and `npm run admin` gains `status`, `accounts`, `signup`, `make-admin` and `remove-admin`.
+- **Invite codes and bans.** In Settings > Admin: create invite codes with a label, a number of uses and an expiry, see how each is used, and revoke them; search accounts and ban (with a reason the person sees) or unban. A ban signs the person out everywhere and closes their open proxy connections at once. `npm run admin -- invite|invites|revoke|users|ban|unban` does the same on the server. Existing account databases are upgraded in place.
+- **A sign-in screen for the whole site** (Settings > Admin > Accounts > Required), replacing the HTTP Basic auth prompt. Pages, APIs and the proxy's WebSocket need a signed-in account; creating one needs the invite code (`INVITE_CODE`, or the existing `AUTH_PASS`), so a password-protected site switches over with one variable and everyone gets their own login.
+- **Accounts** (off by default; turned on in Settings > Admin). Sign in under Settings > Account and your desktop apps, wallpaper, colours, bookmarks and preferences follow you to any browser. Changes sync key by key, so two browsers editing different settings never undo each other; browsing history stays on the device. No email: a one-time recovery code resets a forgotten password. Signing out removes the settings from that browser. Stored in one SQLite file under `DATA_DIR`; passwords hashed with scrypt, sessions in an `HttpOnly`, `SameSite=Strict` cookie, sign-in and sign-up rate limited. `ACCOUNTS_SIGNUP=0` closes sign-up and `TRUST_PROXY` makes rate limits see real visitor addresses behind a proxy.
+- **Back up and restore settings.** Settings > System > Backup exports your apps, bookmarks, wallpaper, colours, and proxy and cloak preferences to a JSON file, and imports one again, here or on another SuperNova site. Import shows what it will replace before changing anything, and warns when a backup would send traffic through a different Wisp server. Browsing history stays on the device.
+- **Add your own apps to the desktop.** Right-click the desktop > Add an app…, or use Add to desktop in the browser menu to add the page you are on. Custom apps open in their own window through the proxy, and can be renamed, pinned to the taskbar, found in the start menu and search, and removed (right-click > Remove from desktop). They get a coloured letter icon rather than the site's favicon, so the desktop never contacts the site directly. The content filter is checked when an app is added and again each time it opens.
+- Ten new wallpapers (six space photographs, four generated gaming ones) and a small "Show more" button in Settings > Appearance, which lists the first ten and reveals the rest.
+
+- **Scramjet** as a second engine beside Ultraviolet, switchable at runtime in Settings or from the Browser.
+- **libcurl** and **Epoxy** transports over Wisp, switchable in Settings, with a custom Wisp server option and a connection test.
+- **SuperNova Browser**: tabs, real-URL address bar, shortcuts, new-tab page, engine switcher, friendly blocked/error pages.
+- **Settings app** with Proxy, Cloaking, Appearance and System sections, a proxy self-test and a reset button.
+- **Cloaking:** 13 tab disguise presets plus custom, applied on every load; `about:blank` and `blob:` launchers with auto-launch; a panic key that works inside windows and proxied pages; a leave-page prompt.
+- **Search:** smart address-or-search detection, six search engines plus custom, safe search.
+- **Content filter enforced on the server**, with hostname-based rules, `BLOCKED_HOSTS` and a verdict API.
+- **Interface:** the desktop keeps its original Windows 10 look; Settings is styled like the Windows 10 Settings app (Home page, Find a setting, Windows toggles, Reveal highlight) and the Browser app has its own animated, Chrome-style design; the colour scheme sets the apps' accent colour; a small-screen fallback.
+- `/healthz`, `WISP_URL`, `/api/info`, web app manifest, `robots.txt`.
+- A test suite (58 tests), GitHub Actions CI on Node 20, 22 and 24, and documentation under `docs/`.
+
+### Changed
+
+- **The proxy runs on Wisp and bare-mux** instead of the legacy Bare server, with Ultraviolet 3.2 served from `node_modules` instead of a stale vendored copy.
+- The server is configured from environment variables (`config.js`).
+- The Dockerfile, Fly.io, Render and Heroku configs were rewritten and corrected.
+- The proxy URL prefix is `/service/` (old `/supernova/` links redirect).
+- Settings and the browser replace the old inline-script settings page and one-box search.
+
+### Security
+
+- **Removed the hardcoded Basic-auth password** from `app.js`. Authentication is opt-in through `AUTH_PASS` and also protects the WebSocket. *If you used the old password anywhere else, change it; it remains in git history.*
+- The proxy refuses connections to loopback, private and link-local addresses (SSRF).
+- `.env` is no longer tracked.
+- App names, wallpaper URLs, custom icons and panic destinations are escaped or validated.
+
+### Removed
+
+- `vercel.json`: serverless functions cannot hold the proxy's WebSocket open (see [Deployment](docs/DEPLOYMENT.md)).
+- The vendored Ultraviolet copy, the Bare server, and the unused `chalk`, `cors` and `node-fetch` dependencies.
+- Orphaned pages: `proxyApps/`, `cloak.html` (a saved third-party homepage that loaded Google Tag Manager), `&.html`.
