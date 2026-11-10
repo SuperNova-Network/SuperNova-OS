@@ -25,6 +25,35 @@
     return key in memory ? memory[key] : defaults[key];
   }
 
+  // Keys the desktop stored before it used this store, without the prefix. They are
+  // moved under "sn." once so nobody loses their pinned apps, wallpaper or names.
+  var LEGACY_KEYS = [
+    "taskArr", "oftenUsed", "colId", "backId", "backgroundUrl", "lockTaskbar",
+    "viewmode", "winW", "winH", "tzIndex", "tzOffset", "visited-before", "welcome-popup",
+  ];
+
+  function isLegacyKey(key) {
+    return LEGACY_KEYS.indexOf(key) !== -1 || /^customTitle\d+$/.test(key);
+  }
+
+  function migrateLegacy() {
+    try {
+      // Collect the keys first: adding and removing items reorders localStorage.key(i).
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+      keys.forEach(function (key) {
+        if (key === null || !isLegacyKey(key)) return;
+        // A value already under the prefix is newer; keep it.
+        if (localStorage.getItem(PREFIX + key) === null) {
+          localStorage.setItem(PREFIX + key, localStorage.getItem(key));
+        }
+        localStorage.removeItem(key);
+      });
+    } catch (e) { /* storage blocked or unavailable (workers) */ }
+  }
+
+  migrateLegacy();
+
   function notify(key, value) {
     listeners.slice().forEach(function (listener) {
       try { listener(key, value); } catch (e) { console.error(e); }
@@ -56,6 +85,16 @@
       delete memory[key];
       try { localStorage.removeItem(PREFIX + key); } catch (e) { /* storage blocked */ }
       notify(key, defaults[key]);
+    },
+
+    /**
+     * Factory reset: erase everything this origin keeps in localStorage (settings,
+     * and the proxied sites' saved data too), then announce it as "*".
+     */
+    clear: function () {
+      memory = {};
+      try { localStorage.clear(); } catch (e) { /* storage blocked */ }
+      notify("*", undefined);
     },
 
     /** Subscribe to changes made here or in another tab/window. Returns an unsubscribe function. */

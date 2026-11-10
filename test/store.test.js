@@ -3,15 +3,20 @@ import assert from "node:assert/strict";
 import { loadBrowserScript } from "./helpers.js";
 
 /** A minimal localStorage + window event surface for the sandbox. */
-function makeEnv({ blocked = false } = {}) {
-  const data = new Map();
+function makeEnv({ blocked = false, initial = {} } = {}) {
+  const data = new Map(Object.entries(initial));
   const handlers = [];
   const localStorage = blocked
     ? new Proxy({}, { get() { throw new DOMException("denied", "SecurityError"); } })
     : {
+        get length() { return data.size; },
+        // Newest first, not insertion order: browsers make no promise about key
+        // order, and Chrome reorders keys as items are added.
+        key: (index) => [...data.keys()].reverse()[index] ?? null,
         getItem: (key) => (data.has(key) ? data.get(key) : null),
         setItem: (key, value) => data.set(key, String(value)),
         removeItem: (key) => data.delete(key),
+        clear: () => data.clear(),
       };
   const env = {
     localStorage,
@@ -114,4 +119,48 @@ test("a listener that throws does not break the others", () => {
     console.error = original;
   }
   assert.deepEqual(seen, ["a"]);
+});
+
+test("desktop keys saved before the store existed move under the prefix once", () => {
+  const { store, data } = makeEnv({
+    initial: {
+      taskArr: "0,2",
+      backId: "7",
+      customTitle3: "My game",
+      "visited-before": "true",
+      "sn.colId": "2",      // already migrated: the prefixed value wins
+      colId: "5",
+      unrelated: "keep",    // not ours: left alone
+      "customTitleX": "no", // not a numbered title: left alone
+    },
+  });
+  assert.equal(store.get("taskArr"), "0,2");
+  assert.equal(store.get("backId"), "7");
+  assert.equal(store.get("customTitle3"), "My game");
+  assert.equal(store.get("visited-before"), "true");
+  assert.equal(store.get("colId"), "2");
+  for (const key of ["taskArr", "backId", "customTitle3", "visited-before", "colId"]) {
+    assert.equal(data.has(key), false, `${key} should be removed after migrating`);
+  }
+  assert.equal(data.get("unrelated"), "keep");
+  assert.equal(data.get("customTitleX"), "no");
+});
+
+test("clear() erases storage and memory and announces it", () => {
+  const { store, data } = makeEnv({ initial: { other: "x" } });
+  store.defaults({ engine: "sj" });
+  store.set("engine", "uv");
+  const seen = [];
+  store.onChange((key) => seen.push(key));
+  store.clear();
+  assert.equal(data.size, 0);
+  assert.equal(store.get("engine"), "sj");
+  assert.deepEqual(seen, ["*"]);
+});
+
+test("clear() works when storage is blocked", () => {
+  const { store } = makeEnv({ blocked: true });
+  store.set("engine", "uv");
+  store.clear();
+  assert.equal(store.get("engine"), undefined);
 });

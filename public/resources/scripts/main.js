@@ -40,23 +40,23 @@ var accents = ["#e0533d", "#43b84a", "#6b5cff", "#e8892e", "#8f5bd6", "#8a8fa8",
 var backgrounds = ["Adventure_Time.gif", "Bouncy.jpg", "space.jpg", "Flower.jpg", "Bucks.jpg", "Leaf.jpg", "LonelyRoad.jpg", "Flowers.jpg", "Mandelbrot.png", "Match.jpg", "rocks.png", "Andromeda.jpg", "CrabNebula.jpg", "OrionNebula.jpg", "Pillars.jpg", "Saturn.jpg", "WebbDeepField.jpg", "Synthwave.jpg", "NeonGrid.jpg", "Invaders.jpg", "Matrix.jpg"];
 contextShow = false, next = null;
 
-//load variables from localStorage
+// Load saved desktop state (see /proxy/store.js).
 var taskArr = [0, 2], oftenUsed = [];
-var tzIndex = localStorage.getItem("tzIndex") || 0, tzOffset = localStorage.getItem("tzOffset") || 0;
-var tmpArr = localStorage.getItem("taskArr");
+var tzIndex = SnStore.get("tzIndex") || 0, tzOffset = SnStore.get("tzOffset") || 0;
+var tmpArr = SnStore.get("taskArr");
 taskArr = tmpArr != null ? tmpArr.split(",") : taskArr;
-var DEF_WIN_W = parseInt(localStorage.getItem("winW")) || 60;
-var DEF_WIN_H = parseInt(localStorage.getItem("winH")) || 35;
-var ou = localStorage.getItem("oftenUsed");
+var DEF_WIN_W = parseInt(SnStore.get("winW")) || 60;
+var DEF_WIN_H = parseInt(SnStore.get("winH")) || 35;
+var ou = SnStore.get("oftenUsed");
 if (ou != null) { oftenUsed = ou.split(","); }
 var colId = 4, backId = 3; /*This changes the defualt wallpaper.*/
-var ci = localStorage.getItem("colId");
+var ci = SnStore.get("colId");
 if (ci != null) { colId = parseInt(ci); }
-var bi = localStorage.getItem("backId");
+var bi = SnStore.get("backId");
 if (bi != null) { backId = parseInt(bi); }
-lockTaskbar = localStorage.getItem("lockTaskbar") != "0";
+lockTaskbar = SnStore.get("lockTaskbar") != "0";
 document.getElementById("taskbar").className = lockTaskbar ? "locked" : "unlocked";
-document.body.classList.add(localStorage.getItem("viewmode") || "grid");
+document.body.classList.add(SnStore.get("viewmode") || "grid");
 
 const service = "supernova";
 
@@ -117,7 +117,7 @@ document.getElementsByClassName("contextitem")[9].addEventListener("mousedown", 
 document.getElementsByClassName("contextitem")[10].addEventListener("mousedown", function () { openSettings("appearance"); });
 document.getElementsByClassName("contextitem")[11].addEventListener("mousedown", function () {
   lockTaskbar = !lockTaskbar;
-  localStorage.setItem("lockTaskbar", lockTaskbar ? 1 : 0);
+  SnStore.set("lockTaskbar", lockTaskbar ? 1 : 0);
   document.getElementById("taskbar").className = lockTaskbar ? "locked" : "unlocked";
 });
 document.getElementsByClassName("contextitem")[12].addEventListener("mousedown", function () { toggleTaskbah(); });
@@ -151,8 +151,8 @@ function setup() {
     if (i > oftenUsed.length - 1) { oftenUsed.push(0); }
     else { oftenUsed[i] = parseInt(oftenUsed[i]); }
     origNames.push(programData[i].name);
-    if (localStorage.getItem("customTitle" + i) != null) {
-      programData[i].name = localStorage.getItem("customTitle" + i);
+    if (SnStore.get("customTitle" + i) != null) {
+      programData[i].name = SnStore.get("customTitle" + i);
     }
     var el = document.createElement("div");
     el.className = "desktoplink";
@@ -220,7 +220,7 @@ function genCog(r) {
 // A user-supplied wallpaper address. Only http(s) is accepted, and quotes are
 // escaped so the value cannot break out of the CSS url('...').
 function customBackgroundCss() {
-  var url = localStorage.getItem("backgroundUrl");
+  var url = SnStore.get("backgroundUrl");
   if (!url) return "";
   var parsed;
   try { parsed = new URL(url, location.href); } catch (e) { return ""; }
@@ -241,7 +241,7 @@ function factoryReset() {
     document.body.style.backgroundColor = 'black'; // Change background color to black
 
     setTimeout(function () {
-      localStorage.clear();
+      SnStore.clear();
       location.reload();
     }, 700);
   }, 1000);
@@ -249,7 +249,7 @@ function factoryReset() {
 
 function addWindow(id, title, contStr, w, h, type) {
   oftenUsed[id]++;
-  localStorage.setItem("oftenUsed", oftenUsed);
+  SnStore.set("oftenUsed", oftenUsed);
 
   // The Browser app (id 0) receives its first address or search as contStr.
   // contStr: the Browser (id 0) gets its first query, Settings (setID) the section to show.
@@ -781,7 +781,7 @@ function setName(evt, id) {
         items[i].setAttribute("data-title", name);
       }
     }
-    localStorage.setItem("customTitle" + id, name);
+    SnStore.set("customTitle" + id, name);
   }
 }
 
@@ -799,7 +799,7 @@ function resetNames() {
   }
   for (var i = 0; i < titles2.length; i++) {
     titles2[i].textContent = origNames[i];
-    localStorage.setItem("customTitle" + i, origNames[i]);
+    SnStore.remove("customTitle" + i);
   }
   for (var n = 0; n < origNames.length; n++) {
     programData[n].name = origNames[n];
@@ -1097,7 +1097,7 @@ function powerOff(evt) {
   evt.stopPropagation();
 }
 
-// Names come from localStorage (user-renamed apps) and from remote APIs, so they
+// Names come from saved settings (user-renamed apps) and from remote APIs, so they
 // must never be interpreted as markup.
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, function (ch) {
@@ -1317,7 +1317,7 @@ function contextPin(type) {
     icon.classList.add("stickied");
   }
   taskArr.push(id);
-  localStorage.setItem("taskArr", taskArr);
+  SnStore.set("taskArr", taskArr);
 }
 
 function contextUnpin() {
@@ -1337,7 +1337,7 @@ function contextUnpin() {
       break;
     }
   }
-  localStorage.setItem("taskArr", taskArr);
+  SnStore.set("taskArr", taskArr);
 }
 
 function contextAddWin(evt) {
@@ -1366,13 +1366,13 @@ function openSettings(section) {
 
 function selCol(id) {
   colId = id;
-  localStorage.setItem("colId", id);
+  SnStore.set("colId", id);
   setCols();
 }
 
 function selIco(id) {
   backId = id;
-  localStorage.setItem("backId", id);
+  SnStore.set("backId", id);
   setCols();
 }
 
@@ -1452,7 +1452,7 @@ function handleTaskbar() {
 // add to the local time.
 function setTimezone(value) {
   tzOffset = value === "local" ? 0 : Number(value) * 60 + new Date().getTimezoneOffset();
-  localStorage.setItem("tzOffset", tzOffset);
+  SnStore.set("tzOffset", tzOffset);
   newTime();
 }
 
@@ -1467,8 +1467,8 @@ function currentTimezone() {
 function setWindowSize(width, height) {
   DEF_WIN_W = parseInt(width) || DEF_WIN_W;
   DEF_WIN_H = parseInt(height) || DEF_WIN_H;
-  localStorage.setItem("winW", DEF_WIN_W);
-  localStorage.setItem("winH", DEF_WIN_H);
+  SnStore.set("winW", DEF_WIN_W);
+  SnStore.set("winH", DEF_WIN_H);
 }
 
 // What the Settings window (an iframe on this origin) may do to the desktop.
@@ -1479,7 +1479,7 @@ window.SnOS = {
     return {
       scheme: colId,
       wallpaper: backId,
-      customBackground: localStorage.getItem("backgroundUrl") || "",
+      customBackground: SnStore.get("backgroundUrl") || "",
       windowWidth: DEF_WIN_W,
       windowHeight: DEF_WIN_H,
       timezone: currentTimezone()
@@ -1488,7 +1488,7 @@ window.SnOS = {
   setScheme: selCol,
   setWallpaper: selIco,
   setCustomBackground: function (url) {
-    if (url) { localStorage.setItem("backgroundUrl", url); } else { localStorage.removeItem("backgroundUrl"); }
+    if (url) { SnStore.set("backgroundUrl", url); } else { SnStore.remove("backgroundUrl"); }
     setCols();
   },
   setWindowSize: setWindowSize,
@@ -1550,12 +1550,12 @@ function showNotification(title, body) {
 
 function execNext(id) {
   if (next == "reset") {
-    localStorage.clear();
+    SnStore.clear();
     restart();
   } else if (next == "resetn") {
     resetNames();
   } else if (next == "welcome") {
-    localStorage.setItem("welcome-popup", "false");
+    SnStore.set("welcome-popup", "false");
     closeWin(id);
   }
 
@@ -1576,14 +1576,14 @@ function resetAll() {
 }
 
 // Check if the user has visited before
-if (!localStorage.getItem("visited-before")) {
+if (!SnStore.get("visited-before")) {
   // This is the user's first visit
   setTimeout(function() {
     openPrompt("Welcome to SnOS!", "This is a simple operating system made by SuperNova-Network. It's a work in progress, so expect bugs and unfinished features. Enjoy your stay!", "welcome");
   }, 3000);
 
   // Set the flag indicating the user has visited before
-  localStorage.setItem("visited-before", "true");
+  SnStore.set("visited-before", "true");
 }
 
 function toggleFullscreen() {
@@ -1854,11 +1854,11 @@ function toggleGT() {
   if (cl.contains("grid")) {
     cl.remove("grid");
     cl.add("table");
-    localStorage.setItem("viewmode", "table");
+    SnStore.set("viewmode", "table");
   } else {
     cl.remove("table");
     cl.add("grid");
-    localStorage.setItem("viewmode", "grid");
+    SnStore.set("viewmode", "grid");
   }
 }
 
