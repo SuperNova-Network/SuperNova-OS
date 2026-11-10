@@ -70,7 +70,7 @@ test("accounts are off by default and say so", async () => {
 
 test("sign up, get a recovery code and a secure session cookie", options, async () => {
   const browser = client();
-  assert.deepEqual((await browser.get("/")).data, { enabled: true, signup: true, user: null });
+  assert.deepEqual((await browser.get("/")).data, { enabled: true, required: false, signup: true, invite: false, user: null });
   const res = await browser.post("/register", { username: unique("Ada"), password: "correct horse" });
   assert.equal(res.status, 201);
   assert.match(res.data.recoveryCode, /^[2-9A-Z]{5}(-[2-9A-Z]{5}){3}$/);

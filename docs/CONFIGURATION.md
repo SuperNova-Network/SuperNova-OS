@@ -13,7 +13,8 @@ Server settings come from environment variables, read in [`config.js`](../config
 | `BLOCKED_HOSTS` | *(empty)* | Extra blocked domains, comma separated. Subdomains are included |
 | `WISP_URL` | *(empty)* | Send browsers to an external Wisp server (`ws://` or `wss://` only) |
 | `OPEN_BROWSER` | *(empty)* | `1` opens a browser when the server starts. Never use it on a host |
-| `ACCOUNTS` | *(empty)* | `1` turns on [accounts](#accounts). Needs Node.js 22.13+ and a persistent `DATA_DIR` |
+| `ACCOUNTS` | *(empty)* | `1` turns on optional [accounts](#accounts); `required` makes the whole site need one, with a sign-in screen instead of the Basic auth prompt. Needs Node.js 22.13+ and a persistent `DATA_DIR` |
+| `INVITE_CODE` | *(empty)* | When set, needed to create an account. With `ACCOUNTS=required` and no `INVITE_CODE`, `AUTH_PASS` is used as the invite code |
 | `ACCOUNTS_SIGNUP` | `1` | `0` stops new sign-ups; existing accounts keep working |
 | `DATA_DIR` | `data` | Where the accounts database (`accounts.db`) is kept |
 | `TRUST_PROXY` | *(empty)* | Proxies in front of the server to trust for the visitor's address and protocol: a hop count (`1`), `true`, or addresses. Set it behind Fly.io, Render, nginx and the like |
@@ -21,6 +22,8 @@ Server settings come from environment variables, read in [`config.js`](../config
 `GET /healthz` returns `ok` without authentication, for platform health checks.
 
 ## Authentication
+
+There are two ways to keep the site to the people you choose: one shared password (HTTP Basic auth, below), or [accounts with a sign-in screen](#signing-in-to-the-whole-site) (`ACCOUNTS=required`), which replaces it.
 
 Set `AUTH_PASS` to password-protect the whole site. The credentials are checked with a constant-time comparison, and the **Wisp WebSocket upgrade is checked too**; Express middleware never sees WebSocket upgrades, so without this the proxy itself would stay open.
 
@@ -36,6 +39,12 @@ Off by default. With `ACCOUNTS=1`, people can create an account under Settings >
 - **Limits.** Sign-in is limited to 10 tries per username and 20 per address every 10 minutes, sign-up to 5 accounts per address per hour, and an account's settings to 512 KB. Behind a reverse proxy, set `TRUST_PROXY`, or every visitor shares the proxy's address and these limits.
 - **Closing sign-up.** `ACCOUNTS_SIGNUP=0` keeps existing accounts working but refuses new ones, for example once everyone in a class has an account.
 - **Signing out** removes the account's settings from that browser, which matters on shared computers. A factory reset signs out first, so it resets the browser without touching the account.
+
+### Signing in to the whole site
+
+`ACCOUNTS=required` puts the whole site behind an account. Instead of the browser's Basic auth prompt, visitors get a sign-in screen (sign in, create an account, forgot password) and land on the desktop, or the page they were heading to, once signed in. Pages, APIs and the proxy's WebSocket all need a signed-in session; only the sign-in screen, its static files, `/healthz` and `/api/info` stay open. Signing out returns to the sign-in screen.
+
+Creating an account needs the invite code: `INVITE_CODE`, or, if that is empty, the existing `AUTH_PASS`. So a site that used a shared password switches over by setting `ACCOUNTS=required` and nothing else; share the old password as the invite code, and everyone picks their own login. Wrong invite codes count towards the sign-up rate limit. Without any invite code the server warns at start-up, because anyone who finds the site could then create an account and use the proxy. Once everyone has an account, `ACCOUNTS_SIGNUP=0` closes sign-up entirely.
 
 ## Content filter
 

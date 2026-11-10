@@ -112,6 +112,8 @@
             <input class="field" name="password" type="password" autocomplete="new-password" required></label>
           <label class="row column"><span class="row-label"><strong>Confirm password</strong></span>
             <input class="field" name="confirm" type="password" autocomplete="new-password" required></label>
+          <label class="row column" id="register-invite" hidden><span class="row-label"><strong>Invite code</strong><small>Ask whoever runs this site.</small></span>
+            <input class="field" name="invite" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
           <small class="status" role="status"></small>
           <div class="buttons">
             <button class="btn btn-primary" type="submit">Create account</button>
@@ -159,7 +161,7 @@
           </div>
           <p class="hint">Saved to your account: desktop apps and names, wallpaper and colours, bookmarks, and proxy, search and cloaking preferences. Browsing history stays in this browser.</p>
           <div class="row">
-            <span class="row-label"><strong>Sign out</strong><small>Removes your settings from this browser. They stay in your account.</small></span>
+            <span class="row-label"><strong>Sign out</strong><small id="logout-hint">Removes your settings from this browser. They stay in your account.</small></span>
             <button class="btn" id="account-logout" type="button">Sign out</button>
           </div>
           <small class="status" id="account-status" role="status"></small>

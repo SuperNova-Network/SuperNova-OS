@@ -102,6 +102,6 @@ If your site must live on a host without WebSockets, run the server somewhere th
 
 1. Open the site, then **Settings > Proxy > Troubleshooting > Run test**. It should report "Working".
 2. Visit `/healthz`; it should print `ok`.
-3. If you set `AUTH_PASS`, confirm that a private window is asked for a login.
+3. If you set `AUTH_PASS`, confirm that a private window is asked for a login (or, with `ACCOUNTS=required`, sent to the sign-in screen).
 
 Running a proxy publicly has consequences for your IP address's reputation and for abuse; please read [SECURITY.md](../SECURITY.md).

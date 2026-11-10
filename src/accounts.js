@@ -142,11 +142,14 @@ function disabledRouter() {
 }
 
 /**
- * Build the /api/account router. Resolves to { router, close() }.
- * options: { enabled, signup, dataDir }
+ * Build the /api/account router. Resolves to { router, userFor(req), close() }.
+ * options: { enabled, required, signup, inviteCode, dataDir }
+ *   required    the site needs an account (app.js guards everything else)
+ *   inviteCode  when set, needed to create an account
  */
-export async function createAccounts({ enabled, signup = true, dataDir = "data" } = {}) {
-  if (!enabled) return { router: disabledRouter(), close() {} };
+export async function createAccounts({ enabled, required = false, signup = true, inviteCode = "", dataDir = "data" } = {}) {
+  if (!enabled) return { router: disabledRouter(), userFor: () => null, close() {} };
+  const inviteHash = inviteCode ? sha256(inviteCode) : null;
 
   let DatabaseSync;
   try {
@@ -269,7 +272,7 @@ export async function createAccounts({ enabled, signup = true, dataDir = "data" 
       sql.extendSession.run(Date.now() + SESSION_DAYS * DAY, req.sessionHash);
       setCookie(req, res, readCookie(req, COOKIE), SESSION_DAYS * DAY);
     }
-    res.json({ enabled: true, signup, user: user ? publicUser(user) : null });
+    res.json({ enabled: true, required, signup, invite: Boolean(inviteHash), user: user ? publicUser(user) : null });
   }));
 
   router.post("/register", handle(async (req, res) => {
@@ -277,7 +280,12 @@ export async function createAccounts({ enabled, signup = true, dataDir = "data" 
     const { username, password } = readCredentials(req.body);
     if (!USERNAME.test(username)) throw new HttpError(400, "Usernames are 3 to 32 letters, numbers, dots, dashes or underscores.");
     checkNewPassword(password);
+    // Counted before the invite code is checked, so the code can't be guessed quickly.
     limit(limits.signupIp, req.ip);
+    if (inviteHash) {
+      const given = Buffer.from(sha256(String(req.body?.inviteCode ?? "").trim()));
+      if (!timingSafeEqual(given, Buffer.from(inviteHash))) throw new HttpError(403, "That invite code isn't right.");
+    }
     if (sql.userByName.get(username)) throw new HttpError(409, "That username is taken.");
     const recoveryCode = newRecoveryCode();
     const now = Date.now();
@@ -380,5 +388,11 @@ export async function createAccounts({ enabled, signup = true, dataDir = "data" 
     res.status(500).json({ error: "Something went wrong on the server." });
   });
 
-  return { router, close: () => db.close() };
+  /** The signed-in user ({ username }) for a request (or WebSocket upgrade), or null. */
+  function userFor(req) {
+    const user = currentUser(req);
+    return user ? publicUser(user) : null;
+  }
+
+  return { router, userFor, close: () => db.close() };
 }

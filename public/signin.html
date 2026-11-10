@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Sign in · SuperNova OS</title>
+  <link rel="icon" href="/resources/media/app_icons/SuperNova.png">
+  <link rel="stylesheet" href="/resources/css/tokens.css">
+  <link rel="stylesheet" href="/signin.css">
+</head>
+<body>
+  <main class="signin">
+    <div class="brand">
+      <span class="logo"><img src="/resources/media/app_icons/SuperNova.png" alt="" width="64" height="64"></span>
+      <h1>SuperNova OS</h1>
+    </div>
+
+    <p class="message" id="loading">Loading…</p>
+
+    <p class="message" id="off" hidden>Accounts aren't turned on for this site. <a href="/">Go to the desktop</a></p>
+
+    <!-- sign in / create account / forgot password -->
+    <section class="card" id="forms" hidden>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" type="button" data-mode="login" aria-selected="true">Sign in</button>
+        <button class="tab" role="tab" type="button" data-mode="register" aria-selected="false" id="tab-register">Create account</button>
+      </div>
+
+      <form id="form-login" data-mode="login" novalidate>
+        <label>Username<input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <p class="error" role="alert"></p>
+        <button class="primary" type="submit">Sign in</button>
+        <button class="link" type="button" data-show="recover">Forgot password?</button>
+      </form>
+
+      <form id="form-register" data-mode="register" novalidate hidden>
+        <label>Username<small>3 to 32 letters, numbers, dots, dashes or underscores</small>
+          <input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" maxlength="32" required></label>
+        <label>Password<small>At least 8 characters</small>
+          <input name="password" type="password" autocomplete="new-password" required></label>
+        <label>Confirm password<input name="confirm" type="password" autocomplete="new-password" required></label>
+        <label id="invite-field" hidden>Invite code<small>Ask whoever runs this site</small>
+          <input name="invite" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+        <p class="error" role="alert"></p>
+        <button class="primary" type="submit">Create account</button>
+      </form>
+
+      <form id="form-recover" data-mode="recover" novalidate hidden>
+        <p class="hint">Enter the recovery code you saved when you created your account, and choose a new password.</p>
+        <label>Username<input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" required></label>
+        <label>Recovery code<input class="mono" name="code" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" required></label>
+        <label>New password<small>At least 8 characters</small>
+          <input name="password" type="password" autocomplete="new-password" required></label>
+        <p class="error" role="alert"></p>
+        <button class="primary" type="submit">Reset password</button>
+        <button class="link" type="button" data-show="login">Back to sign in</button>
+      </form>
+    </section>
+
+    <!-- shown once after creating an account or using the recovery code -->
+    <section class="card" id="code" hidden>
+      <h2>Save your recovery code</h2>
+      <p class="hint">If you forget your password, this code is the only way back in. It works once and won't be shown again.</p>
+      <div class="code"><code id="recovery-code"></code><button type="button" id="copy">Copy</button></div>
+      <button class="primary" type="button" id="continue">I've saved it, continue</button>
+    </section>
+
+    <p class="footnote" id="footnote">Your apps, wallpaper and preferences are saved to your account.</p>
+  </main>
+
+  <script src="/proxy/store.js"></script>
+  <script src="/proxy/backup.js"></script>
+  <script src="/proxy/account.js"></script>
+  <script src="/signin.js"></script>
+</body>
+</html>

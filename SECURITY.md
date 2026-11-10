@@ -7,7 +7,7 @@ Please **do not open a public issue** for a security problem. Use GitHub's priva
 ## What the project defends against
 
 - **Server-side request forgery.** The Wisp server refuses streams to loopback, private, link-local and reserved addresses, so the proxy cannot be used to reach the server's own network or a cloud metadata endpoint (`169.254.169.254`). This is covered by tests.
-- **Unauthenticated access** (optional). With `AUTH_PASS` set, the pages, the APIs *and* the WebSocket upgrade require credentials, checked in constant time.
+- **Unauthenticated access** (optional). With `AUTH_PASS` set, the pages, the APIs *and* the WebSocket upgrade require credentials, checked in constant time. With `ACCOUNTS=required` they require a signed-in account session instead, and creating an account requires the invite code. Covered by tests.
 - **Secrets in the repository.** Earlier versions shipped a hardcoded Basic-auth password in `app.js`. It is gone, but it remains in git history: **change it if you ever used it.**
 - **Injection through settings.** App names, wallpaper addresses, custom tab icons and panic destinations are validated or escaped (only `http(s)` addresses; no `javascript:` or `data:`).
 - **The proxy's own scripts being served as HTML.** Subresource requests under a proxy prefix get a real 404.
@@ -24,7 +24,7 @@ Please **do not open a public issue** for a security problem. Use GitHub's priva
 ## Running a public instance
 
 1. Serve it over HTTPS only.
-2. Set `AUTH_PASS`, or accept that anyone can use your server as a proxy.
+2. Set `AUTH_PASS`, or `ACCOUNTS=required` with an invite code, or accept that anyone can use your server as a proxy.
 3. Keep dependencies current (`npm outdated`, `npm audit`): the proxy engines are third-party code that handles untrusted pages.
 4. Do not run it on a machine that has access to private networks you care about, even though the proxy refuses to connect to them.
 5. Understand your hosting provider's terms: many forbid open proxies.

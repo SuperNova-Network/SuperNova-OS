@@ -20,7 +20,9 @@ import { createAccounts } from "./src/accounts.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
-const authEnabled = Boolean(config.auth.pass);
+// With ACCOUNTS=required, the account sign-in screen replaces HTTP Basic auth.
+const accountsRequired = config.accounts.required;
+const authEnabled = Boolean(config.auth.pass) && !accountsRequired;
 const policy = createPolicy(config.filter);
 const accounts = await createAccounts(config.accounts);
 
@@ -88,6 +90,32 @@ app.use("/api/account", accounts.router);
 app.get("/api/info", (_req, res) => {
   res.set("Cache-Control", "no-cache").json(info);
 });
+
+// Where "next" may send someone after signing in: a path on this site, nothing else.
+function safeNext(value) {
+  return typeof value === "string" && /^\/(?![/\\])/.test(value) && !value.startsWith("/signin") ? value : "/";
+}
+
+app.get("/signin", (req, res) => {
+  if (accounts.userFor(req)) return res.redirect(303, safeNext(req.query.next));
+  res.set("Cache-Control", "no-store").sendFile(join(publicPath, "signin.html"));
+});
+
+if (accountsRequired) {
+  // Open without an account: the sign-in screen and the static files it uses (none
+  // of them are private). Everything else, the proxy's WebSocket included (see the
+  // upgrade handler), needs a signed-in session.
+  const open = /^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$)/;
+  app.use((req, res, next) => {
+    if (open.test(req.path) || accounts.userFor(req)) return next();
+    const dest = req.get("sec-fetch-dest");
+    // Without fetch metadata (old browsers, scripts), only an explicit text/html counts.
+    const navigation = req.method === "GET" && (dest ? ["document", "iframe", "frame"].includes(dest) : (req.get("accept") ?? "").includes("text/html"));
+    res.set("Cache-Control", "no-store");
+    if (navigation) return res.redirect(303, `/signin?next=${encodeURIComponent(req.originalUrl)}`);
+    res.status(401).json({ error: "Sign in first." });
+  });
+}
 
 // Lets the client explain *why* something is blocked before it navigates. The
 // blacklist above is what actually enforces the policy.
@@ -213,6 +241,7 @@ function safeEqual(a, b) {
 
 // The Express auth middleware does not see WebSocket upgrades, so check here.
 function isAuthorized(req) {
+  if (accountsRequired) return Boolean(accounts.userFor(req));
   if (!authEnabled) return true;
   const header = req.headers.authorization || "";
   if (!header.startsWith("Basic ")) return false;
@@ -224,7 +253,8 @@ server.on("upgrade", (req, socket, head) => {
   const { pathname } = new URL(req.url, "http://localhost");
   if (pathname !== wispPath) return socket.destroy();
   if (!isAuthorized(req)) {
-    socket.end("HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"SuperNova OS\"\r\nConnection: close\r\n\r\n");
+    const challenge = authEnabled ? "WWW-Authenticate: Basic realm=\"SuperNova OS\"\r\n" : "";
+    socket.end(`HTTP/1.1 401 Unauthorized\r\n${challenge}Connection: close\r\n\r\n`);
     return;
   }
   wisp.routeRequest(req, socket, head);
@@ -244,7 +274,15 @@ server.on("listening", async () => {
     }:${address.port}`
   );
   if (authEnabled) console.log(`Password protection is ON (user: ${config.auth.user})`);
-  if (config.accounts.enabled) console.log(`Accounts are ON (data in ${config.accounts.dataDir}${config.accounts.signup ? "" : ", sign-up closed"})`);
+  if (config.accounts.enabled) {
+    const details = [`data in ${config.accounts.dataDir}`];
+    if (!config.accounts.signup) details.push("sign-up closed");
+    else if (config.accounts.inviteCode) details.push("sign-up needs the invite code");
+    console.log(`Accounts are ${accountsRequired ? "REQUIRED" : "ON"} (${details.join(", ")})`);
+    if (accountsRequired && config.accounts.signup && !config.accounts.inviteCode) {
+      console.warn("Warning: anyone who finds this site can create an account and use the proxy. Set INVITE_CODE (or AUTH_PASS) to limit sign-up.");
+    }
+  }
 
   // Only open a browser when explicitly asked to (local development). Doing it
   // unconditionally breaks headless hosts such as Docker, Fly.io and Render.

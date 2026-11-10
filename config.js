@@ -43,11 +43,18 @@ export default {
 
   trustProxy: trustProxy(),
 
-  // Accounts that carry settings between browsers. Off unless ACCOUNTS=1; then
+  // Accounts that carry settings between browsers. Off unless ACCOUNTS is set; then
   // DATA_DIR must be on storage that survives restarts and deploys.
+  //   ACCOUNTS=1         optional: sign in from Settings to sync settings
+  //   ACCOUNTS=required  the whole site needs an account; a sign-in screen replaces
+  //                      the HTTP Basic auth prompt
+  // INVITE_CODE, when set, is needed to create an account. With ACCOUNTS=required and
+  // no INVITE_CODE, AUTH_PASS (the old site password) is used as the invite code.
   accounts: {
-    enabled: env.ACCOUNTS === "1",
+    enabled: env.ACCOUNTS === "1" || env.ACCOUNTS === "required",
+    required: env.ACCOUNTS === "required",
     signup: env.ACCOUNTS_SIGNUP !== "0",
+    inviteCode: env.INVITE_CODE || (env.ACCOUNTS === "required" ? env.AUTH_PASS || "" : ""),
     dataDir: env.DATA_DIR || "data",
   },
 

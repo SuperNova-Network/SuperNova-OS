@@ -219,8 +219,8 @@
     });
   }
 
-  function register(username, password) {
-    return call("POST", "/register", { username: username, password: password }).then(signedIn);
+  function register(username, password, inviteCode) {
+    return call("POST", "/register", { username: username, password: password, inviteCode: inviteCode || "" }).then(signedIn);
   }
 
   function login(username, password) {

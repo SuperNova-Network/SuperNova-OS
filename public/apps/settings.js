@@ -451,9 +451,12 @@
     }
 
     function signedOutView(state) {
+      // This site needs an account: signed out means back to the sign-in screen.
+      if (state.required) { window.top.location.href = "/signin"; return; }
       text($("account-tile"), state.enabled ? "Sign in to keep your settings everywhere" : "Not available on this site");
       if (!state.enabled) return show("off");
       forms.login.querySelector("[data-show='register']").hidden = !state.signup;
+      $("register-invite").hidden = !state.invite;
       show("out");
       showForm("login");
     }
@@ -466,6 +469,7 @@
     async function refresh() {
       try {
         const state = await SnAccount.status(true);
+        if (state.required) text($("logout-hint"), "Removes your settings from this browser and returns to the sign-in screen. They stay in your account.");
         if (state.user) signedInView(state.user); else signedOutView(state);
       } catch {
         text($("account-loading").querySelector(".hint"), "Couldn't reach the server. Try again later.");
@@ -516,7 +520,7 @@
 
     submitting(forms.register, async (f) => {
       if (f.password.value !== f.confirm.value) throw new Error("The passwords don't match.");
-      afterSignIn(await SnAccount.register(f.username.value, f.password.value), "Account created. This browser's settings are saved to it.");
+      afterSignIn(await SnAccount.register(f.username.value, f.password.value, f.invite.value), "Account created. This browser's settings are saved to it.");
     });
 
     submitting(forms.recover, async (f) => {
