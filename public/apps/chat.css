@@ -211,6 +211,7 @@ textarea.field {
    moderation panel and arrives as attributes on the page: see applyAdminLook() in chat.js. */
 .badge {
   position: relative;
+  isolation: isolate;
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -398,7 +399,7 @@ textarea.field {
 .look-preview {
   --admin: #ff6b78;
   --admin-name: #ffffff;
-  --spark-scale: 1.15;  /* the sparkle picture is drawn this many times its own size, with hard pixel edges */
+  --spark-scale: 1.15;  /* the sparkle picture is drawn this many times its own size, smoothly scaled */
   --spark-pad: 4px;    /* how far the sparkle reaches past the text */
 }
 
@@ -416,6 +417,7 @@ textarea.field {
 .name.admin,
 .online .who.admin {
   position: relative;
+  isolation: isolate;
   color: var(--admin-name);
   font-weight: 700;
 }
@@ -429,7 +431,7 @@ textarea.field {
   inset: calc(var(--spark-pad) * -1) calc(var(--spark-pad) * -1 - 2px);
   display: none;
   background: url("/resources/media/images/ffffff.gif") center / calc(90px * var(--spark-scale)) auto repeat;
-  image-rendering: pixelated;
+  z-index: -1; /* behind the text (the element isolates its own layers, below) */
   pointer-events: none;
 }
 
