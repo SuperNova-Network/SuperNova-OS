@@ -392,21 +392,24 @@ textarea.field {
 
 /*
  * Admins: the name and the tag are what stand out, with a sparkle over them (the picture in
- * /resources/media/images/ffffff.gif, tiled across the text). Which of them sparkle, and how big, is the admins' choice.
+ * /resources/media/images/ffffff.gif, tiled over the text at its own size or larger, like a text style). Which of them sparkle, and how big, is the admins' choice.
  */
 :root,
 .look-preview {
   --admin: #ff6b78;
   --admin-name: #ffffff;
-  --spark-h: 30px;
+  --spark-scale: 1.4;  /* the sparkle picture is drawn this many times its own size, with hard pixel edges */
+  --spark-pad: 5px;    /* how far the sparkle reaches past the text */
 }
 
 [data-spark-size="small"] {
-  --spark-h: 22px;
+  --spark-scale: 1;
+  --spark-pad: 3px;
 }
 
 [data-spark-size="large"] {
-  --spark-h: 46px;
+  --spark-scale: 2;
+  --spark-pad: 8px;
 }
 
 .me-name.admin,
@@ -423,13 +426,10 @@ textarea.field {
 .badge::after {
   content: "";
   position: absolute;
-  left: -6px;
-  right: -6px;
-  top: 50%;
-  height: var(--spark-h);
+  inset: calc(var(--spark-pad) * -1) calc(var(--spark-pad) * -1 - 2px);
   display: none;
-  background: url("/resources/media/images/ffffff.gif") center / auto 100% repeat-x;
-  transform: translateY(-40%); /* the picture's sparks sit in its upper part: this centres them on the text */
+  background: url("/resources/media/images/ffffff.gif") center / calc(90px * var(--spark-scale)) auto repeat;
+  image-rendering: pixelated;
   pointer-events: none;
 }
 
