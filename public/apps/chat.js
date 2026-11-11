@@ -219,14 +219,7 @@
     on("presence", ({ online }) => {
       state.online = online;
       renderOnline();
-      // Someone changed their picture: update what is already on the page.
-      let changed = false;
-      for (const person of online) {
-        for (const message of state.messages) {
-          if (message.user.username === person.username && message.user.avatar !== person.avatar) { message.user.avatar = person.avatar; changed = true; }
-        }
-      }
-      if (changed) renderAll();
+      applyAvatars(online);
     });
     on("settings", (settings) => { state.settings = settings; renderComposerState(); });
     on("sanction", (sanction) => { state.sanction = sanction; renderComposerState(); });
@@ -684,86 +677,38 @@
   });
   if (SnStore.get("chatOnlineList") === "0") { $("side").hidden = true; $("online-toggle").setAttribute("aria-pressed", "false"); }
 
-  // --- your profile and picture ------------------------------------------------------------------------------------------------
+  // --- your profile ----------------------------------------------------------------------------------------------------
+  // The picture itself is changed in Settings > Account (and arrives here as an update to the online list).
 
   function openProfile() {
-    status($("profile-status"), "");
     paintAvatar($("profile-avatar"), state.me);
     $("profile-name").textContent = state.me.username;
     $("profile-badge-slot").textContent = "";
     if (state.me.admin) $("profile-badge-slot").append(adminBadge());
-    $("profile-remove").disabled = !state.me.avatar;
     $("profile").showModal();
   }
   $("me").addEventListener("click", openProfile);
   $("profile-close").addEventListener("click", () => $("profile").close());
-
-  /** Crop to a square, shrink to 256 px and re-encode, so what is uploaded is small and clean. */
-  async function prepareAvatar(file) {
-    let bitmap;
-    try { bitmap = await createImageBitmap(file); } catch { throw new Error("That file isn't a picture this browser can read. Try a PNG or JPEG."); }
-    const size = 256, canvas = document.createElement("canvas");
-    canvas.width = canvas.height = size;
-    const context = canvas.getContext("2d");
-    const scale = Math.max(size / bitmap.width, size / bitmap.height);
-    const w = bitmap.width * scale, h = bitmap.height * scale;
-    const draw = (background) => {
-      context.clearRect(0, 0, size, size);
-      if (background) { context.fillStyle = background; context.fillRect(0, 0, size, size); }
-      context.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
-    };
-    const encode = (type, quality) => new Promise((resolve) => canvas.toBlob(resolve, type, quality));
-    draw(null);
-    for (const quality of [0.9, 0.75, 0.6]) {
-      const blob = await encode("image/webp", quality);
-      if (blob && blob.type === "image/webp" && blob.size <= 100 * 1024) return blob;
-    }
-    draw("#2b2b2b"); // JPEG has no transparency
-    for (const quality of [0.85, 0.7, 0.55]) {
-      const blob = await encode("image/jpeg", quality);
-      if (blob && blob.type === "image/jpeg" && blob.size <= 100 * 1024) return blob;
-    }
-    throw new Error("That picture is too detailed to save. Try a simpler one.");
-  }
-
-  $("profile-file").addEventListener("change", async () => {
-    const file = $("profile-file").files[0], note = $("profile-status");
-    $("profile-file").value = "";
-    if (!file) return;
-    status(note, "Saving…");
-    try {
-      const blob = await prepareAvatar(file);
-      const version = await SnAccount.setAvatar(blob.type, await readAsBase64(blob));
-      state.me.avatar = version;
-      afterAvatarChange();
-      status(note, "Your picture is saved.", "ok");
-    } catch (err) {
-      status(note, err.message, "error");
-    }
+  $("profile-settings").addEventListener("click", () => {
+    $("profile").close();
+    try { if (desktop && desktop.openSettings) return void desktop.openSettings("account"); } catch { /* fall through */ }
+    window.open("/apps/settings.html#account", "_blank");
   });
 
-  $("profile-remove").addEventListener("click", async () => {
-    try {
-      await SnAccount.removeAvatar();
-      state.me.avatar = 0;
-      afterAvatarChange();
-      status($("profile-status"), "Your picture was removed.", "ok");
-    } catch (err) {
-      status($("profile-status"), err.message, "error");
+  /** Someone's picture changed: update everything on the page that shows it. */
+  function applyAvatars(online) {
+    let changed = false;
+    for (const person of online) {
+      if (person.username === state.me?.username && state.me.avatar !== person.avatar) {
+        state.me.avatar = person.avatar;
+        renderMe();
+        if ($("profile").open) paintAvatar($("profile-avatar"), state.me);
+      }
+      for (const message of state.messages) {
+        if (message.user.username === person.username && message.user.avatar !== person.avatar) { message.user.avatar = person.avatar; changed = true; }
+      }
     }
-  });
-
-  function afterAvatarChange() {
-    paintAvatar($("profile-avatar"), state.me);
-    $("profile-remove").disabled = !state.me.avatar;
-    renderMe();
-    // Everything already on the page that is yours shows the new picture too.
-    for (const list of [state.messages, state.online]) for (const entry of list) {
-      const user = entry.user ?? entry;
-      if (user.username === state.me.username) user.avatar = state.me.avatar;
-    }
-    renderAll();
-    renderOnline();
+    if (changed) renderAll();
   }
 
   // --- moderation: single messages and people -------------------------------------------------------------------------------------------

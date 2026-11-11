@@ -102,7 +102,7 @@
     </div>
   </div>
 
-  <!-- Your profile and picture -->
+  <!-- Your profile -->
   <dialog class="dialog" id="profile" aria-labelledby="profile-title">
     <h2 id="profile-title">Your profile</h2>
     <div class="profile-head">
@@ -113,14 +113,11 @@
         <p class="hint">This is how you appear in the chat.</p>
       </div>
     </div>
-    <div class="row">
-      <label class="btn" for="profile-file">Choose a picture</label>
-      <input class="visually-hidden" id="profile-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-      <button class="btn" id="profile-remove" type="button">Remove picture</button>
+    <p class="hint">Your profile picture is changed in Settings &gt; Account, and the chat shows the new one right away.</p>
+    <div class="row end">
+      <button class="btn" id="profile-settings" type="button">Open Settings &gt; Account</button>
+      <button class="btn primary" id="profile-close" type="button">Done</button>
     </div>
-    <p class="hint">Square pictures work best. It is shrunk to fit and saved to your account, so it follows you to any browser.</p>
-    <p class="status" id="profile-status" role="status"></p>
-    <div class="row end"><button class="btn primary" id="profile-close" type="button">Done</button></div>
   </dialog>
 
   <!-- Moderate one person (admins) -->
