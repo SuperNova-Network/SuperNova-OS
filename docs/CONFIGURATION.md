@@ -150,6 +150,8 @@ The **App Store** is a taskbar app, pinned by default after Chat, where people p
 
 **Online status** is not stored. Every signed-in desktop that is open posts to `/api/friends/ping` about once a minute, and someone counts as online for 2.5 minutes after their last ping, so a restart simply starts with everyone offline until the next ping. Like the chat's connections, this means a machine that stops itself when idle (Fly.io's `auto_stop_machines`) stays awake while anyone has the desktop open.
 
+**The network speed graph** (taskbar) polls `GET /api/traffic` every 2 seconds while the page is visible. The server keeps running totals of bytes sent and received over each person's proxy connections (by account, or by address when there is no account, so people behind one shared address share a count) and the page works out the speed. Counts are in memory and start again at zero when the server restarts.
+
 **Site health** is the network icon in the taskbar. It runs in the browser: every 30 seconds it fetches `/healthz` and opens the proxy's Wisp connection (and closes it at once), and shows what it found. It needs nothing on the server.
 
 ## Admin Panel

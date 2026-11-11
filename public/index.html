@@ -230,6 +230,7 @@
     <script src="./resources/scripts/chatwatch.js"></script>
     <script src="./resources/scripts/siteinfo.js"></script>
     <script src="./resources/scripts/health.js"></script>
+    <script src="./resources/scripts/netgraph.js"></script>
 
     <div id="infocorner">
       <div id="batterywrapper">
@@ -241,6 +242,7 @@
           </svg>
         </div>
       </div>
+      <canvas id="netgraph" onclick="SnHealth.toggle(event)" title="Proxy traffic"></canvas>
       <div id="wifi" level="3" onclick="SnHealth.toggle(event)" title="Checking…">
         <svg viewBox="0 0 90 90" height="90" width="90">
           <path d="M5 68 A40 40 0 0 1 25 33.4" fill="none" greyout="0"></path>

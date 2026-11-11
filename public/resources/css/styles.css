@@ -1996,3 +1996,13 @@ div[data-title]:hover:before {
 #wifi[level="2"] .needle { transform: rotate(25deg); }
 #wifi[level="1"] .needle { transform: rotate(-25deg); }
 #wifi[level="0"] .needle { transform: rotate(-70deg); }
+
+/* The network speed graph beside the status icon (netgraph.js). */
+#netgraph {
+  position: relative;
+  float: left;
+  width: 5em;
+  height: 1.7em;
+  margin-top: 0.65em;
+  margin-right: 0.9em;
+}

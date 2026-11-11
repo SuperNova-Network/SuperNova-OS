@@ -89,7 +89,7 @@
     text.textContent = name;
     var detail = document.createElement("span");
     detail.className = "hm-detail";
-    detail.textContent = !r ? "Checking…" : r.state === "ok" ? "Working" + (r.ms ? ", " + r.ms + " ms" : "") : (r.note || LABEL[r.state]);
+    detail.textContent = !r ? "Checking…" : r.state === "idle" && r.note && !r.note.indexOf("Down") ? r.note : r.state === "ok" ? "Working" + (r.ms ? ", " + r.ms + " ms" : "") : (r.note || LABEL[r.state]);
     line.appendChild(dot); line.appendChild(text); line.appendChild(detail);
     return line;
   }
@@ -103,6 +103,7 @@
     box.appendChild(row("SuperNova server", offline ? { state: "bad", note: "You're offline." } : result.server));
     box.appendChild(row("Proxy connection", offline ? { state: "bad", note: "You're offline." } : result.proxy));
     box.appendChild(row("Proxy engine", result.engine));
+    if (global.SnNet) { var rate = global.SnNet.rates(); box.appendChild(row("Proxy traffic", { state: "idle", note: "Down " + global.SnNet.format(rate.down) + ", up " + global.SnNet.format(rate.up) })); }
     var when = document.getElementById("hm-when");
     when.textContent = result.at ? "Checked " + Math.max(0, Math.round((Date.now() - result.at) / 1000)) + " s ago" : "Checking…";
   }
