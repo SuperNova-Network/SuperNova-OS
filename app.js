@@ -21,6 +21,8 @@ import { createChat, disabledChat } from "./src/chat.js";
 import { createAdmin, disabledAdmin } from "./src/admin.js";
 import { createStore, disabledStore } from "./src/store.js";
 import { createFriends, disabledFriends } from "./src/friends.js";
+import { createSuggest, cleanQuery } from "./src/suggest.js";
+import { createLimiter } from "./src/ratelimit.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
@@ -169,6 +171,16 @@ app.use("/api/admin", admin.router);
 app.use("/api/chat", chat.router);
 app.use("/api/store", store.router);
 app.use("/api/friends", friends.router);
+
+// Search suggestions for the taskbar's web search: the server asks the engine, so the visitor never does.
+const suggestions = createSuggest({ policy: () => policy });
+const suggestLimit = createLimiter({ limit: 60, windowMs: 60_000 });
+app.get("/api/suggest", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const wait = suggestLimit.hit(req.ip);
+  if (wait) return res.set("Retry-After", String(wait)).status(429).json({ error: "Slow down a little." });
+  res.json({ suggestions: await suggestions.suggest(cleanQuery(req.query.q), String(req.query.engine ?? "")) });
+});
 
 // The taskbar's network graph polls this: running totals, from which the page works out the speed.
 app.get("/api/traffic", (req, res) => {

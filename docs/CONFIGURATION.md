@@ -144,6 +144,10 @@ The **App Store** is a taskbar app, pinned by default after Chat, where people p
 - **Rules.** The content filter's blocked sites and search words apply to what people publish. Limits: 5 apps in the store per person (changeable), 12 publish or edit requests an hour, pictures are PNG, JPEG or WebP up to 120 KB (the app shrinks them to 256 px).
 - **Installs** are counted once per person and shown on each app. They are kept in the same `accounts.db` (tables `store_apps`, `store_icons`, `store_installs`).
 
+## Search suggestions
+
+Typing in the taskbar's Web search shows suggestions from `GET /api/suggest?q=...&engine=...`. The server asks the engine (Brave, DuckDuckGo or Google; every other engine uses DuckDuckGo, and if the chosen one can't answer the others are tried), so the engine sees the server and not the visitor. Only those fixed addresses are ever contacted, a search the content filter blocks is never sent, suggestions the filter would block are dropped, answers are kept for five minutes, and each address can ask 60 times a minute. If the server can't reach any engine there are simply no suggestions.
+
 ## Friends and site health
 
 **Friends** (`/api/friends`, needs accounts) keeps one row per pair in `friendships` (`pending`, `accepted`, `blocked`) and each person's `user_status` (online, away, invisible). Limits: 100 friends and 30 waiting requests each, and 20 requests an hour. Blocking removes any friendship and request between two people and stops either asking the other; the blocked person is never told.
