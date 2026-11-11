@@ -19,6 +19,7 @@ import { createPolicy } from "./src/policy.js";
 import { createAccounts } from "./src/accounts.js";
 import { createChat, disabledChat } from "./src/chat.js";
 import { createAdmin, disabledAdmin } from "./src/admin.js";
+import { createStore, disabledStore } from "./src/store.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
@@ -63,6 +64,11 @@ const admin = accounts.database
     }),
   })
   : disabledAdmin();
+
+// The App Store checks every submission against the live policy (admins can change it any time).
+const store = accounts.database
+  ? createStore({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy })
+  : disabledStore();
 
 /** Make the admins' extra blocked sites live: the policy, and the list Wisp checks on each connection. */
 function applyBlocklist(custom) {
@@ -156,6 +162,7 @@ app.use("/api/account", accounts.router);
 
 app.use("/api/admin", admin.router);
 app.use("/api/chat", chat.router);
+app.use("/api/store", store.router);
 
 app.get("/api/info", (_req, res) => {
   res.set("Cache-Control", "no-cache").json({ ...info, accounts: accounts.site().mode });

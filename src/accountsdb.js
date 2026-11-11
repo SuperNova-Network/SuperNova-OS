@@ -174,6 +174,40 @@ const MIGRATIONS = [
       );
     `);
   },
+  // 7: the App Store. Community apps (a web address with a name, a description and a category),
+  // their optional icons, and who installed what (so each person counts once).
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS store_apps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      url TEXT NOT NULL,
+      url_key TEXT NOT NULL,
+      category TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+      reason TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      reviewed_by TEXT,
+      reviewed_at INTEGER,
+      icon_version INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS store_apps_status ON store_apps(status, created_at);
+    CREATE INDEX IF NOT EXISTS store_apps_owner ON store_apps(owner_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS store_apps_url ON store_apps(url_key) WHERE status IN ('pending', 'approved');
+    CREATE TABLE IF NOT EXISTS store_icons (
+      app_id INTEGER PRIMARY KEY REFERENCES store_apps(id) ON DELETE CASCADE,
+      mime TEXT NOT NULL,
+      data BLOB NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS store_installs (
+      app_id INTEGER NOT NULL REFERENCES store_apps(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      at INTEGER NOT NULL,
+      PRIMARY KEY (app_id, user_id)
+    );
+  `),
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */

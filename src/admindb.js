@@ -46,6 +46,8 @@ export const ADMIN_DEFAULTS = {
   announcement: { id: 0, text: "", level: "info", active: false },
   maintenance: { on: false, message: "SuperNova OS is being updated. Please check back in a few minutes." },
   blocklist: { hosts: [], keywords: [], queryWords: [] },
+  // The App Store: do new apps wait for an admin ("manual") or go live at once ("auto")?
+  store: { approval: "manual", publishing: true, maxPerUser: 5 },
 };
 
 export function getAdminSetting(db, key) {
@@ -75,6 +77,22 @@ export function saveAnnouncement(db, input, by) {
 export function saveMaintenance(db, input, by) {
   const message = String(input?.message ?? "").replace(/\s+/g, " ").trim().slice(0, 300) || ADMIN_DEFAULTS.maintenance.message;
   return setAdminSetting(db, "maintenance", { on: Boolean(input?.on), message }, by);
+}
+
+export function saveStoreSettings(db, input, by) {
+  const current = getAdminSetting(db, "store");
+  const next = { ...current };
+  if (input?.approval !== undefined) {
+    if (input.approval !== "manual" && input.approval !== "auto") throw new AdminError(400, "Approval is manual or auto.");
+    next.approval = input.approval;
+  }
+  if (input?.publishing !== undefined) next.publishing = Boolean(input.publishing);
+  if (input?.maxPerUser !== undefined) {
+    const n = Number(input.maxPerUser);
+    if (!Number.isInteger(n) || n < 1 || n > 50) throw new AdminError(400, "People can publish 1 to 50 apps.");
+    next.maxPerUser = n;
+  }
+  return setAdminSetting(db, "store", next, by);
 }
 
 const HOST = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
@@ -138,6 +156,10 @@ export function overview(db, now = Date.now()) {
     },
     signups: series(db.prepare("SELECT created_at FROM users WHERE created_at >= ?").all(since).map((r) => r.created_at), days, now),
     messages: series(db.prepare("SELECT created_at FROM chat_messages WHERE deleted_at IS NULL AND created_at >= ?").all(since).map((r) => r.created_at), days, now),
+    store: {
+      pending: one("SELECT COUNT(*) AS n FROM store_apps WHERE status = 'pending'").n,
+      live: one("SELECT COUNT(*) AS n FROM store_apps WHERE status = 'approved'").n,
+    },
     recent: listAudit(db, { limit: 8 }),
   };
 }
