@@ -8,7 +8,7 @@ var xStart = 0, yStart = 0, selWin = 0;
 var prevX = 0, prevY = 0;
 var clicked = false, resize = false, setFullscreen = 0, attr, select = false, preventEvents = false, expanded = false, slide = false;
 var lockTaskbar = true, lockTaskbah = false, hide = true, preventHide = false;
-var windows = [], origNames = [], winCount = 0, hiddenApps = 5, permaStickied = 2;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
+var windows = [], origNames = [], winCount = 0, hiddenApps = 6, permaStickied = 3;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
 var last = 0;
 var contextAssort = [
   [0, 1, 2, 3, 17],
@@ -83,11 +83,13 @@ var programData = [ //name, url, icon, keywords
   { name: "Console", url: "", icon: { url: "console" }, keywords: "" },
   { name: "Prompt", url: "", icon: { svg: "info_icon" }, keywords: "" },
   { name: "Settings", url: "/apps/settings.html", icon: { svg: "cog_icon" }, keywords: "" },
-  { name: "File Explorer", url: "", icon: { url: "explorer" }, keywords: "" }
+  { name: "File Explorer", url: "", icon: { url: "explorer" }, keywords: "" },
+  { name: "Chat", url: "/apps/chat.html", icon: { svg: "chat_icon" }, keywords: "" }
 ];
 
 pl = programData.length;
-var viewerID = pl - 5, consoleID = pl - 4, errID = pl - 3, setID = pl - 2, explorerID = pl - 1;
+// The Chat was added after these, at the very end, so every id that existed before keeps its number.
+var viewerID = pl - 6, consoleID = pl - 5, errID = pl - 4, setID = pl - 3, explorerID = pl - 2, chatID = pl - 1;
 
 // ---------------------------------------------------------------------------
 // Custom apps: web apps the user puts on the desktop. They are stored in SnStore
@@ -97,6 +99,26 @@ var viewerID = pl - 5, consoleID = pl - 4, errID = pl - 3, setID = pl - 2, explo
 // for the same reason.
 // ---------------------------------------------------------------------------
 var builtinCount = programData.length;
+
+// Saved pins (taskArr) and launch counts (oftenUsed) number the apps the way they were when
+// they were first saved: the 19 built-in apps that existed then, then the custom apps. Apps
+// added since (the Chat) sit between them in memory, so ids are translated where they are
+// read from and written to storage. What is saved stays valid for older versions, other
+// browsers on the same account and backups, and nothing in storage ever needs rewriting.
+var SAVED_BUILTINS = 19;
+function liveId(id) { return id >= SAVED_BUILTINS ? id - SAVED_BUILTINS + builtinCount : id; }
+function savedId(id) { return id >= builtinCount ? id - builtinCount + SAVED_BUILTINS : id; }
+taskArr = taskArr.map(function (id) { return liveId(Number(id)); });
+if (oftenUsed.length > SAVED_BUILTINS) {
+  for (var room = builtinCount - SAVED_BUILTINS; room > 0; room--) { oftenUsed.splice(SAVED_BUILTINS, 0, 0); }
+}
+function saveTaskArr() {
+  SnStore.set("taskArr", taskArr.map(function (id) { return savedId(Number(id)); }));
+}
+function saveOftenUsed() {
+  // The apps added since have no saved slot: leave them out.
+  SnStore.set("oftenUsed", oftenUsed.slice(0, SAVED_BUILTINS).concat(oftenUsed.slice(builtinCount)));
+}
 var CUSTOM_APPS_MAX = 50, APP_NAME_MAX = 40;
 var LETTER_COLORS = ["#d9534f", "#e8892e", "#c9a227", "#43a047", "#16a085", "#2b8cd6", "#5c6bc0", "#8e44ad", "#d6457a", "#6d7b8a"];
 
@@ -164,7 +186,7 @@ function desktopLink(id) {
 // them twice, which rewrote the icon's click handler to minWin(null) and made it crash
 // (this is how the File Explorer icon broke). Also drop duplicates and ids that no longer exist.
 taskArr = taskArr.map(Number).filter(function (id, index, all) {
-  return id >= 0 && id < programData.length && !programData[id].removed && id !== setID && id !== consoleID && all.indexOf(id) === index;
+  return id >= 0 && id < programData.length && !programData[id].removed && id !== setID && id !== consoleID && id !== chatID && all.indexOf(id) === index;
 });
 var defaultPage = "https://api.github.com/repos/SuperNova-Network/SuperNova-DY/contents"; // go to https://api.github.com/users/SuperNova-Network/repos and find "contents_url" to get the url for the default page. EX: https://media.discordapp.net/attachments/828071279424307221/1203153358597394534/image.png?ex=65d00ee2&is=65bd99e2&hm=9a4f32904842838ea9a40c8f45e2b860491aee8c4b55cb6fa4b7f995f5f64aff&=&format=webp&quality=lossless&width=1439&height=206
 // https://web.postman.co/
@@ -260,6 +282,7 @@ function setup() {
   document.querySelector("#svgbuffer .cog_icon path").setAttribute("d", genCog(40));
 
   addTaskbarIcon(setID, "null", 0, programData[setID].name, programData[setID].icon, true);
+  addTaskbarIcon(chatID, "null", 0, programData[chatID].name, programData[chatID].icon, true);
   addTaskbarIcon(consoleID, "null", 0, programData[consoleID].name, programData[consoleID].icon, true);
   for (var i = 0; i < taskArr.length; i++) {
     addTaskbarIcon(taskArr[i], "null", 0, programData[taskArr[i]].name, programData[taskArr[i]].icon, true);
@@ -333,7 +356,7 @@ function factoryReset() {
 
 function addWindow(id, title, contStr, w, h, type) {
   oftenUsed[id]++;
-  SnStore.set("oftenUsed", oftenUsed);
+  saveOftenUsed();
 
   // The Browser app (id 0) receives its first address or search as contStr.
   // contStr: the Browser (id 0) gets its first query, Settings (setID) the section to show.
@@ -347,14 +370,14 @@ function addWindow(id, title, contStr, w, h, type) {
     name: title != null ? title : programData[id].name
   };
 
-  //prevents multiple settings panels
-  if (id == setID) {
+  //prevents multiple settings panels (and multiple chats: one live connection is enough)
+  if (id == setID || id == chatID) {
     var wins = document.getElementsByClassName("window");
     for (var i = 0; i < wins.length; i++) {
-      if (wins[i].getAttribute("type") == "settings") {
+      if (wins[i].getAttribute("type") == (id == chatID ? String(chatID) : "settings")) {
         windows[i].collapsed = false;
         moveToTop(i);
-        if (contStr) {
+        if (contStr && id == setID) {
           // Jump the open Settings window to the requested section.
           try { wins[i].getElementsByTagName("iframe")[0].contentWindow.location.hash = contStr; } catch (e) { }
         }
@@ -393,7 +416,7 @@ function addWindow(id, title, contStr, w, h, type) {
     collapsed: false
   });
 
-  if (id == errID || id == setID || id == explorerID || id == consoleID) {
+  if (id == errID || id == setID || id == explorerID || id == consoleID || id == chatID) {
     elem.addEventListener("mousedown", function (event) {
       var win = getParent(event.target, "window");
       moveToTop(parseInt(win.id));
@@ -444,7 +467,7 @@ function addWindow(id, title, contStr, w, h, type) {
   setTimeout(function () { elem.classList.remove("init"); }, 200);
   addTaskbarIcon(id, winCount, 2, data.name, data.icon, false);
   moveToTop(winCount);
-  if (id < consoleID || id == setID || isCustomApp(id)) { delayIframe(elem, tmpUrl, programData[id].proxy, programData[id].custom); }
+  if (id < consoleID || id == setID || id == chatID || isCustomApp(id)) { delayIframe(elem, tmpUrl, programData[id].proxy, programData[id].custom); }
   winCount++;
   return elem;
 }
@@ -811,7 +834,7 @@ function selectIcon(evt, id, singleClick) {
   if (!preventEvents) {
     var time = new Date().getTime();
     if (time - last < 500 || singleClick) {
-      if (id == setID) { openSettings(); } else { addWindow(id, null, null, DEF_WIN_W, DEF_WIN_H); }
+      if (id == setID) { openSettings(); } else if (id == chatID) { openChat(); } else { addWindow(id, null, null, DEF_WIN_W, DEF_WIN_H); }
       prevX = -100;
     } else if (evt.target.getAttribute("class") == "ddesc" && time - last < 1000) {
       editName(id);
@@ -1323,7 +1346,7 @@ function showContext(evt, type) {
           items[6].innerHTML = "Open " + (stickied && icons[i].getAttribute("activelevel") == 0 ? "" : "new");
           //remove "open new" for error messages and settings
           var tgt = evt.target.getAttribute("type");
-          if (type == 4 && (tgt == errID || tgt == setID)) {
+          if (type == 4 && (tgt == errID || tgt == setID || tgt == chatID)) {
             items[6].style.display = "none";
           }
           items[7].style.display = icons[i].id == "null" ? "none" : "block";
@@ -1419,7 +1442,7 @@ function contextPin(type) {
     icon.classList.add("stickied");
   }
   taskArr.push(id);
-  SnStore.set("taskArr", taskArr);
+  saveTaskArr();
 }
 
 function contextUnpin() {
@@ -1439,7 +1462,7 @@ function contextUnpin() {
       break;
     }
   }
-  SnStore.set("taskArr", taskArr);
+  saveTaskArr();
 }
 
 function contextAddWin(evt) {
@@ -1462,6 +1485,12 @@ function toggleTaskbah() {
 function openSettings(section) {
   hideSearch();
   return addWindow(setID, null, section || null, 64, 40);
+}
+
+// The live chat: one window, opened from the taskbar or the start menu.
+function openChat() {
+  hideSearch();
+  return addWindow(chatID, null, null, 58, 40);
 }
 
 
@@ -1729,7 +1758,7 @@ function removeApp(id) {
   // closeWin) through a live list of icons, so only the pinned one is removed here, and
   // only once that has finished.
   taskArr = taskArr.filter(function (pinned) { return Number(pinned) !== id; });
-  SnStore.set("taskArr", taskArr);
+  saveTaskArr();
   setTimeout(function () {
     var icon = document.querySelector(".taskbaricon.stickied[type='" + id + "']");
     if (icon) { icon.parentElement.remove(); }
@@ -1738,7 +1767,7 @@ function removeApp(id) {
   if (link) { link.remove(); }
   programData[id] = removedApp();
   oftenUsed[id] = 0;
-  SnStore.set("oftenUsed", oftenUsed);
+  saveOftenUsed();
   var list = readCustomApps();
   list[id - builtinCount] = null;
   writeCustomApps(list);
