@@ -603,6 +603,7 @@ textarea.field {
   min-width: 0;
   max-height: 110px;
   padding: 7px 9px;
+  overflow-y: hidden;
   border: 1px solid #666;
   background: #1b1b1b;
   color: var(--text);

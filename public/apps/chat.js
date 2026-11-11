@@ -471,9 +471,14 @@
     $("count").dataset.over = String(length > max);
   }
 
+  const MAX_HEIGHT = 110; // about four lines
   function autosize() {
     text.style.height = "auto";
-    text.style.height = `${Math.min(text.scrollHeight, 110)}px`;
+    const wanted = text.scrollHeight;
+    text.style.height = `${Math.min(wanted, MAX_HEIGHT)}px`;
+    // A scrollbar only when the text really is taller than the box (some browsers draw
+    // one, arrows and all, for a single line otherwise).
+    text.style.overflowY = wanted > MAX_HEIGHT ? "auto" : "hidden";
   }
   text.addEventListener("input", () => { autosize(); updateCount(); });
   text.addEventListener("keydown", (event) => {
@@ -918,5 +923,6 @@
     dialog.addEventListener("mousedown", (event) => { if (event.target === dialog) dialog.close(); });
   }
 
+  autosize();
   start();
 })();
