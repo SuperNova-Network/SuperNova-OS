@@ -168,6 +168,19 @@ test("who is online follows the open streams", options, async () => {
   await watching.waitFor("presence", (p) => !p.online.some((u) => u.username === dan.username));
 });
 
+test("a new profile picture reaches everyone's chat through the online list", options, async () => {
+  const zed = await person();
+  const watcher = await (await person()).listen();
+  await watcher.waitFor("ready");
+  const mine = await zed.listen();
+  await mine.waitFor("ready");
+  await watcher.waitFor("presence", (p) => p.online.some((u) => u.username === zed.username && u.avatar === 0));
+  const { avatar } = (await zed.post("/api/account/avatar", { mime: samples.png[1], data: samples.png[0] })).data;
+  await watcher.waitFor("presence", (p) => p.online.some((u) => u.username === zed.username && u.avatar === avatar));
+  await zed.post("/api/account/avatar/remove");
+  await watcher.waitFor("presence", (p) => p.online.some((u) => u.username === zed.username && u.avatar === 0));
+});
+
 test("admins are marked, and text comes back exactly as typed (the page shows it as text)", options, async () => {
   const eve = await person();
   const listener = await eve.listen();

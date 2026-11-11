@@ -115,6 +115,7 @@ function unavailable() {
     setupCode: null,
     onBan() {},
     onSiteChange() {},
+    onAvatarChange() {},
     close() {},
   };
 }
@@ -145,6 +146,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   const isAdmin = (user) => Boolean(user.is_admin) || serverAdmins.has(user.username.toLowerCase());
   const banListeners = [];
   const siteListeners = [];
+  const avatarListeners = [];
 
   // Site settings: the server's configuration wins, then the admin panel's choice.
   // Read from the database at most every few seconds, so a change made with the
@@ -475,12 +477,16 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     const info = imageInfo(bytes);
     if (!info || !AVATAR_TYPES.has(info.mime) || (mime && mime !== info.mime)) throw new HttpError(400, "Use a PNG, JPEG or WebP picture.");
     if (info.width > AVATAR_MAX_PIXELS || info.height > AVATAR_MAX_PIXELS) throw new HttpError(400, `Profile pictures can be up to ${AVATAR_MAX_PIXELS} by ${AVATAR_MAX_PIXELS} pixels.`);
-    res.json({ avatar: setAvatar(db, user.id, { mime: info.mime, data: bytes }) });
+    const avatar = setAvatar(db, user.id, { mime: info.mime, data: bytes });
+    for (const listener of avatarListeners) listener(user.id);
+    res.json({ avatar });
   }));
 
   router.post("/avatar/remove", handle((req, res) => {
     const user = requireUser(req);
-    res.json({ avatar: setAvatar(db, user.id, null) });
+    const avatar = setAvatar(db, user.id, null);
+    for (const listener of avatarListeners) listener(user.id);
+    res.json({ avatar });
   }));
 
   // --- admin: invite codes and bans (usernames in ADMINS) ----------------------------
@@ -601,6 +607,8 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     onBan: (fn) => banListeners.push(fn),
     /** fn(site) is called after the site settings change in the admin panel. */
     onSiteChange: (fn) => siteListeners.push(fn),
+    /** fn(userId) is called after someone sets or removes their profile picture. */
+    onAvatarChange: (fn) => avatarListeners.push(fn),
     close: () => db.close(),
   };
 }

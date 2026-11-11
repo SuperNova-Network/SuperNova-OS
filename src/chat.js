@@ -36,10 +36,10 @@ const CACHE_BYTES = 24 * 1024 * 1024;
 
 /**
  * options:
- *   db, site, userFor, isAdmin, sessionActive, onBan, onSiteChange   from createAccounts()
+ *   db, site, userFor, isAdmin, sessionActive, onBan, onSiteChange, onAvatarChange   from createAccounts()
  *   giphy  { key, apiUrl, mediaUrl }: GIF search is available when there is a key
  */
-export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, onSiteChange, giphy = {} }) {
+export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, onSiteChange, onAvatarChange, giphy = {} }) {
   const giphyKey = giphy.key || "";
   const giphyApi = (giphy.apiUrl || "https://api.giphy.com").replace(/\/+$/, "");
   const giphyMedia = (giphy.mediaUrl || "https://media.giphy.com").replace(/\/+$/, "");
@@ -116,6 +116,8 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   revalidate.unref();
   onBan((userId) => closeStreams((stream) => stream.user.id === userId, "banned"));
   onSiteChange(() => closeStreams((stream) => !sessionActive(stream.hash) || site().mode === "off", "signed-out"));
+  // A new picture reaches everyone's page through the "who is online" list, which carries the version.
+  onAvatarChange(() => schedulePresence());
 
   // --- helpers ----------------------------------------------------------------------------
 

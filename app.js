@@ -32,6 +32,7 @@ const chat = accounts.database
     sessionActive: accounts.sessionActive,
     onBan: accounts.onBan,
     onSiteChange: accounts.onSiteChange,
+    onAvatarChange: accounts.onAvatarChange,
     giphy: { key: config.chat.giphyKey, apiUrl: config.chat.giphyApiUrl, mediaUrl: config.chat.giphyMediaUrl },
   })
   : disabledChat();
