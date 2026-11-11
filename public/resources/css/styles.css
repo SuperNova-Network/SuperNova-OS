@@ -2016,21 +2016,6 @@ div[data-title]:hover:before {
   overflow: hidden;
 }
 
-#is {
-  transition: box-shadow 300ms;
-}
-
-/* In web mode the box wears a glowing line in the accent colour. */
-#is.web-on {
-  box-shadow: inset 0 -0.2vw 0 var(--accent, #8b5cf6), 0 0 1.2vw -0.4vw var(--accent, #8b5cf6);
-}
-
-.searchfx {
-  position: fixed;
-  z-index: 10003;
-  pointer-events: none;
-}
-
 #suggest {
   position: fixed;
   z-index: 10002;
