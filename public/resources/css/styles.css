@@ -969,12 +969,22 @@ kw {
   height: 100%;
 }
 
-/* A thin, see-through line between the essential apps and the ones you pin. */
+/* A thin, see-through line between the essential apps and the ones you pin. It takes up no
+   room of its own (the icons stay evenly spaced) and is drawn on the boundary between two items. */
 .taskbarsep {
+  position: relative;
   float: left;
+  width: 0;
+  height: 100%;
+}
+
+.taskbarsep::before {
+  content: "";
+  position: absolute;
+  top: 22%;
+  bottom: 22%;
+  left: 0;
   width: 1px;
-  height: 56%;
-  margin: 0.9em 0.45em 0;
   background: rgba(255, 255, 255, 0.28);
 }
 
