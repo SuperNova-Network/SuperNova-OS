@@ -107,9 +107,12 @@
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("aria-hidden", "true");
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", SHIELD);
-    svg.append(path);
+    // An outline: the shield, and a tick inside it.
+    for (const d of [SHIELD, "m8.6 12.2 2.4 2.4 4.6-4.9"]) {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", d);
+      svg.append(path);
+    }
     badge.append(svg, "ADMIN");
     return badge;
   }
@@ -241,7 +244,7 @@
 
   function renderMe() {
     paintAvatar($("me-avatar"), state.me);
-    $("me-avatar").className = "avatar small";
+    $("me-avatar").className = `avatar small${state.me.admin ? " admin" : ""}`;
     $("me-name").textContent = state.me.username;
     $("me-name").classList.toggle("admin", Boolean(state.me.admin));
   }
@@ -339,7 +342,7 @@
     list.textContent = "";
     for (const person of state.online) {
       const item = el("li");
-      const row = el("button");
+      const row = el("button", person.admin ? "admin" : "");
       row.type = "button";
       row.append(avatar(person, "small"), el("span", `who${person.admin ? " admin" : ""}`, person.username));
       if (person.admin) row.append(adminBadge());
