@@ -64,7 +64,8 @@ Other scripts:
 - Cloaking: Settings > Cloaking for the tab disguise, panic key (e.g. `Ctrl+Alt+P`) and open in about:blank.
 - Wallpaper and colors: Settings > Appearance, or right click the desktop.
 - Accounts (when the site has them on): Settings > Account to create one or sign in. Your apps, wallpaper, bookmarks and preferences follow you to any browser you sign in on.
-- Chat (needs accounts): the Chat icon on the taskbar opens a live room for everyone signed in, with emoji and GIFs. Click your name there to set a profile picture. Admins moderate from the same window.
+- Chat (needs accounts): the Chat icon on the taskbar opens a live room for everyone signed in, with emoji and GIFs. Admins moderate from the same window. Set your profile picture in Settings > Account.
+- Notifications: Settings > Notifications. Windows 10 style pop-ups, which you can restyle and silence. Chat notifications are off until you turn them on in the Chat's settings or there.
 - Back up or move your setup: Settings > System > Backup exports your apps, bookmarks and preferences to a file and imports it again, on any SuperNova site.
 
 <details>
