@@ -11,6 +11,10 @@
  * Events (server -> page): ready, message, delete, clear, presence, settings, sanction,
  * sanction-lifted, closed.
  *
+ * A "quiet" stream (?quiet=1) is for the desktop's notifications while the Chat window is
+ * closed: it hears the same events but isn't counted as being in the chat, and its "ready"
+ * carries no history or online list.
+ *
  * Who can say what: see chatfilter.js (spam rules) and chatdb.js (sanctions, settings).
  * Admins (accounts.isAdmin) moderate under /api/chat/admin; an admin can't be
  * sanctioned. Everything a page shows is plain text: messages are never HTML.
@@ -25,7 +29,7 @@ import * as store from "./chatdb.js";
 
 const UPLOAD_MAX_BYTES = 2 * 1024 * 1024;     // an uploaded GIF
 const UPLOAD_MAX_PIXELS = 2000;
-const MAX_STREAMS_PER_USER = 5;               // browser tabs
+const MAX_STREAMS_PER_USER = 5;               // browser tabs (counted separately for quiet streams)
 const HEARTBEAT_MS = 20_000;                  // keeps proxies from closing a quiet stream
 const REVALIDATE_MS = 30_000;                 // sessions and bans are re-checked this often
 const PURGE_MINUTES = 10;                     // what "delete their recent messages" covers
@@ -90,9 +94,9 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     }
   }
 
-  /** Who is here, one entry per person however many tabs they have open. */
+  /** Who is here, one entry per person however many tabs they have open (quiet streams don't count). */
   function presence() {
-    const ids = [...new Set([...streams].map((stream) => stream.user.id))];
+    const ids = [...new Set([...streams].filter((stream) => !stream.quiet).map((stream) => stream.user.id))];
     if (!ids.length) return [];
     const rows = db.prepare(`SELECT id, username, is_admin, avatar_version FROM users WHERE id IN (${ids.map(() => "?").join(",")})`).all(...ids);
     return rows
@@ -182,7 +186,8 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   router.get("/stream", handle((req, res) => {
     const user = requireUser(req);
     limit(limits.connect, req.ip);
-    const mine = [...streams].filter((stream) => stream.user.id === user.id);
+    const quiet = req.query.quiet === "1";
+    const mine = [...streams].filter((stream) => stream.user.id === user.id && stream.quiet === quiet);
     if (mine.length >= MAX_STREAMS_PER_USER) { write(mine[0], "closed", { reason: "another-tab" }); mine[0].res.end(); }
 
     res.writeHead(200, {
@@ -194,23 +199,23 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     });
     res.write("retry: 3000\n\n");
 
-    const stream = { res, user, hash: req.sessionHash, heartbeat: null };
+    const stream = { res, user, hash: req.sessionHash, heartbeat: null, quiet };
     streams.add(stream);
     stream.heartbeat = setInterval(() => { try { res.write(": ping\n\n"); } catch { /* closed */ } }, HEARTBEAT_MS);
     req.on("close", () => {
       clearInterval(stream.heartbeat);
       streams.delete(stream);
-      schedulePresence();
+      if (!quiet) schedulePresence();
     });
 
     const s = settings();
     write(stream, "ready", {
       me: { ...user, sanction: store.activeSanction(db, user.id) },
       settings: publicSettings(s),
-      messages: s.enabled || user.admin ? store.listMessages(db, { limit: 60 }).map((row) => store.publicMessage(row, isAdmin)) : [],
-      online: presence(),
+      messages: !quiet && (s.enabled || user.admin) ? store.listMessages(db, { limit: 60 }).map((row) => store.publicMessage(row, isAdmin)) : [],
+      online: quiet ? [] : presence(),
     });
-    schedulePresence();
+    if (!quiet) schedulePresence();
   }));
 
   router.get("/messages", handle((req, res) => {

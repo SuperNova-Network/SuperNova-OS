@@ -67,9 +67,9 @@ function browser() {
     get: (path) => call("GET", path),
     raw: (path) => call("GET", path, undefined, true),
     post: (path, body = {}) => call("POST", path, body),
-    async listen() {
+    async listen(query = "") {
       const controller = new AbortController();
-      const res = await fetch(server.url + "/api/chat/stream", { headers: headers(), signal: controller.signal });
+      const res = await fetch(server.url + "/api/chat/stream" + query, { headers: headers(), signal: controller.signal });
       const events = [];
       let ended = false;
       (async () => {
@@ -172,6 +172,32 @@ test("who is online follows the open streams", options, async () => {
   await watching.waitFor("presence", (p) => p.online.some((u) => u.username === dan.username));
   joiner.close();
   await watching.waitFor("presence", (p) => !p.online.some((u) => u.username === dan.username));
+});
+
+test("a quiet stream hears messages but isn't counted as being in the chat", options, async () => {
+  const kai = await person();
+  const sender = await person();
+  const here = await (await person()).listen();
+  await here.waitFor("ready");
+  const quiet = await kai.listen("?quiet=1");
+  const ready = await quiet.waitFor("ready");
+  assert.equal(ready.me.username, kai.username);
+  assert.deepEqual(ready.messages, [], "no history for a quiet stream");
+  assert.deepEqual(ready.online, []);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.ok(!here.events.some((e) => e.event === "presence" && e.data.online.some((u) => u.username === kai.username)), "a quiet stream is not in the online list");
+  assert.ok(!(await sender.get("/api/chat/messages")).data.messages.some((m) => m.user.username === kai.username));
+
+  await say(sender, "can you hear me");
+  const heard = await quiet.waitFor("message", (m) => m.text === "can you hear me");
+  assert.equal(heard.user.username, sender.username);
+
+  // The same person with the chat open is in the list, and closing the quiet one changes nothing.
+  const loud = await kai.listen();
+  await here.waitFor("presence", (p) => p.online.some((u) => u.username === kai.username));
+  quiet.close();
+  loud.close();
+  await here.waitFor("presence", (p) => !p.online.some((u) => u.username === kai.username));
 });
 
 test("a new profile picture reaches everyone's chat through the online list", options, async () => {
