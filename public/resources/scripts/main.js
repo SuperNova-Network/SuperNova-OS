@@ -8,7 +8,7 @@ var xStart = 0, yStart = 0, selWin = 0;
 var prevX = 0, prevY = 0;
 var clicked = false, resize = false, setFullscreen = 0, attr, select = false, preventEvents = false, expanded = false, slide = false;
 var lockTaskbar = true, lockTaskbah = false, hide = true, preventHide = false;
-var windows = [], origNames = [], winCount = 0, hiddenApps = 7, permaStickied = 3;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
+var windows = [], origNames = [], winCount = 0, hiddenApps = 7, permaStickied = 2;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
 var last = 0;
 var contextAssort = [
   [0, 1, 2, 3, 17],
@@ -183,7 +183,7 @@ function desktopLink(id) {
   return document.querySelector(".desktoplink[data-app='" + Number(id) + "']");
 }
 
-// Settings and the Console are pinned permanently. Listing them in taskArr as well pinned
+// Settings and the Chat are pinned permanently (the Console is not on the taskbar any more, but old saved pins of it are still ignored). Listing them in taskArr as well pinned
 // them twice, which rewrote the icon's click handler to minWin(null) and made it crash
 // (this is how the File Explorer icon broke). Also drop duplicates and ids that no longer exist.
 taskArr = taskArr.map(Number).filter(function (id, index, all) {
@@ -284,7 +284,6 @@ function setup() {
 
   addTaskbarIcon(setID, "null", 0, programData[setID].name, programData[setID].icon, true);
   addTaskbarIcon(chatID, "null", 0, programData[chatID].name, programData[chatID].icon, true);
-  addTaskbarIcon(consoleID, "null", 0, programData[consoleID].name, programData[consoleID].icon, true);
   for (var i = 0; i < taskArr.length; i++) {
     addTaskbarIcon(taskArr[i], "null", 0, programData[taskArr[i]].name, programData[taskArr[i]].icon, true);
   }
