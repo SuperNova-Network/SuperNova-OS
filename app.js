@@ -20,6 +20,7 @@ import { createAccounts } from "./src/accounts.js";
 import { createChat, disabledChat } from "./src/chat.js";
 import { createAdmin, disabledAdmin } from "./src/admin.js";
 import { createStore, disabledStore } from "./src/store.js";
+import { createFriends, disabledFriends } from "./src/friends.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
@@ -69,6 +70,10 @@ const admin = accounts.database
 const store = accounts.database
   ? createStore({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy })
   : disabledStore();
+
+const friends = accounts.database
+  ? createFriends({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, isAdmin: accounts.isAdmin })
+  : disabledFriends();
 
 /** Make the admins' extra blocked sites live: the policy, and the list Wisp checks on each connection. */
 function applyBlocklist(custom) {
@@ -163,6 +168,7 @@ app.use("/api/account", accounts.router);
 app.use("/api/admin", admin.router);
 app.use("/api/chat", chat.router);
 app.use("/api/store", store.router);
+app.use("/api/friends", friends.router);
 
 app.get("/api/info", (_req, res) => {
   res.set("Cache-Control", "no-cache").json({ ...info, accounts: accounts.site().mode });
@@ -429,6 +435,7 @@ function shutdown(signal) {
   force.unref();
 
   chat.close(); // ends the live streams, or server.close() would wait for them
+  friends.close();
   server.close(() => { accounts.close(); process.exit(0); });
   server.closeAllConnections?.();
 }

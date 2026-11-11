@@ -208,7 +208,7 @@ const MIGRATIONS = [
       PRIMARY KEY (app_id, user_id)
     );
   `),
-  // 8: reports of store apps (one per person per app).
+  // 8: reports of store apps (one per person per app), friends and online status.
   (db) => db.exec(`
     CREATE TABLE IF NOT EXISTS store_reports (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -220,6 +220,22 @@ const MIGRATIONS = [
       UNIQUE (app_id, reporter_id)
     );
     CREATE INDEX IF NOT EXISTS store_reports_app ON store_reports(app_id);
+    -- Friends. One row per pair: who asked (or who blocked) and the other person. "accepted" rows are
+    -- symmetrical; "blocked" rows belong to the person who blocked.
+    CREATE TABLE IF NOT EXISTS friendships (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      other_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'blocked')),
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, other_id),
+      CHECK (user_id <> other_id)
+    );
+    CREATE INDEX IF NOT EXISTS friendships_other ON friendships(other_id, status);
+    -- Whether someone shows as online, away or invisible to their friends.
+    CREATE TABLE IF NOT EXISTS user_status (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      mode TEXT NOT NULL CHECK (mode IN ('online', 'away', 'invisible'))
+    );
   `),
 ];
 
