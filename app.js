@@ -19,6 +19,8 @@ import { createPolicy } from "./src/policy.js";
 import { createAccounts } from "./src/accounts.js";
 import { createChat, disabledChat } from "./src/chat.js";
 import { createAdmin, disabledAdmin } from "./src/admin.js";
+import { createStore, disabledStore } from "./src/store.js";
+import { createFriends, disabledFriends } from "./src/friends.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
@@ -63,6 +65,15 @@ const admin = accounts.database
     }),
   })
   : disabledAdmin();
+
+// The App Store checks every submission against the live policy (admins can change it any time).
+const store = accounts.database
+  ? createStore({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy })
+  : disabledStore();
+
+const friends = accounts.database
+  ? createFriends({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, isAdmin: accounts.isAdmin })
+  : disabledFriends();
 
 /** Make the admins' extra blocked sites live: the policy, and the list Wisp checks on each connection. */
 function applyBlocklist(custom) {
@@ -156,6 +167,14 @@ app.use("/api/account", accounts.router);
 
 app.use("/api/admin", admin.router);
 app.use("/api/chat", chat.router);
+app.use("/api/store", store.router);
+app.use("/api/friends", friends.router);
+
+// The taskbar's network graph polls this: running totals, from which the page works out the speed.
+app.get("/api/traffic", (req, res) => {
+  const key = trafficKey(accounts.userFor(req)?.id, req.socket.remoteAddress);
+  res.set("Cache-Control", "no-store").json({ ...trafficFor(key), at: Date.now() });
+});
 
 app.get("/api/info", (_req, res) => {
   res.set("Cache-Control", "no-cache").json({ ...info, accounts: accounts.site().mode });
@@ -342,7 +361,7 @@ server.on("upgrade", (req, socket, head) => {
     socket.end(`HTTP/1.1 401 Unauthorized\r\n${challenge}Connection: close\r\n\r\n`);
     return;
   }
-  trackSocket(socket, req.account?.id ?? null, req.account ? req.sessionHash : null);
+  trackSocket(socket, req.account?.id ?? null, req.account ? req.sessionHash : null, trafficKey(req.account?.id, socket.remoteAddress));
   wisp.routeRequest(req, socket, head);
 });
 
@@ -351,11 +370,29 @@ server.on("upgrade", (req, socket, head) => {
 // that person's sockets at once, switching to "required" closes everyone else's, and
 // every 30 seconds the rest are checked, which catches bans from the command line,
 // sign-outs and expiry.
-const proxySockets = new Map(); // socket -> { userId, sessionHash }
+const proxySockets = new Map(); // socket -> { userId, sessionHash, key }
 
-function trackSocket(socket, userId, sessionHash) {
-  proxySockets.set(socket, { userId, sessionHash });
-  socket.once("close", () => proxySockets.delete(socket));
+// How much proxy traffic each person has used, for the speed graph in their taskbar: bytes sent to
+// them (down) and from them (up) over every proxy connection, with those of closed connections kept.
+// A person is their account, or (with no account) their address, so behind a shared proxy those share one count.
+const closedTraffic = new Map(); // key -> { down, up }
+const trafficKey = (userId, address) => (userId ? `u${userId}` : `a${address ?? ""}`);
+
+function trackSocket(socket, userId, sessionHash, key) {
+  proxySockets.set(socket, { userId, sessionHash, key });
+  socket.once("close", () => {
+    proxySockets.delete(socket);
+    const total = closedTraffic.get(key) ?? { down: 0, up: 0 };
+    total.down += socket.bytesWritten; total.up += socket.bytesRead;
+    closedTraffic.delete(key); closedTraffic.set(key, total); // most recently used last
+    if (closedTraffic.size > 5000) closedTraffic.delete(closedTraffic.keys().next().value);
+  });
+}
+
+function trafficFor(key) {
+  const total = { ...(closedTraffic.get(key) ?? { down: 0, up: 0 }) };
+  for (const [socket, owner] of proxySockets) if (owner.key === key) { total.down += socket.bytesWritten; total.up += socket.bytesRead; }
+  return total;
 }
 
 function closeUnauthorizedSockets() {
@@ -422,6 +459,7 @@ function shutdown(signal) {
   force.unref();
 
   chat.close(); // ends the live streams, or server.close() would wait for them
+  friends.close();
   server.close(() => { accounts.close(); process.exit(0); });
   server.closeAllConnections?.();
 }

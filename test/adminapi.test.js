@@ -335,7 +335,7 @@ test("server health, tidying and a database backup", options, async () => {
   assert.match(sys.process.node, /^v\d+/);
   assert.ok(sys.database.counts.users >= 1);
   assert.ok(sys.database.bytes.database > 0);
-  assert.equal(sys.database.schemaVersion, 6);
+  assert.equal(sys.database.schemaVersion, 8);
   assert.equal(sys.host.fly, null, "not on Fly here");
   const pruned = await boss.post("/api/admin/system/prune");
   assert.equal(pruned.status, 200);

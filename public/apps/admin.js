@@ -268,6 +268,7 @@
           tile(d.users.admins, "Admins"),
           tile(d.users.banned, "Banned", "", d.users.banned ? "red" : ""),
           tile(d.invites, "Invite codes", "still usable"),
+          tile(d.store.pending, "Apps waiting for approval", `${d.store.live} in the App Store, ${d.store.reported} reported`, d.store.pending || d.store.reported ? "red" : ""),
           tile(d.chat.messages, "Chat messages", `${d.chat.today} in the last 24 hours`),
           tile(d.chat.sanctions, "Chat timeouts and bans", "in force now", d.chat.sanctions ? "red" : "")),
         h("div", { class: "cols section" },
@@ -752,6 +753,121 @@
   };
 
   // ---------------------------------------------------------------------------------------
+  // App Store: the approval queue, every app, and how new apps get in
+  // ---------------------------------------------------------------------------------------
+
+  const storeState = { status: "pending", q: "" };
+  const setStoreCount = (counts) => {
+    const badge = $("store-count");
+    const todo = counts.pending + (counts.reported ?? 0);
+    badge.hidden = !todo;
+    badge.textContent = String(todo);
+  };
+
+  views.store = async () => {
+    const s = storeState;
+    const list = h("div");
+    const tabs = h("div", { class: "tabs", role: "tablist" });
+    const settingsBox = h("div", { class: "card section stack" });
+    let counts = { pending: 0, approved: 0, rejected: 0, reported: 0 };
+
+    const label = { pending: "Waiting", approved: "In the store", rejected: "Not approved", reported: "Reported" };
+    const drawTabs = () => tabs.replaceChildren(...Object.entries(label).map(([status, text]) =>
+      h("button", { class: "tab", role: "tab", type: "button", "aria-selected": String(s.status === status), text: `${text} (${counts[status]})`, onclick: () => { s.status = status; load(); } })));
+
+    async function decide(button, app, action, body) {
+      const result = await act(button, () => A("POST", `/store/apps/${app.id}/${action}`, body ?? {}));
+      if (!result) return false;
+      toast(action === "approve" ? `${app.name} is in the store.` : action === "dismiss" ? "The reports were dismissed." : action === "reject" ? `${app.name} was ${app.status === "approved" ? "taken down" : "rejected"}.` : `${app.name} was deleted.`, "ok");
+      load();
+      return true;
+    }
+
+    function peek(app) {
+      const body = h("div", {},
+        h("p", { class: "dim", text: app.description, style: "white-space:pre-wrap;overflow-wrap:anywhere;margin-bottom:12px" }),
+        h("dl", { class: "kv" },
+          h("dt", { text: "Name" }), h("dd", { text: app.name }),
+          h("dt", { text: "Web address" }), h("dd", {}, h("a", { href: app.url, target: "_blank", rel: "noopener noreferrer", text: app.url, style: "color:inherit" })),
+          h("dt", { text: "Made by" }), h("dd", { text: app.owner }),
+          h("dt", { text: "Category" }), h("dd", { text: app.category }),
+          h("dt", { text: "Sent" }), h("dd", { text: dateTime(app.created) }),
+          app.reviewedBy && h("dt", { text: "Decided by" }), app.reviewedBy && h("dd", { text: `${app.reviewedBy}${app.reviewedAt ? `, ${ago(app.reviewedAt)}` : ""}` }),
+          app.reason && h("dt", { text: "Reason given" }), app.reason && h("dd", { text: app.reason }),
+          h("dt", { text: "Installs" }), h("dd", { text: number(app.installs) })),
+        h("div", { id: "peek-reports" }),
+        app.icon ? h("img", { src: `/api/store/icon/${app.id}?v=${app.icon}`, alt: "", width: "64", height: "64", style: "margin-top:12px;display:block" }) : null);
+      const actions = [{ label: "Close" }];
+      if (app.reports) actions.unshift({ label: "Dismiss reports", onClick: (b) => decide(b, app, "dismiss") });
+      showDialog({ title: app.name, body, actions });
+      if (app.reports) {
+        A("GET", `/store/apps/${app.id}/reports`).then(({ reports }) => {
+          const box = body.querySelector("#peek-reports");
+          box.append(h("h3", { text: `Reports (${reports.length})`, style: "margin:14px 0 6px;font-size:15px" }),
+            h("ul", { class: "feed" }, reports.map((r) => h("li", {}, h("span", { class: "when", title: dateTime(r.at), text: ago(r.at) }), h("span", {}, h("strong", { text: r.reporter }), ` ${r.reason}${r.note ? `: ${r.note}` : ""}`)))));
+        }).catch(() => {});
+      }
+    }
+
+    async function reject(button, app) {
+      const taking = app.status === "approved";
+      const reason = await askText(taking ? `Take down ${app.name}` : `Reject ${app.name}`, "Reason (the maker sees it)", { confirm: taking ? "Take down" : "Reject", danger: true, hint: "Optional, but it helps them fix it." });
+      if (reason === null) return;
+      decide(button, app, "reject", { reason });
+    }
+
+    async function load() {
+      const data = await A("GET", `/store?${query({ status: s.status, q: s.q })}`);
+      if (current !== "store") return;
+      counts = data.counts;
+      setStoreCount(counts);
+      drawTabs();
+      drawSettings(data.settings);
+      const rows = data.apps.map((app) => h("tr", {},
+        h("td", {}, h("a", { href: "#", text: app.name, style: "color:inherit", onclick: (e) => { e.preventDefault(); peek(app); } }), app.ownerIsAdmin && chip("ADMIN", "admin")),
+        h("td", { text: app.owner }),
+        h("td", {}, h("a", { href: app.url, target: "_blank", rel: "noopener noreferrer", text: new URL(app.url).hostname, title: app.url, style: "color:inherit" })),
+        h("td", { text: app.category }),
+        h("td", { title: dateTime(app.created), text: ago(app.created) }),
+        h("td", { class: "num", text: number(app.installs) }),
+        h("td", {}, app.reports ? chip(`${app.reports} report${app.reports === 1 ? "" : "s"}`, "red") : ""),
+        h("td", {}, h("div", { class: "row end" },
+          app.reports && h("button", { class: "btn small", type: "button", text: "Dismiss", onclick: (e) => decide(e.target, app, "dismiss") }),
+          app.status !== "approved" && h("button", { class: "btn small primary", type: "button", text: "Approve", onclick: (e) => decide(e.target, app, "approve") }),
+          app.status !== "rejected" && h("button", { class: "btn small", type: "button", text: app.status === "approved" ? "Take down…" : "Reject…", onclick: (e) => reject(e.target, app) }),
+          h("button", { class: "btn small danger", type: "button", text: "Delete", onclick: async (e) => { if (await confirmBox(`Delete ${app.name}?`, "It is removed for good, along with its install counts.", { confirm: "Delete", danger: true })) decide(e.target, app, "delete"); } })))));
+      list.replaceChildren(table(["App", "Made by", "Site", "Category", "Sent", "Installs", "Reports", ""], rows,
+        s.q ? "Nothing matches." : s.status === "reported" ? "Nobody has reported an app." : s.status === "pending" ? "Nothing is waiting for approval." : s.status === "approved" ? "No apps are in the store yet." : "No apps have been turned down."));
+    }
+
+    function drawSettings(settings) {
+      const approval = h("div", { class: "radios" },
+        [["manual", "Approve each app", "New apps wait here until an admin approves them."], ["auto", "Approve automatically", "New apps go live in the store at once. You can still take any of them down."]].map(([value, title, text]) =>
+          h("label", {}, h("input", { type: "radio", name: "approval", value, checked: settings.approval === value }), h("span", {}, h("strong", { text: title }), h("br"), h("small", { class: "dim", text })))));
+      const publishing = h("input", { type: "checkbox", checked: settings.publishing });
+      const maxPer = h("input", { class: "field", type: "number", min: "1", max: "50", value: String(settings.maxPerUser), style: "width:80px", "aria-label": "Apps each person can have" });
+      const status = h("p", { class: "status" });
+      const save = h("button", { class: "btn primary", type: "button", text: "Save", onclick: async (e) => {
+        const chosen = approval.querySelector("input:checked")?.value;
+        const result = await act(e.target, () => A("POST", "/store/settings", { approval: chosen, publishing: publishing.checked, maxPerUser: Number(maxPer.value) }), "App Store settings saved.");
+        if (result) { status.textContent = "Saved."; status.dataset.state = "ok"; }
+      } });
+      settingsBox.replaceChildren(h("h3", { text: "How new apps get in" }), approval,
+        h("label", { class: "check" }, publishing, h("span", { text: "People can publish new apps (turn off to pause publishing; admins can still publish)" })),
+        h("label", { class: "row" }, h("span", { text: "Apps each person can have in the store at once" }), maxPer),
+        h("div", { class: "row" }, save), status);
+    }
+
+    const q = h("input", { class: "field grow", type: "search", placeholder: "Search by app, site or maker", value: s.q, "aria-label": "Search apps" });
+    const go = () => { s.q = q.value.trim(); load(); };
+    q.addEventListener("keydown", (event) => { if (event.key === "Enter") go(); });
+    main.replaceChildren(head("App Store"),
+      h("p", { class: "dim section", text: "Apps are web addresses people publish for everyone to add to their desktop. They open through the proxy; nothing they publish runs on this site." }),
+      settingsBox, tabs, h("div", { class: "toolbar" }, q, h("button", { class: "btn primary", type: "button", text: "Search", onclick: go })), list);
+    await load();
+  };
+
+  // ---------------------------------------------------------------------------------------
   // Reveal highlight, like Settings: borders and surfaces glow near the pointer
   // ---------------------------------------------------------------------------------------
 
@@ -807,6 +923,7 @@
     $("gate").hidden = true;
     $("app").hidden = false;
     $("nav-foot").textContent = `Signed in as ${me.username}`;
+    A("GET", "/store?status=none").then((d) => setStoreCount(d.counts), () => {}); // the badge on the App Store item
     show(location.hash.slice(1) || "dashboard");
   })();
 })();

@@ -5,7 +5,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { AdminError, transaction } from "./accountsdb.js";
-import { cleanWordList } from "./chatfilter.js";
+import { cleanWordList, normalizeText } from "./chatfilter.js";
 
 export const HISTORY_LIMIT = 2000;          // messages kept; older ones are pruned
 export const MAX_TIMEOUT_MINUTES = 30 * 24 * 60;
@@ -15,6 +15,49 @@ const ORPHANED_MEDIA = "DELETE FROM chat_media WHERE id NOT IN (SELECT media_ref
 
 // --- settings ----------------------------------------------------------------------
 
+// How admins look in the chat: the tag beside their name. Set by admins in the Chat's
+// moderation panel and the same for every admin. Everything is a short fixed choice or a #rrggbb colour,
+// so nothing a page puts on screen from it can be script or markup.
+export const ADMIN_LOOK_DEFAULTS = {
+  tag: "ADMIN",             // the text beside the name (1 to 12 characters)
+  style: "outline",         // "outline" (a box), "brackets" ([Tag]) or "plain"
+  color: "#ff6b78",         // the tag's colour
+  nameColor: "white",       // "white", "tag" (the same colour as the tag) or a #rrggbb colour
+  shield: true,             // the little shield in the tag
+};
+const HEX = /^#[0-9a-fA-F]{6}$/;
+const LOOK_CHECKS = {
+  style: (v) => v === "outline" || v === "brackets" || v === "plain",
+  color: (v) => typeof v === "string" && HEX.test(v),
+  nameColor: (v) => v === "white" || v === "tag" || (typeof v === "string" && HEX.test(v)),
+  shield: (v) => typeof v === "boolean",
+};
+
+/**
+ * A complete admin look from what was sent (or saved): the defaults, changed by every valid field.
+ * With `strict`, a field that isn't valid is an error instead of being ignored.
+ */
+export function cleanAdminLook(input, { strict = false } = {}) {
+  const out = { ...ADMIN_LOOK_DEFAULTS };
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    if (strict) throw new AdminError(400, "Send the admin look as an object.");
+    return out;
+  }
+  for (const [key, value] of Object.entries(input)) {
+    if (key === "tag") {
+      const text = Array.from(normalizeText(value).replace(/\s+/g, " ")).slice(0, 12).join("").trim();
+      if (typeof value === "string" && text) out.tag = text;
+      else if (strict) throw new AdminError(400, "The tag needs 1 to 12 characters.");
+    } else if (LOOK_CHECKS[key]) {
+      if (LOOK_CHECKS[key](value)) out[key] = key === "color" || (key === "nameColor" && value.startsWith("#")) ? value.toLowerCase() : value;
+      else if (strict) throw new AdminError(400, `That isn't a valid value for ${key}.`);
+    } else if (strict) {
+      throw new AdminError(400, `Unknown admin look setting "${key}".`);
+    }
+  }
+  return out;
+}
+
 export const CHAT_DEFAULTS = {
   enabled: true,            // the whole chat can be switched off
   locked: false,            // only admins can post
@@ -23,6 +66,7 @@ export const CHAT_DEFAULTS = {
   gifs: true,               // GIFs (uploaded or searched) can be sent
   minAccountMinutes: 0,     // new accounts must wait this long before they can post
   words: [],                // blocked words (see chatfilter.js)
+  adminLook: ADMIN_LOOK_DEFAULTS, // how admins' names and tags look (see above)
 };
 
 const SETTING_CHECKS = {
@@ -40,6 +84,7 @@ export function getChatSettings(db) {
     let parsed;
     try { parsed = JSON.parse(value); } catch { continue; }
     if (key === "words") out.words = cleanWordList(parsed);
+    else if (key === "adminLook") out.adminLook = cleanAdminLook(parsed);
     else if (SETTING_CHECKS[key]?.(parsed)) out[key] = parsed;
   }
   return out;
@@ -53,6 +98,8 @@ export function setChatSettings(db, patch, by = null) {
     if (key === "words") {
       if (!Array.isArray(value)) throw new AdminError(400, "The blocked words must be a list.");
       next.words = cleanWordList(value);
+    } else if (key === "adminLook") {
+      next.adminLook = cleanAdminLook(value, { strict: true });
     } else if (SETTING_CHECKS[key]) {
       if (!SETTING_CHECKS[key](value)) throw new AdminError(400, `That isn't a valid value for ${key}.`);
       next[key] = value;

@@ -108,9 +108,12 @@ Other scripts:
 - Cloaking: Settings > Cloaking for the tab disguise, panic key (e.g. `Ctrl+Alt+P`) and open in about:blank.
 - Wallpaper and colors: Settings > Appearance, or right click the desktop.
 - Accounts (when the site has them on): Settings > Account to create one or sign in, and to set your profile picture. When the site requires accounts you sign in on the lock screen instead. Click your profile in the start menu to sign out or lock.
-- Chat (needs accounts): the Chat icon on the taskbar opens a live room for everyone signed in, with emoji and GIFs.
+- Chat (needs accounts): the Chat icon on the taskbar opens a live room for everyone signed in, with emoji and GIFs. Admins have a tag beside their name, which admins can restyle in the Chat's moderation panel.
+- App Store (needs accounts): the bag icon on the taskbar, after Chat. Browse apps other people published, add one to your desktop with Get, publish your own from Your apps, and report apps that are broken or not appropriate. Depending on the admin's setting, a new app waits for an admin's approval or goes live at once.
+- Friends (needs accounts): Friends in the start menu, or search for it. Add people by username, accept or decline requests, block anyone, and see which friends are online. You can show as online, away or invisible.
+- Site health: the speedometer in the taskbar shows whether the site and the proxy really work, and the small graph beside it shows how fast data is moving through the proxy. Click either for the details, or to run the full proxy test.
 - Notifications: Settings > Notifications. You can restyle them, silence them, or turn on Do not disturb. Chat notifications are off until you turn them on, in Settings or in the Chat's own settings.
-- Admin Panel (admins): the Admin icon on the taskbar, or Admin in the start menu, or search for "admin". Chat moderation is also available inside the Chat window.
+- Admin Panel (admins): the Admin icon on the taskbar, or Admin in the start menu, or search for "admin". It covers accounts, sessions, invites, chat moderation, App Store approvals and reports, the content filter, announcements, maintenance mode, the audit log, and server tools such as a database backup.
 - Back up or move your setup: Settings > System > Backup exports your apps, bookmarks and preferences to a file and imports it again, on any SuperNova site.
 
 <details>

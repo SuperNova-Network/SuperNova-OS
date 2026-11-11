@@ -109,6 +109,25 @@
         </div>
         <div id="sbblabel">Admin</div>
       </div>
+      <div class="sbbitem2" id="start-friends" onclick="openFriends()" style="display:none">
+        <div class="sbbicon">
+          <svg viewBox="0 0 90 90" height="90" width="90">
+            <circle cx="38" cy="35" r="9" fill="none"></circle>
+            <path d="M20 66 Q20 50 38 50 Q56 50 56 66 Z" fill="none"></path>
+            <path d="M54 28 Q62 28 62 36 Q62 43 54 43 M62 52 Q72 54 72 66" fill="none"></path>
+          </svg>
+        </div>
+        <div id="sbblabel">Friends<span id="start-friends-count"></span></div>
+      </div>
+      <div class="sbbitem2" id="start-store" onclick="openStore()">
+        <div class="sbbicon">
+          <svg viewBox="0 0 90 90" height="90" width="90">
+            <path d="M26 34 L64 34 L62 66 L28 66 Z" fill="none"></path>
+            <path d="M36 34 Q36 24 45 24 Q54 24 54 34" fill="none"></path>
+          </svg>
+        </div>
+        <div id="sbblabel">App Store</div>
+      </div>
       <div class="sbbitem2" id="start-chat" onclick="openChat()" style="bottom:3.5vw">
         <div class="sbbicon">
           <svg viewBox="0 0 90 90" height="90" width="90">
@@ -147,6 +166,15 @@
     <div class="pm-item" onclick="profileSettings()">Change account settings</div>
     <div class="pm-item" onclick="profileLock()">Lock</div>
     <div class="pm-item" onclick="profileSignOut()">Sign out</div>
+  </div>
+  <div id="healthmenu" style="display:none" onmousedown="event.stopPropagation()">
+    <div class="hm-title">SuperNova status</div>
+    <div id="hm-rows"></div>
+    <div class="hm-foot"><span id="hm-when"></span></div>
+    <div class="hm-buttons">
+      <div class="hm-button" onclick="SnHealth.again()">Check again</div>
+      <div class="hm-button" onclick="SnHealth.full()">Run a full test</div>
+    </div>
   </div>
   <div id="clockbar" class="specColor" style="display:none;">
     <p id="clocklbl"></p>
@@ -201,6 +229,8 @@
     <script src="./resources/scripts/notify.js"></script>
     <script src="./resources/scripts/chatwatch.js"></script>
     <script src="./resources/scripts/siteinfo.js"></script>
+    <script src="./resources/scripts/health.js"></script>
+    <script src="./resources/scripts/netgraph.js"></script>
 
     <div id="infocorner">
       <div id="batterywrapper">
@@ -212,12 +242,14 @@
           </svg>
         </div>
       </div>
-      <div id="wifi" level="2">
+      <canvas id="netgraph" onclick="SnHealth.toggle(event)" title="Proxy traffic"></canvas>
+      <div id="wifi" level="3" onclick="SnHealth.toggle(event)" title="Checking…">
         <svg viewBox="0 0 90 90" height="90" width="90">
-          <path d="M5 85 A80 80 0 0 1 85 5" fill="none" greyout="012"></path>
-          <path d="M25 85 A60 60 0 0 1 85 25" fill="none" greyout="01"></path>
-          <path d="M45 85 A40 40 0 0 1 85 45" fill="none" greyout="0"></path>
-          <circle cx="75" cy="75" r="10" stroke="none"></circle>
+          <path d="M5 68 A40 40 0 0 1 25 33.4" fill="none" greyout="0"></path>
+          <path d="M25 33.4 A40 40 0 0 1 65 33.4" fill="none" greyout="01"></path>
+          <path d="M65 33.4 A40 40 0 0 1 85 68" fill="none" greyout="012"></path>
+          <line class="needle" x1="45" y1="68" x2="45" y2="34" fill="none"></line>
+          <circle cx="45" cy="68" r="11" stroke="none"></circle>
         </svg>
       </div>
       <div id="time" onclick="toggleClock()">22:20<br>2016-10-07</div>
@@ -325,6 +357,16 @@
       <path d="M12 16 L78 16 L78 60 L44 60 L26 76 L26 60 L12 60 Z" fill="none" stroke-width="5"></path>
       <line x1="26" y1="31" x2="64" y2="31" stroke-width="4"></line>
       <line x1="26" y1="44" x2="50" y2="44" stroke-width="4"></line>
+    </svg>
+    <svg class="store_icon" width="90" height="90" viewBox="0 0 90 90">
+      <path d="M16 30 L74 30 L70 78 L20 78 Z" fill="none" stroke-width="5"></path>
+      <path d="M30 30 Q30 12 45 12 Q60 12 60 30" fill="none" stroke-width="5"></path>
+      <path d="M45 42 L45 62 M36 54 L45 63 L54 54" fill="none" stroke-width="5"></path>
+    </svg>
+    <svg class="friends_icon" width="90" height="90" viewBox="0 0 90 90">
+      <circle cx="36" cy="32" r="13" fill="none" stroke-width="5"></circle>
+      <path d="M12 76 Q12 52 36 52 Q60 52 60 76 Z" fill="none" stroke-width="5"></path>
+      <path d="M56 21 Q70 19 70 33 Q70 45 56 44 M66 54 Q80 57 80 76" fill="none" stroke-width="5"></path>
     </svg>
     <svg class="cog_icon" width="90" height="90" viewBox="0 0 90 90">
       <path fill="none" stroke-width="5"></path>

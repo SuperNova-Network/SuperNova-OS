@@ -12,8 +12,9 @@ import { join } from "node:path";
 import { AdminError, createInvite, setBanned } from "./accountsdb.js";
 import {
   backupTo, databaseInfo, deleteUser, getAdminSetting, listAudit, listSessions, listUsersPage, logAdmin, overview, prune,
-  revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
+  revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
 } from "./admindb.js";
+import * as apps from "./storedb.js";
 import { HttpError, guardWrites } from "./http.js";
 import { hashPassword } from "./passwords.js";
 
@@ -204,6 +205,75 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     applyBlocklist(saved);
     logAdmin(db, admin.username, "changed the blocked sites", null, `${saved.hosts.length} sites, ${saved.keywords.length} keywords, ${saved.queryWords.length} search words`);
     res.json({ custom: saved, builtin: runtime().filter });
+  }));
+
+  // --- the App Store: the approval queue, the apps, and how new apps get in ----------------------------------
+
+  const appOf = (req) => {
+    const row = apps.getApp(db, req.params.id);
+    if (!row) throw new HttpError(404, "That app isn't in the store.");
+    return row;
+  };
+  const adminApp = (row) => ({ ...apps.publicApp(row, { forOwner: true }), reports: row.reports, key: row.url_key, reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, ownerIsAdmin: Boolean(row.owner_is_admin) });
+
+  router.get("/store", handle((req, res) => {
+    requireAdmin(req);
+    const { status, q, offset } = req.query;
+    res.json({
+      settings: getAdminSetting(db, "store"),
+      counts: apps.countByStatus(db),
+      categories: apps.CATEGORIES,
+      apps: apps.listByStatus(db, { status: String(status ?? "pending"), q: String(q ?? ""), offset }).map(adminApp),
+    });
+  }));
+
+  router.post("/store/settings", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const before = getAdminSetting(db, "store");
+    const saved = saveStoreSettings(db, req.body, admin.username);
+    const changes = [];
+    if (saved.approval !== before.approval) changes.push(`approval ${saved.approval === "auto" ? "automatic" : "manual"}`);
+    if (saved.publishing !== before.publishing) changes.push(saved.publishing ? "publishing on" : "publishing paused");
+    if (saved.maxPerUser !== before.maxPerUser) changes.push(`${saved.maxPerUser} apps each`);
+    if (changes.length) logAdmin(db, admin.username, "changed the App Store settings", null, changes.join(", "));
+    res.json({ settings: saved });
+  }));
+
+  router.get("/store/apps/:id/reports", handle((req, res) => {
+    requireAdmin(req);
+    res.json({ reports: apps.reportsFor(db, appOf(req).id) });
+  }));
+
+  router.post("/store/apps/:id/dismiss", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const row = appOf(req);
+    const removed = apps.dismissReports(db, row.id);
+    logAdmin(db, admin.username, "dismissed reports of a store app", row.name, `${removed} report${removed === 1 ? "" : "s"}`);
+    res.json({ app: adminApp(apps.getApp(db, row.id)), counts: apps.countByStatus(db) });
+  }));
+
+  router.post("/store/apps/:id/approve", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const row = appOf(req);
+    apps.decide(db, row.id, { status: "approved", by: admin.username });
+    logAdmin(db, admin.username, "approved a store app", row.name, `by ${row.owner}`);
+    res.json({ app: adminApp(apps.getApp(db, row.id)), counts: apps.countByStatus(db) });
+  }));
+
+  router.post("/store/apps/:id/reject", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const row = appOf(req);
+    apps.decide(db, row.id, { status: "rejected", by: admin.username, reason: req.body?.reason });
+    logAdmin(db, admin.username, row.status === "approved" ? "took down a store app" : "rejected a store app", row.name, `by ${row.owner}`);
+    res.json({ app: adminApp(apps.getApp(db, row.id)), counts: apps.countByStatus(db) });
+  }));
+
+  router.post("/store/apps/:id/delete", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const row = appOf(req);
+    apps.deleteApp(db, row.id);
+    logAdmin(db, admin.username, "deleted a store app", row.name, `by ${row.owner}`);
+    res.json({ ok: true, counts: apps.countByStatus(db) });
   }));
 
   // --- audit log -------------------------------------------------------------------------------------------

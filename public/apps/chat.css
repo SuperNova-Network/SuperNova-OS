@@ -1,6 +1,6 @@
 /*
  * Chat app. Deliberately flat, like the Windows 10 desktop around it: square
- * corners, 1px lines, no shadows, no hover effects, no transitions or animation.
+ * corners, 1px lines, no shadows, no hover effects, no transitions or animation .
  * The accent colour follows the desktop's colour scheme (see theme.js).
  */
 
@@ -12,7 +12,8 @@
   --text: #ffffff;
   --dim: #b8b8b8;
   --faint: #8c8c8c;
-  --admin: #ffc83d;
+  --admin: #ff6b78;        /* admins: one flat coral red, nothing else (no yellow, no gradients or glow) */
+  --warn: #ffc83d;
   --red: #c42b1c;
   --green: #4cc26b;
 }
@@ -205,25 +206,59 @@ textarea.field {
   object-fit: cover;
 }
 
+/* The admin tag beside a name. How it looks (text, box, colour, shield) is chosen by admins in the
+   moderation panel and arrives as attributes on the page: see applyAdminLook() in chat.js. */
 .badge {
+  position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
+  align-self: center;
   gap: 3px;
   margin-left: 6px;
-  padding: 0 6px;
-  background: var(--admin);
-  color: #1a1a1a;
-  font-size: 10.5px;
+  padding: 0 6px 0 4px;
+  border: 1px solid var(--admin);
+  color: var(--admin);
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 16px;
-  vertical-align: 1px;
+  letter-spacing: 0.08em;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.head .badge {
+  margin-left: 0;
 }
 
 .badge svg {
   width: 11px;
   height: 11px;
-  fill: currentColor;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+[data-tag-style="brackets"] .badge,
+[data-tag-style="plain"] .badge {
+  padding: 0;
+  border-color: transparent;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+[data-tag-style="brackets"] .badge-text::before {
+  content: "[";
+}
+
+[data-tag-style="brackets"] .badge-text::after {
+  content: "]";
+}
+
+[data-shield="off"] .badge svg {
+  display: none;
 }
 
 /* --- Gate (signed out, accounts off, loading) -------------------------------- */
@@ -302,7 +337,7 @@ textarea.field {
 }
 
 .conn[data-state="connecting"]::before {
-  background: var(--admin);
+  background: var(--warn);
 }
 
 .tbtn {
@@ -354,9 +389,64 @@ textarea.field {
   font-weight: 600;
 }
 
+/* Admins: the colour of the tag and (if chosen) the name is theirs to pick in the moderation panel. */
+:root,
+.look-preview {
+  --admin: #ff6b78;
+  --admin-name: #ffffff;
+}
+
 .me-name.admin,
-.name.admin {
-  color: var(--admin);
+.name.admin,
+.online .who.admin {
+  color: var(--admin-name);
+  font-weight: 700;
+}
+
+/* --- The admin look editor (moderation panel) ------------------------------------------------- */
+
+.look-preview {
+  margin: 8px 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.look-preview .head {
+  align-items: center;
+}
+
+.look-preview .line {
+  margin-top: 4px;
+  color: var(--dim);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid transparent;
+  outline: 1px solid #666;
+  outline-offset: -3px;
+}
+
+.swatch[aria-pressed="true"] {
+  border-color: var(--text);
+}
+
+input[type="color"].swatch-custom {
+  width: 40px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #666;
+  background: #1b1b1b;
 }
 
 .banner {
@@ -433,10 +523,6 @@ textarea.field {
   white-space: nowrap;
 }
 
-.online .who.admin {
-  color: var(--admin);
-}
-
 /* --- Messages ------------------------------------------------------------------ */
 
 .messages {
@@ -495,11 +581,6 @@ textarea.field {
 .msg.grouped {
   padding-top: 0;
   padding-bottom: 2px;
-}
-
-.msg.admin {
-  border-left-color: var(--admin);
-  background: rgb(255 200 61 / 7%);
 }
 
 .msg .spacer-avatar {

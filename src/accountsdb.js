@@ -174,6 +174,69 @@ const MIGRATIONS = [
       );
     `);
   },
+  // 7: the App Store. Community apps (a web address with a name, a description and a category),
+  // their optional icons, and who installed what (so each person counts once).
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS store_apps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      url TEXT NOT NULL,
+      url_key TEXT NOT NULL,
+      category TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+      reason TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      reviewed_by TEXT,
+      reviewed_at INTEGER,
+      icon_version INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS store_apps_status ON store_apps(status, created_at);
+    CREATE INDEX IF NOT EXISTS store_apps_owner ON store_apps(owner_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS store_apps_url ON store_apps(url_key) WHERE status IN ('pending', 'approved');
+    CREATE TABLE IF NOT EXISTS store_icons (
+      app_id INTEGER PRIMARY KEY REFERENCES store_apps(id) ON DELETE CASCADE,
+      mime TEXT NOT NULL,
+      data BLOB NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS store_installs (
+      app_id INTEGER NOT NULL REFERENCES store_apps(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      at INTEGER NOT NULL,
+      PRIMARY KEY (app_id, user_id)
+    );
+  `),
+  // 8: reports of store apps (one per person per app), friends and online status.
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS store_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      app_id INTEGER NOT NULL REFERENCES store_apps(id) ON DELETE CASCADE,
+      reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      note TEXT,
+      created_at INTEGER NOT NULL,
+      UNIQUE (app_id, reporter_id)
+    );
+    CREATE INDEX IF NOT EXISTS store_reports_app ON store_reports(app_id);
+    -- Friends. One row per pair: who asked (or who blocked) and the other person. "accepted" rows are
+    -- symmetrical; "blocked" rows belong to the person who blocked.
+    CREATE TABLE IF NOT EXISTS friendships (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      other_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'blocked')),
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, other_id),
+      CHECK (user_id <> other_id)
+    );
+    CREATE INDEX IF NOT EXISTS friendships_other ON friendships(other_id, status);
+    -- Whether someone shows as online, away or invisible to their friends.
+    CREATE TABLE IF NOT EXISTS user_status (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      mode TEXT NOT NULL CHECK (mode IN ('online', 'away', 'invisible'))
+    );
+  `),
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */

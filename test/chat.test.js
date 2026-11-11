@@ -586,3 +586,38 @@ test("a cross-site request can't post", options, async () => {
   });
   assert.equal(plain.status, 415);
 });
+
+test("admins choose how admins look, and everyone gets it with the settings", options, async () => {
+  const gus = await person();
+  const mine = { tag: "  Elite  ", style: "brackets", color: "#AA33CC", nameColor: "#33CCAA", shield: false };
+  assert.equal((await gus.post("/api/chat/admin/settings", { adminLook: mine })).status, 403, "only admins");
+  const defaults = (await gus.get("/api/chat/messages")).status; // anyone signed in can read the chat
+  assert.equal(defaults, 200);
+  try {
+    assert.equal((await boss.post("/api/chat/admin/settings", { adminLook: mine })).status, 200);
+    const saved = (await boss.get("/api/chat/admin/settings")).data.settings.adminLook;
+    assert.deepEqual(saved, { tag: "Elite", style: "brackets", color: "#aa33cc", nameColor: "#33ccaa", shield: false });
+    const ready = await new Promise((resolve, reject) => {
+      const controller = new AbortController();
+      fetch(server.url + "/api/chat/stream", { headers: { cookie: gus.cookie, "x-forwarded-for": "192.0.2.250" }, signal: controller.signal }).then(async (res) => {
+        const reader = res.body.getReader(); let text = "";
+        for (;;) { const { value, done } = await reader.read(); if (done) break; text += Buffer.from(value).toString(); const m = text.match(/event: ready\ndata: (.*)\n/); if (m) { controller.abort(); resolve(JSON.parse(m[1])); return; } }
+      }).catch((e) => { if (e.name !== "AbortError") reject(e); });
+    });
+    assert.equal(ready.settings.adminLook.tag, "Elite", "other people's pages are told the look");
+    assert.equal(ready.settings.adminLook.style, "brackets");
+  } finally {
+    await boss.post("/api/chat/admin/settings", { adminLook: {} });
+  }
+  assert.deepEqual((await boss.get("/api/chat/admin/settings")).data.settings.adminLook, { tag: "ADMIN", style: "outline", color: "#ff6b78", nameColor: "white", shield: true }, "an empty look is the default one");
+});
+
+test("an admin look with anything unexpected in it is refused", options, async () => {
+  for (const bad of [{ color: "red" }, { color: "#fff" }, { color: "url(javascript:1)" }, { style: "glow" }, { tag: "" }, { tag: 42 }, { nameColor: "blue" }, { shield: "yes" }, { sneaky: true }, "ADMIN", [], null]) {
+    assert.equal((await boss.post("/api/chat/admin/settings", { adminLook: bad })).status, 400, JSON.stringify(bad));
+  }
+  const tall = (await boss.post("/api/chat/admin/settings", { adminLook: { tag: "<b>way too long for a tag</b>" } }));
+  assert.equal(tall.status, 200);
+  assert.equal(tall.data.settings.adminLook.tag.length, 12, "a long tag is cut to 12 characters");
+  await boss.post("/api/chat/admin/settings", { adminLook: {} });
+});
