@@ -52,7 +52,7 @@ Admins can sign in at `/signin` even while accounts are off, and give others the
 
 - **Off.** No accounts: the site works as it always did, open to anyone (or behind `AUTH_PASS`). Other people's sessions pause and resume when accounts come back on; their data stays.
 - **Optional.** Settings > Account offers sign-in; the site itself stays open (and behind `AUTH_PASS`, if set).
-- **Required.** Instead of the browser's Basic auth prompt, visitors get a sign-in screen (sign in, create an account, forgot password) and land on the desktop, or the page they were heading to, once signed in. Pages, APIs and the proxy's WebSocket all need a signed-in session; only the sign-in screen, its static files, `/setup`, `/healthz` and `/api/info` stay open. Switching to required disconnects everyone who isn't signed in at once.
+- **Required.** Instead of the browser's Basic auth prompt, visitors get a Windows 10 style lock screen that opens onto a sign-in screen (sign in, create an account, forgot password), with a short "Welcome" animation, and land on the desktop, or the page they were heading to, once signed in. Pages, APIs and the proxy's WebSocket all need a signed-in session; only the sign-in screen, its static files, `/setup`, `/healthz` and `/api/info` stay open. Switching to required disconnects everyone who isn't signed in at once.
 
 **Who can create an account:** people with an **invite code** (the default; see below), **anyone**, or **nobody** (existing accounts keep working). A fixed code from `INVITE_CODE`, or, with accounts required and no `INVITE_CODE`, the old `AUTH_PASS`, is always accepted too. Wrong codes count towards the sign-up rate limit.
 
