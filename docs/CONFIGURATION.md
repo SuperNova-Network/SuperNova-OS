@@ -17,6 +17,7 @@ Server settings come from environment variables, read in [`config.js`](../config
 | `ACCOUNTS` | *(empty)* | Optional override: `optional`, `required` or `off`. When set, the choice is fixed and shown locked in [Settings > Admin](#accounts) |
 | `ACCOUNTS_SIGNUP` | *(empty)* | Optional override: `invite`, `open` or `closed` |
 | `ADMINS` | *(empty)* | Usernames that are always admins, comma separated, besides those made admin in the panel |
+| `GIPHY_API_KEY` | *(empty)* | Turns on GIF search in the [chat](#chat). A free key from developers.giphy.com. Without it people can still upload GIFs |
 | `INVITE_CODE` | *(empty)* | A fixed invite code accepted besides the ones admins make. With accounts required and no `INVITE_CODE`, `AUTH_PASS` is accepted |
 | `TRUST_PROXY` | *(empty)* | Proxies in front of the server to trust for the visitor's address and protocol: a hop count (`1`), `true`, or addresses. Set it behind Fly.io, Render, nginx and the like |
 
@@ -116,3 +117,14 @@ Limits to be honest about: a hostname list cannot recognise a new site, a mirror
 ## Prefixes and paths
 
 URL prefixes live in `config.js` as `prefixes.uv` (`/service/`) and `prefixes.scramjet` (`/scram/`), and `wispPath` (`/wisp/`). The client configuration is generated from them, so they can be changed in one place. Both prefixes must start and end with `/`.
+
+## Chat
+
+The Chat icon on the taskbar opens one public room for everyone who is signed in, so it needs [accounts](#accounts) to be on (optional or required). It uses the account's name and profile picture, and admins moderate from inside the Chat window (the **Moderation** button, and **Delete** and **Moderate…** beside each message).
+
+- **Live delivery** is a Server-Sent Events stream (`/api/chat/stream`) plus ordinary POSTs, so it needs no extra service or dependency. An open Chat window keeps one connection open, so on a host that stops idle machines (Fly.io's `auto_stop_machines`) the machine can stay running, and keep costing, while anyone has the Chat open.
+- **Storage.** Messages (the latest 2000), uploaded GIFs, timeouts, bans, the settings below and a moderation log are in `DATA_DIR/accounts.db` with the accounts, and go when an account is deleted.
+- **Spam rules** apply to everyone except admins: 500 characters and 8 lines, no long runs of one character or word, no shouting, no links (unless allowed), a blocked-word list (matches whole words, also when spaced out or disguised, so "class" never trips "ass"; end a word with `*` to catch longer ones, like `fuck*`), slow mode, at most 5 messages in 10 seconds, and no repeating the same message within a minute. Four breaks of these in 5 minutes is an automatic timeout (2 minutes, then 10, then an hour).
+- **Admin tools.** Delete a message; time out (5 minutes to 7 days) or ban someone from the chat, with a reason they see and an option to remove their last 10 minutes of messages; lift either; clear the chat; lock it to admins only; turn GIFs or the whole chat off; set slow mode, whether links are allowed, how long a new account must wait before posting, and the blocked words. Every action is in the log. Admins can't be timed out or banned from the chat, nor can you do it to yourself. **Ban from the whole site** is the same account ban as in Settings > Admin.
+- **Profile pictures.** Anyone signed in can set one in the Chat window. It is saved to the account, so it follows the person to any browser. Only PNG, JPEG and WebP up to 120 KB and 1024 px are accepted, judged from the file's bytes.
+- **GIFs.** Anyone can upload a GIF up to 2 MB (up to 2000 px; the type and size are read from the bytes). With `GIPHY_API_KEY` set the picker also searches GIPHY (rated PG). The server does the searching and relays the pictures, so people's browsers never contact GIPHY, and the picker says "Powered by GIPHY".
