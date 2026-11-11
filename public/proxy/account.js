@@ -270,6 +270,26 @@
     });
   }
 
+  /** Set the profile picture from base64 image data. Resolves to the new version (0 = none). */
+  function setAvatar(mime, base64) {
+    return call("POST", "/avatar", { mime: mime, data: base64 }).then(function (result) {
+      if (user) user.avatar = result.avatar;
+      return result.avatar;
+    });
+  }
+
+  function removeAvatar() {
+    return call("POST", "/avatar/remove", {}).then(function (result) {
+      if (user) user.avatar = 0;
+      return 0;
+    });
+  }
+
+  /** The address of someone's picture (version: the number from their account), or "" for none. */
+  function avatarUrl(username, version) {
+    return version ? API + "/avatar/" + encodeURIComponent(username) + "?v=" + encodeURIComponent(version) : "";
+  }
+
   // Admin requests (usernames in ADMINS): invite codes and bans.
   var path = encodeURIComponent;
   var admin = {
@@ -299,6 +319,9 @@
     logout: logout,
     changePassword: changePassword,
     deleteAccount: deleteAccount,
+    setAvatar: setAvatar,
+    removeAvatar: removeAvatar,
+    avatarUrl: avatarUrl,
     get user() { return user; },
     get syncing() { return active; },
   };

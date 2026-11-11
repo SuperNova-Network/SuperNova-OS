@@ -88,6 +88,21 @@ const MIGRATIONS = [
       );
     `);
   },
+  // 4: profile pictures. The picture lives in its own table so that the many queries
+  // that load a user's row never drag the image bytes along; the version number on the
+  // user changes with every new picture, so browsers cache each one for good.
+  (db) => {
+    const columns = new Set(db.prepare("PRAGMA table_info(users)").all().map((column) => column.name));
+    if (!columns.has("avatar_version")) db.exec("ALTER TABLE users ADD COLUMN avatar_version INTEGER NOT NULL DEFAULT 0");
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS avatars (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        mime TEXT NOT NULL,
+        data BLOB NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+  },
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */
@@ -284,4 +299,29 @@ export function setBanned(db, username, banned, { reason = "", admins = new Set(
     }
   });
   return user.id;
+}
+
+// --- profile pictures --------------------------------------------------------------
+
+/** Set (or, with null, remove) someone's profile picture. Returns the new version (0 = none). */
+export function setAvatar(db, userId, image) {
+  return transaction(db, () => {
+    if (!image) {
+      db.prepare("DELETE FROM avatars WHERE user_id = ?").run(userId);
+      db.prepare("UPDATE users SET avatar_version = 0 WHERE id = ?").run(userId);
+      return 0;
+    }
+    const now = Date.now();
+    db.prepare("INSERT INTO avatars (user_id, mime, data, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET mime = excluded.mime, data = excluded.data, updated_at = excluded.updated_at")
+      .run(userId, image.mime, image.data, now);
+    // Time-based, so it never repeats (and so never matches a cached older picture).
+    db.prepare("UPDATE users SET avatar_version = ? WHERE id = ?").run(now, userId);
+    return now;
+  });
+}
+
+/** { mime, data, version } for a username, or null when they have no picture. */
+export function getAvatar(db, username) {
+  const row = db.prepare("SELECT avatars.mime, avatars.data, users.avatar_version FROM avatars JOIN users ON users.id = avatars.user_id WHERE users.username = ?").get(String(username ?? ""));
+  return row ? { mime: row.mime, data: row.data, version: row.avatar_version } : null;
 }

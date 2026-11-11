@@ -94,7 +94,7 @@ test("only the code from the log creates the first admin, and only once", option
 test("with accounts off, the admin is signed in and sees the site settings", options, async () => {
   const state = (await owner.get("/api/account")).data;
   assert.equal(state.mode, "off");
-  assert.deepEqual(state.user, { username: "owner", admin: true });
+  assert.deepEqual(state.user, { username: "owner", admin: true, avatar: 0 });
   assert.deepEqual((await owner.get("/api/account/admin/site")).data, { mode: "off", signup: "invite", locked: { mode: false, signup: false } });
   assert.equal((await browser().post("/api/account/register", { username: "early", password: "password123" })).status, 403, "nobody else can sign up yet");
 });
@@ -153,7 +153,7 @@ test("admins make other admins, and the last one can't be removed", options, asy
   assert.equal((await owner.post("/api/account/admin/users/pat/admin")).status, 200);
   const pat = browser();
   await pat.post("/api/account/login", { username: "pat", password: "password123" });
-  assert.deepEqual((await pat.get("/api/account")).data.user, { username: "pat", admin: true });
+  assert.deepEqual((await pat.get("/api/account")).data.user, { username: "pat", admin: true, avatar: 0 });
   assert.equal((await pat.get("/api/account/admin/site")).status, 200);
   const people = (await owner.get("/api/account/admin/users")).data.users;
   assert.deepEqual(people.filter((p) => p.admin).map((p) => p.username).sort(), ["owner", "pat"]);

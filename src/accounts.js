@@ -18,8 +18,9 @@ import { promisify } from "node:util";
 import { createLimiter } from "./ratelimit.js";
 import {
   AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, newInviteCode, newRecoveryCode,
-  normalizeCode, openDatabase, redeemInvite, revokeInvite, setAdmin, setBanned, setSiteSetting, sha256, transaction,
+  getAvatar, normalizeCode, openDatabase, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
 } from "./accountsdb.js";
+import { imageInfo } from "./imageinfo.js";
 
 const scrypt = promisify(scryptCb);
 
@@ -29,6 +30,12 @@ const DAY = 24 * 60 * 60 * 1000;
 const USERNAME = /^[A-Za-z0-9_.-]{3,32}$/;
 const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 200;
+
+// Profile pictures: the page shrinks them to 256 px, so these limits are generous.
+// Only raster formats that can't carry script are accepted (see imageinfo.js).
+const AVATAR_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const AVATAR_MAX_BYTES = 120 * 1024;
+const AVATAR_MAX_PIXELS = 1024;
 
 // Settings: the same rules as a backup file (public/proxy/backup.js).
 const KEY = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
@@ -109,6 +116,8 @@ function unavailable() {
     router: disabledRouter(),
     userFor: () => null,
     sessionActive: () => false,
+    database: null,
+    isAdmin: () => false,
     site: () => ({ mode: "off", signup: "closed", locked: { mode: true, signup: true } }),
     setupCode: null,
     onBan() {},
@@ -207,6 +216,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     recoverIp: createLimiter({ limit: 10, windowMs: 60 * 60 * 1000 }),
     recoverUser: createLimiter({ limit: 5, windowMs: 60 * 60 * 1000 }),
     sync: createLimiter({ limit: 120, windowMs: 60 * 1000 }),
+    avatar: createLimiter({ limit: 10, windowMs: 60 * 60 * 1000 }),
   };
 
   function limit(limiter, key) {
@@ -214,7 +224,9 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     if (wait) throw new HttpError(429, "Too many attempts. Try again later.", { retryAfter: wait });
   }
 
-  const publicUser = (user) => (isAdmin(user) ? { username: user.username, admin: true } : { username: user.username });
+  // `avatar` is the picture's version (0 = none): the page asks for the image only when
+  // there is one, and the version in the address makes each new picture a new URL.
+  const publicUser = (user) => ({ username: user.username, ...(isAdmin(user) ? { admin: true } : {}), avatar: user.avatar_version ?? 0 });
 
   function bannedError(user) {
     return new HttpError(403, `This account has been suspended.${user.ban_reason ? ` Reason: ${user.ban_reason}` : ""}`);
@@ -455,6 +467,41 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     res.json({ revision });
   }));
 
+  // --- profile pictures ----------------------------------------------------------------
+
+  // Anyone signed in may see anyone's picture (it is shown in chat). The address carries
+  // the picture's version (?v=), so a cached copy is never stale and can be kept forever.
+  router.get("/avatar/:username", handle((req, res) => {
+    requireUser(req);
+    const avatar = getAvatar(db, req.params.username);
+    if (!avatar) throw new HttpError(404, "No profile picture.");
+    res.set({
+      "Content-Type": avatar.mime,
+      "Cache-Control": "private, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+    }).send(avatar.data);
+  }));
+
+  // { mime, data } with data in base64. The type and size are read from the bytes, not trusted.
+  router.post("/avatar", handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.avatar, String(user.id));
+    const { mime, data } = req.body ?? {};
+    if (typeof data !== "string" || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) throw new HttpError(400, "Send the picture as base64.");
+    const bytes = Buffer.from(data, "base64");
+    if (bytes.length > AVATAR_MAX_BYTES) throw new HttpError(413, `Profile pictures can be up to ${AVATAR_MAX_BYTES / 1024} KB.`);
+    const info = imageInfo(bytes);
+    if (!info || !AVATAR_TYPES.has(info.mime) || (mime && mime !== info.mime)) throw new HttpError(400, "Use a PNG, JPEG or WebP picture.");
+    if (info.width > AVATAR_MAX_PIXELS || info.height > AVATAR_MAX_PIXELS) throw new HttpError(400, `Profile pictures can be up to ${AVATAR_MAX_PIXELS} by ${AVATAR_MAX_PIXELS} pixels.`);
+    res.json({ avatar: setAvatar(db, user.id, { mime: info.mime, data: bytes }) });
+  }));
+
+  router.post("/avatar/remove", handle((req, res) => {
+    const user = requireUser(req);
+    res.json({ avatar: setAvatar(db, user.id, null) });
+  }));
+
   // --- admin: invite codes and bans (usernames in ADMINS) ----------------------------
 
   function requireAdmin(req) {
@@ -561,6 +608,10 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     router,
     userFor,
     sessionActive,
+    /** The open database, for the chat (src/chat.js), which keeps its tables in the same file. */
+    database: db,
+    /** Whether a users row ({ username, is_admin }) is an admin, ADMINS included. */
+    isAdmin,
     /** { mode, signup, locked }: the current site settings. */
     site,
     /** The first-run code for /setup, while nobody can manage the site yet. */

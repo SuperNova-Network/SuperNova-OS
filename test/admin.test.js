@@ -72,7 +72,7 @@ const within = (promise, ms) => Promise.race([promise, new Promise((resolve) => 
 
 
 test("admins are marked as such; everyone else is kept out of admin requests", options, async () => {
-  assert.deepEqual((await boss.get("/api/account")).data.user, { username: "Boss", admin: true });
+  assert.deepEqual((await boss.get("/api/account")).data.user, { username: "Boss", admin: true, avatar: 0 });
   const someone = browser();
   assert.equal((await someone.get("/api/account/admin/users")).status, 401);
   await someone.signUp("someone", "letmein");
@@ -197,7 +197,7 @@ test("a database from before invite codes and bans is upgraded in place", option
     old.close();
 
     const db = await openDatabase(dir);
-    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 3);
+    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 4);
     const columns = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
     for (const name of ["banned_at", "ban_reason", "last_seen_at", "invite_id", "is_admin"]) assert.ok(columns.includes(name), name);
     for (const table of ["invites", "site_settings"]) assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = ?").get(table), table);
