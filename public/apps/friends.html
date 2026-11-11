@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Friends</title>
+  <link rel="stylesheet" href="/resources/css/tokens.css">
+  <!-- The Settings look, like the Admin Panel and the App Store: that stylesheet first, then what is only Friends'. -->
+  <link rel="stylesheet" href="/apps/admin.css">
+  <link rel="stylesheet" href="/apps/friends.css">
+</head>
+<body>
+  <section class="gate" id="gate">
+    <div class="gate-box">
+      <h1 id="gate-title">Friends</h1>
+      <p id="gate-text">Checking…</p>
+      <button class="btn" id="gate-signin" type="button" hidden>Open Settings &gt; Account</button>
+    </div>
+  </section>
+
+  <div class="app" id="app" hidden>
+    <nav class="nav" id="nav" aria-label="Friends sections">
+      <h1 class="nav-title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 5a3.2 3.2 0 0 1 0 6M18 14.4c2 .7 3.5 2.6 3.5 5.6"/></svg>
+        Friends
+      </h1>
+      <button class="nav-item" data-view="friends" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5"/></svg><span>Friends</span><b class="nav-count" id="online-count" hidden></b></button>
+      <button class="nav-item" data-view="requests" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12"/><path d="m3 7 9 7 9-7"/></svg><span>Requests</span><b class="nav-count" id="request-count" hidden></b></button>
+      <button class="nav-item" data-view="blocked" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg><span>Blocked</span></button>
+      <div class="nav-status">
+        <label class="small dim" for="mode">Your status</label>
+        <select class="field" id="mode">
+          <option value="online">Online</option>
+          <option value="away">Away</option>
+          <option value="invisible">Invisible</option>
+        </select>
+      </div>
+      <p class="nav-foot" id="nav-foot"></p>
+    </nav>
+    <main class="main" id="main" tabindex="-1"></main>
+  </div>
+
+  <dialog class="dialog" id="dialog"></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="/proxy/store.js"></script>
+  <script src="/proxy/backup.js"></script>
+  <script src="/proxy/account.js"></script>
+  <script src="/resources/scripts/theme.js"></script>
+  <script src="/apps/friends.js"></script>
+</body>
+</html>

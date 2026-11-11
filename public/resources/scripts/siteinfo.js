@@ -59,6 +59,30 @@
     if (document.readyState === "complete") fn(); else global.addEventListener("load", fn);
   }
 
+  // Friends: this open desktop tells the server "I'm here" every minute (that is what makes you show as online to your
+  // friends), and hears back how many friend requests are waiting: a new one is shown as a notification.
+  var requests = null, beating = false;
+  function beat() {
+    fetch("/api/friends/ping", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "content-type": "application/json" }, body: "{}" })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        if (requests !== null && data.requests > requests) {
+          global.SnNotify.show({ app: "Friends", icon: "bell", title: "New friend request", text: "Open Friends to answer it." });
+        }
+        requests = data.requests;
+        var label = document.getElementById("start-friends-count");
+        if (label) label.textContent = data.requests ? " (" + data.requests + ")" : "";
+      })
+      .catch(function () { /* offline: the next beat will do */ });
+  }
+  function startHeartbeat() {
+    if (beating) return;
+    beating = true;
+    beat();
+    setInterval(beat, 60000);
+  }
+
   // The App Store is pinned to the taskbar for everyone (new visitors get it by default), once for people who
   // already had pins of their own. After that it is yours to unpin: a flag remembers it was offered. It runs
   // after sign-in is known so it lands in the account's settings, not in a page that is about to be replaced.
@@ -83,6 +107,8 @@
       if (!user) return;
       // Your profile and, for admins, the Admin Panel, join the start menu's rail.
       document.getElementById("start-profile").setAttribute("data-show", "1");
+      document.getElementById("start-friends").setAttribute("data-show", "1");
+      startHeartbeat();
       document.getElementById("start-username").textContent = user.username;
       paintAvatar(document.getElementById("start-avatar"), user);
       if (user.admin) {

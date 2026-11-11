@@ -66,6 +66,8 @@ Other scripts:
 - Accounts (when the site has them on): Settings > Account to create one or sign in. Your apps, wallpaper, bookmarks and preferences follow you to any browser you sign in on.
 - Chat (needs accounts): the Chat icon on the taskbar opens a live room for everyone signed in, with emoji and GIFs. Admins moderate from the same window. Set your profile picture in Settings > Account.
 - App Store (needs accounts): the bag icon on the taskbar, after Chat. Browse apps other people published, add one to your desktop with Get, or publish your own from Your apps. Depending on the admin's setting, a new app waits for an admin's approval or goes live at once.
+- Friends (needs accounts): Friends in the start menu (or search for it). Add people by username, accept or decline requests, block anyone, and see which friends are online. You can show as online, away or invisible.
+- Site health: the network icon in the taskbar shows whether the site and the proxy really work. Click it for the details, or to run the full proxy test.
 - Admin Panel (admins): Admin in the start menu. Dashboard, accounts, sessions, invites, chat moderation, App Store approvals, content filter, announcements, maintenance mode, audit log, and server tools such as a database backup.
 - Notifications: Settings > Notifications. Windows 10 style pop-ups, which you can restyle and silence. Chat notifications are off until you turn them on in the Chat's settings or there.
 - Back up or move your setup: Settings > System > Backup exports your apps, bookmarks and preferences to a file and imports it again, on any SuperNova site.

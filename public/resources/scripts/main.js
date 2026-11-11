@@ -8,7 +8,7 @@ var xStart = 0, yStart = 0, selWin = 0;
 var prevX = 0, prevY = 0;
 var clicked = false, resize = false, setFullscreen = 0, attr, select = false, preventEvents = false, expanded = false, slide = false;
 var lockTaskbar = true, lockTaskbah = false, hide = true, preventHide = false;
-var windows = [], origNames = [], winCount = 0, hiddenApps = 8, permaStickied = 3;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
+var windows = [], origNames = [], winCount = 0, hiddenApps = 9, permaStickied = 3;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
 var last = 0;
 var contextAssort = [
   [0, 1, 2, 3, 17],
@@ -86,12 +86,13 @@ var programData = [ //name, url, icon, keywords
   { name: "File Explorer", url: "", icon: { url: "explorer" }, keywords: "" },
   { name: "Chat", url: "/apps/chat.html", icon: { svg: "chat_icon" }, keywords: "" },
   { name: "Admin Panel", url: "/apps/admin.html", icon: { svg: "admin_icon" }, keywords: "" },
-  { name: "App Store", url: "/apps/store.html", icon: { svg: "store_icon" }, keywords: "store,app store,apps,marketplace,community,publish,install,download,browse" }
+  { name: "App Store", url: "/apps/store.html", icon: { svg: "store_icon" }, keywords: "store,app store,apps,marketplace,community,publish,install,download,browse" },
+  { name: "Friends", url: "/apps/friends.html", icon: { svg: "friends_icon" }, keywords: "friends,buddies,people,online,status,requests,block" }
 ];
 
 pl = programData.length;
-// The Chat, the Admin Panel and the App Store were added after these, at the very end, so every id that existed before keeps its number.
-var viewerID = pl - 8, consoleID = pl - 7, errID = pl - 6, setID = pl - 5, explorerID = pl - 4, chatID = pl - 3, adminID = pl - 2, storeID = pl - 1;
+// The Chat, the Admin Panel, the App Store and Friends were added after these, at the very end, so every id that existed before keeps its number.
+var viewerID = pl - 9, consoleID = pl - 8, errID = pl - 7, setID = pl - 6, explorerID = pl - 5, chatID = pl - 4, adminID = pl - 3, storeID = pl - 2, friendsID = pl - 1;
 
 // ---------------------------------------------------------------------------
 // Custom apps: web apps the user puts on the desktop. They are stored in SnStore
@@ -180,7 +181,7 @@ var adminSearchable = false;
 function searchableAppIds() {
   var ids = desktopAppIds();
   if (adminSearchable) { ids.push(adminID); }
-  ids.push(storeID); // everyone can find the App Store by searching
+  ids.push(storeID, friendsID); // everyone can find the App Store and Friends by searching
   return ids;
 }
 
@@ -200,7 +201,7 @@ function desktopLink(id) {
 // them twice, which rewrote the icon's click handler to minWin(null) and made it crash
 // (this is how the File Explorer icon broke). Also drop duplicates and ids that no longer exist.
 taskArr = taskArr.map(Number).filter(function (id, index, all) {
-  return id >= 0 && id < programData.length && !programData[id].removed && id !== 0 && id !== setID && id !== consoleID && id !== chatID && id !== adminID && id !== storeID && all.indexOf(id) === index;
+  return id >= 0 && id < programData.length && !programData[id].removed && id !== 0 && id !== setID && id !== consoleID && id !== chatID && id !== adminID && id !== storeID && id !== friendsID && all.indexOf(id) === index;
 });
 // ---------------------------------------------------------------------------
 // The essential apps: SuperNova, Settings, Chat and the Admin Panel. They sit first on the taskbar,
@@ -208,7 +209,7 @@ taskArr = taskArr.map(Number).filter(function (id, index, all) {
 // open one: Pin). Which are pinned is the "essentialPins" setting (by name, so it survives new apps
 // being added), and starts as SuperNova, Settings and Chat. They never appear in taskArr.
 // ---------------------------------------------------------------------------
-var ESSENTIALS = [["supernova", 0], ["settings", setID], ["chat", chatID], ["store", storeID], ["admin", adminID]];
+var ESSENTIALS = [["supernova", 0], ["settings", setID], ["chat", chatID], ["store", storeID], ["friends", friendsID], ["admin", adminID]];
 var taskbarDivider = null;
 SnStore.defaults({ essentialPins: "supernova,settings,chat,store" });
 
@@ -454,7 +455,7 @@ function addWindow(id, title, contStr, w, h, type) {
   };
 
   //prevents multiple settings panels (and multiple chats: one live connection is enough)
-  if (id == setID || id == chatID || id == adminID || id == storeID) {
+  if (id == setID || id == chatID || id == adminID || id == storeID || id == friendsID) {
     var wins = document.getElementsByClassName("window");
     for (var i = 0; i < wins.length; i++) {
       if (wins[i].getAttribute("type") == (id == setID ? "settings" : String(id))) {
@@ -499,7 +500,7 @@ function addWindow(id, title, contStr, w, h, type) {
     collapsed: false
   });
 
-  if (id == errID || id == setID || id == explorerID || id == consoleID || id == chatID || id == adminID || id == storeID) {
+  if (id == errID || id == setID || id == explorerID || id == consoleID || id == chatID || id == adminID || id == storeID || id == friendsID) {
     elem.addEventListener("mousedown", function (event) {
       var win = getParent(event.target, "window");
       moveToTop(parseInt(win.id));
@@ -550,7 +551,7 @@ function addWindow(id, title, contStr, w, h, type) {
   setTimeout(function () { elem.classList.remove("init"); }, 200);
   addTaskbarIcon(id, winCount, 2, data.name, data.icon, false);
   moveToTop(winCount);
-  if (id < consoleID || id == setID || id == chatID || id == adminID || id == storeID || isCustomApp(id)) { delayIframe(elem, tmpUrl, programData[id].proxy, programData[id].custom); }
+  if (id < consoleID || id == setID || id == chatID || id == adminID || id == storeID || id == friendsID || isCustomApp(id)) { delayIframe(elem, tmpUrl, programData[id].proxy, programData[id].custom); }
   winCount++;
   return elem;
 }
@@ -917,7 +918,7 @@ function selectIcon(evt, id, singleClick) {
   if (!preventEvents) {
     var time = new Date().getTime();
     if (time - last < 500 || singleClick) {
-      if (id == setID) { openSettings(); } else if (id == chatID) { openChat(); } else if (id == adminID) { openAdmin(); } else if (id == storeID) { openStore(); } else { addWindow(id, null, null, DEF_WIN_W, DEF_WIN_H); }
+      if (id == setID) { openSettings(); } else if (id == chatID) { openChat(); } else if (id == adminID) { openAdmin(); } else if (id == storeID) { openStore(); } else if (id == friendsID) { openFriends(); } else { addWindow(id, null, null, DEF_WIN_W, DEF_WIN_H); }
       prevX = -100;
     } else if (evt.target.getAttribute("class") == "ddesc" && time - last < 1000) {
       editName(id);
@@ -1033,11 +1034,11 @@ function layoutStartRail(home) {
   if (home !== undefined) { startHome = home; }
   // From the bottom up: Power (Home only), Settings, Chat, then the Admin Panel and your profile
   // when there is one (siteinfo.js turns those on). Every item is one slot tall, with no gaps.
-  var order = ["start-power", "start-settings", "start-chat", "start-store", "start-admin", "start-profile"];
+  var order = ["start-power", "start-settings", "start-chat", "start-store", "start-friends", "start-admin", "start-profile"];
   var slot = 0;
   order.forEach(function (id) {
     var el = document.getElementById(id);
-    var on = id === "start-power" ? startHome : (id === "start-admin" || id === "start-profile") ? el.getAttribute("data-show") === "1" : true;
+    var on = id === "start-power" ? startHome : (id === "start-admin" || id === "start-profile" || id === "start-friends") ? el.getAttribute("data-show") === "1" : true;
     el.style.display = on ? "block" : "none";
     if (on) { el.style.bottom = (slot * 3.5) + "vw"; slot++; }
   });
@@ -1484,7 +1485,7 @@ function showContext(evt, type) {
           items[6].innerHTML = "Open " + (stickied && icons[i].getAttribute("activelevel") == 0 ? "" : "new");
           //remove "open new" for error messages and settings
           var tgt = evt.target.getAttribute("type");
-          if ((type == 4 || type == 1) && (tgt == errID || tgt == setID || tgt == chatID || tgt == adminID || tgt == storeID)) {
+          if ((type == 4 || type == 1) && (tgt == errID || tgt == setID || tgt == chatID || tgt == adminID || tgt == storeID || tgt == friendsID)) {
             items[6].style.display = "none";
           }
           items[7].style.display = icons[i].id == "null" ? "none" : "block";
@@ -1637,6 +1638,14 @@ function openChat() {
 function openStore(section) {
   hideSearch();
   var win = addWindow(storeID, null, null, 70, 44);
+  if (section) { try { win.getElementsByTagName("iframe")[0].contentWindow.location.hash = section; } catch (e) { } }
+  return win;
+}
+
+// Friends: one window, opened from the start menu, by searching or from the taskbar once pinned.
+function openFriends(section) {
+  hideSearch();
+  var win = addWindow(friendsID, null, null, 56, 42);
   if (section) { try { win.getElementsByTagName("iframe")[0].contentWindow.location.hash = section; } catch (e) { } }
   return win;
 }

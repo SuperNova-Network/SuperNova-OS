@@ -144,6 +144,14 @@ The **App Store** is a taskbar app, pinned by default after Chat, where people p
 - **Rules.** The content filter's blocked sites and search words apply to what people publish. Limits: 5 apps in the store per person (changeable), 12 publish or edit requests an hour, pictures are PNG, JPEG or WebP up to 120 KB (the app shrinks them to 256 px).
 - **Installs** are counted once per person and shown on each app. They are kept in the same `accounts.db` (tables `store_apps`, `store_icons`, `store_installs`).
 
+## Friends and site health
+
+**Friends** (`/api/friends`, needs accounts) keeps one row per pair in `friendships` (`pending`, `accepted`, `blocked`) and each person's `user_status` (online, away, invisible). Limits: 100 friends and 30 waiting requests each, and 20 requests an hour. Blocking removes any friendship and request between two people and stops either asking the other; the blocked person is never told.
+
+**Online status** is not stored. Every signed-in desktop that is open posts to `/api/friends/ping` about once a minute, and someone counts as online for 2.5 minutes after their last ping, so a restart simply starts with everyone offline until the next ping. Like the chat's connections, this means a machine that stops itself when idle (Fly.io's `auto_stop_machines`) stays awake while anyone has the desktop open.
+
+**Site health** is the network icon in the taskbar. It runs in the browser: every 30 seconds it fetches `/healthz` and opens the proxy's Wisp connection (and closes it at once), and shows what it found. It needs nothing on the server.
+
 ## Admin Panel
 
 Admins open the **Admin Panel** from the start menu (Admin) or Settings > Admin. Everything in it goes through `/api/admin`, which refuses anyone who isn't an admin, and every change is written to the audit log.
