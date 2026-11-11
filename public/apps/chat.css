@@ -1,6 +1,7 @@
 /*
  * Chat app. Deliberately flat, like the Windows 10 desktop around it: square
- * corners, 1px lines, no shadows, no hover effects, no transitions or animation.
+ * corners, 1px lines, no shadows, no hover effects, no transitions or animation (the one exception
+ * is the sparkle on admins' names and tags, below).
  * The accent colour follows the desktop's colour scheme (see theme.js).
  */
 
@@ -361,17 +362,84 @@ textarea.field {
   font-weight: 600;
 }
 
+/*
+ * Admins: only the name and the tag beside it stand out, and they twinkle. Two layers of tiny white
+ * sparks sit over the text and fade in and out at different speeds, so they never move together.
+ */
 .me-name.admin,
-.name.admin {
-  color: var(--admin);
+.name.admin,
+.online .who.admin,
+.badge {
+  position: relative;
+}
+
+.me-name.admin,
+.name.admin,
+.online .who.admin {
   font-weight: 700;
 }
 
-/* admins' pictures get a thin flat ring, set off from the picture by a gap */
-.msg.admin .avatar,
-.online button.admin .avatar,
-.me .avatar.admin {
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--admin);
+.me-name.admin::before,
+.name.admin::before,
+.online .who.admin::before,
+.badge::before,
+.me-name.admin::after,
+.name.admin::after,
+.online .who.admin::after,
+.badge::after {
+  content: "";
+  position: absolute;
+  inset: -4px -5px;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  opacity: 0;
+  animation: sparkle 1.9s ease-in-out infinite !important; /* beats the no-animation rule above */
+}
+
+.me-name.admin::before,
+.name.admin::before,
+.online .who.admin::before,
+.badge::before {
+  background-image:
+    radial-gradient(circle at 8% 28%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 31% 82%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 57% 14%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 70%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 96% 24%, #fff 0 1px, transparent 2px);
+}
+
+.me-name.admin::after,
+.name.admin::after,
+.online .who.admin::after,
+.badge::after {
+  background-image:
+    radial-gradient(circle at 18% 66%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 44% 30%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 66% 90%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 88% 50%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 3% 90%, #fff 0 1px, transparent 2px);
+  animation-duration: 2.6s !important;
+  animation-delay: -0.9s !important;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.96); }
+  45% { opacity: 1; transform: scale(1.02); }
+  70% { opacity: 0.15; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .me-name.admin::before,
+  .name.admin::before,
+  .online .who.admin::before,
+  .badge::before,
+  .me-name.admin::after,
+  .name.admin::after,
+  .online .who.admin::after,
+  .badge::after {
+    animation: none !important;
+    opacity: 0.7;
+  }
 }
 
 .banner {
@@ -448,11 +516,6 @@ textarea.field {
   white-space: nowrap;
 }
 
-.online .who.admin {
-  color: var(--admin);
-  font-weight: 700;
-}
-
 /* --- Messages ------------------------------------------------------------------ */
 
 .messages {
@@ -511,11 +574,6 @@ textarea.field {
 .msg.grouped {
   padding-top: 0;
   padding-bottom: 2px;
-}
-
-.msg.admin {
-  border-left-color: var(--admin);
-  background: rgb(255 107 120 / 8%);
 }
 
 .msg .spacer-avatar {
