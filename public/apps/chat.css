@@ -398,8 +398,8 @@ textarea.field {
 .look-preview {
   --admin: #ff6b78;
   --admin-name: #ffffff;
-  --spark-scale: 1.4;  /* the sparkle picture is drawn this many times its own size, with hard pixel edges */
-  --spark-pad: 5px;    /* how far the sparkle reaches past the text */
+  --spark-scale: 1.15;  /* the sparkle picture is drawn this many times its own size, with hard pixel edges */
+  --spark-pad: 4px;    /* how far the sparkle reaches past the text */
 }
 
 [data-spark-size="small"] {
