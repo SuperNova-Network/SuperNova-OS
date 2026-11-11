@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Chat</title>
+  <link rel="stylesheet" href="/resources/css/tokens.css">
+  <link rel="stylesheet" href="/apps/chat.css">
+</head>
+<body>
+  <!-- Shown until we know whether you can chat: signed out, accounts off, or loading -->
+  <section class="gate" id="gate">
+    <div class="gate-box">
+      <h1 id="gate-title">Chat</h1>
+      <p id="gate-text">Checking…</p>
+      <div class="gate-buttons">
+        <button class="btn primary" id="gate-signin" type="button" hidden>Sign in</button>
+        <button class="btn" id="gate-retry" type="button" hidden>Try again</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="app" id="app" hidden>
+    <header class="top">
+      <h1 class="title">Chat</h1>
+      <span class="conn" id="conn" role="status" data-state="connecting">Connecting…</span>
+      <span class="spacer"></span>
+      <button class="tbtn" id="online-toggle" type="button" aria-pressed="true" aria-controls="side">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.4 2.7-5.6 6-5.6s6 2.2 6 5.6"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.6c1.8.8 3 2.5 3 5.4"/></svg>
+        <span><span id="online-count">0</span> online</span>
+      </button>
+      <button class="tbtn" id="mod-open" type="button" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Moderation</span>
+      </button>
+      <button class="me" id="me" type="button" aria-label="Your profile and picture">
+        <span class="avatar" id="me-avatar" aria-hidden="true"></span>
+        <span class="me-name" id="me-name"></span>
+      </button>
+    </header>
+
+    <div class="banner" id="banner" role="status" hidden></div>
+
+    <div class="body">
+      <main class="main">
+        <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages" tabindex="0">
+          <button class="link" id="older" type="button" hidden>Load earlier messages</button>
+          <ol class="list" id="list"></ol>
+          <p class="empty" id="empty" hidden>No messages yet. Say hello!</p>
+        </div>
+        <button class="jump" id="jump" type="button" hidden>New messages &#8595;</button>
+
+        <div class="composer-wrap">
+          <div class="notice" id="notice" role="alert" hidden></div>
+
+          <!-- Emoji picker -->
+          <div class="popup emoji-pop" id="emoji-pop" role="dialog" aria-label="Emoji" hidden>
+            <div class="emoji-tabs" id="emoji-tabs" role="tablist"></div>
+            <div class="emoji-grid" id="emoji-grid" role="listbox" aria-label="Emoji"></div>
+          </div>
+
+          <!-- GIF picker -->
+          <div class="popup gif-pop" id="gif-pop" role="dialog" aria-label="GIFs" hidden>
+            <div class="gif-tabs" role="tablist">
+              <button class="gif-tab" id="gif-tab-search" type="button" role="tab" aria-selected="true">Search</button>
+              <button class="gif-tab" id="gif-tab-upload" type="button" role="tab" aria-selected="false">Upload</button>
+            </div>
+            <div class="gif-panel" id="gif-search">
+              <input class="field" id="gif-q" type="search" placeholder="Search GIFs" autocomplete="off" spellcheck="false" aria-label="Search GIFs">
+              <div class="gif-grid" id="gif-grid"></div>
+              <p class="gif-msg" id="gif-msg" hidden></p>
+              <p class="gif-credit">Powered by GIPHY</p>
+            </div>
+            <div class="gif-panel" id="gif-upload" hidden>
+              <p class="hint">Pick a GIF from your device (up to 2 MB).</p>
+              <input class="file" id="gif-file" type="file" accept="image/gif" aria-label="Choose a GIF">
+              <div class="gif-preview" id="gif-preview" hidden>
+                <img id="gif-preview-img" alt="GIF preview">
+                <button class="btn primary" id="gif-send" type="button">Send GIF</button>
+              </div>
+              <p class="gif-msg" id="gif-upload-msg" hidden></p>
+            </div>
+          </div>
+
+          <form class="composer" id="composer" autocomplete="off">
+            <textarea id="text" rows="1" placeholder="Message everyone" aria-label="Message" spellcheck="true"></textarea>
+            <span class="count" id="count" hidden></span>
+            <button class="ibtn" id="emoji-btn" type="button" aria-label="Emoji" aria-haspopup="dialog" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.2c.9 1.3 2 2 3.5 2s2.6-.7 3.5-2"/><circle cx="9" cy="9.8" r=".9" class="fill"/><circle cx="15" cy="9.8" r=".9" class="fill"/></svg>
+            </button>
+            <button class="ibtn gif" id="gif-btn" type="button" aria-label="GIF" aria-haspopup="dialog" aria-expanded="false">GIF</button>
+            <button class="send" id="send" type="submit">Send</button>
+          </form>
+        </div>
+      </main>
+
+      <aside class="side" id="side" aria-label="People online">
+        <h2>Online</h2>
+        <ul class="online" id="online"></ul>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Your profile and picture -->
+  <dialog class="dialog" id="profile" aria-labelledby="profile-title">
+    <h2 id="profile-title">Your profile</h2>
+    <div class="profile-head">
+      <span class="avatar big" id="profile-avatar" aria-hidden="true"></span>
+      <div>
+        <strong id="profile-name"></strong>
+        <span id="profile-badge-slot"></span>
+        <p class="hint">This is how you appear in the chat.</p>
+      </div>
+    </div>
+    <div class="row">
+      <label class="btn" for="profile-file">Choose a picture</label>
+      <input class="visually-hidden" id="profile-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+      <button class="btn" id="profile-remove" type="button">Remove picture</button>
+    </div>
+    <p class="hint">Square pictures work best. It is shrunk to fit and saved to your account, so it follows you to any browser.</p>
+    <p class="status" id="profile-status" role="status"></p>
+    <div class="row end"><button class="btn primary" id="profile-close" type="button">Done</button></div>
+  </dialog>
+
+  <!-- Moderate one person (admins) -->
+  <dialog class="dialog" id="moderate" aria-labelledby="moderate-title">
+    <h2 id="moderate-title">Moderate</h2>
+    <p class="hint" id="moderate-who"></p>
+    <label class="field-row"><span>Action</span>
+      <select class="field" id="moderate-duration">
+        <option value="5">Time out for 5 minutes</option>
+        <option value="15">Time out for 15 minutes</option>
+        <option value="60" selected>Time out for 1 hour</option>
+        <option value="360">Time out for 6 hours</option>
+        <option value="1440">Time out for 1 day</option>
+        <option value="10080">Time out for 7 days</option>
+        <option value="ban">Ban from chat (until lifted)</option>
+      </select>
+    </label>
+    <label class="field-row"><span>Reason <small>(they will see it)</small></span>
+      <input class="field" id="moderate-reason" maxlength="200" autocomplete="off">
+    </label>
+    <label class="check"><input type="checkbox" id="moderate-purge" checked> Also delete their messages from the last 10 minutes</label>
+    <p class="status" id="moderate-status" role="status"></p>
+    <div class="row">
+      <button class="btn danger" id="moderate-apply" type="button">Apply</button>
+      <button class="btn" id="moderate-lift" type="button">Lift timeout or ban</button>
+      <button class="btn" id="moderate-site" type="button">Ban from the whole site</button>
+      <span class="spacer"></span>
+      <button class="btn" id="moderate-close" type="button">Close</button>
+    </div>
+  </dialog>
+
+  <!-- Moderation panel (admins) -->
+  <dialog class="dialog wide" id="panel" aria-labelledby="panel-title">
+    <h2 id="panel-title">Chat moderation</h2>
+    <div class="tabs" role="tablist">
+      <button class="tab" type="button" role="tab" data-tab="settings" aria-selected="true">Settings</button>
+      <button class="tab" type="button" role="tab" data-tab="sanctions" aria-selected="false">Timeouts and bans</button>
+      <button class="tab" type="button" role="tab" data-tab="log" aria-selected="false">Log</button>
+    </div>
+
+    <div class="tab-panel" id="tab-settings">
+      <label class="check"><input type="checkbox" id="set-enabled"> Chat is on</label>
+      <label class="check"><input type="checkbox" id="set-locked"> Locked: only admins can post</label>
+      <label class="check"><input type="checkbox" id="set-gifs"> Allow GIFs</label>
+      <div class="two">
+        <label class="field-row"><span>Slow mode</span>
+          <select class="field" id="set-slow">
+            <option value="0">Off</option><option value="1">1 second</option><option value="3">3 seconds</option><option value="5">5 seconds</option>
+            <option value="10">10 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option>
+          </select>
+        </label>
+        <label class="field-row"><span>Links in messages</span>
+          <select class="field" id="set-links"><option value="blocked">Blocked</option><option value="allowed">Allowed</option></select>
+        </label>
+        <label class="field-row"><span>New accounts can post after <small>(minutes, 0 = at once)</small></span>
+          <input class="field" id="set-age" type="number" min="0" max="1440" step="1">
+        </label>
+      </div>
+      <label class="field-row"><span>Blocked words <small>(one per line; end with * to catch longer words, like <code>fuck*</code>)</small></span>
+        <textarea class="field" id="set-words" rows="5" spellcheck="false" autocapitalize="off"></textarea>
+      </label>
+      <p class="status" id="settings-status" role="status"></p>
+      <div class="row">
+        <button class="btn primary" id="settings-save" type="button">Save settings</button>
+        <span class="spacer"></span>
+        <button class="btn danger" id="clear-chat" type="button">Clear the whole chat</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-sanctions" hidden>
+      <p class="hint">Everyone who can't post right now. Automatic timeouts from the spam filter show as AutoMod.</p>
+      <ul class="rows" id="sanction-list"></ul>
+    </div>
+
+    <div class="tab-panel" id="tab-log" hidden>
+      <p class="hint">The latest moderation actions, newest first.</p>
+      <ul class="rows" id="log-list"></ul>
+    </div>
+
+    <div class="row end"><button class="btn primary" id="panel-close" type="button">Close</button></div>
+  </dialog>
+
+  <script src="/proxy/store.js"></script>
+  <script src="/proxy/backup.js"></script>
+  <script src="/proxy/account.js"></script>
+  <script src="/resources/scripts/theme.js"></script>
+  <script src="/apps/chat-emoji.js"></script>
+  <script src="/apps/chat.js"></script>
+</body>
+</html>
