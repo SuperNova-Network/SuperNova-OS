@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>App Store</title>
+  <link rel="stylesheet" href="/resources/css/tokens.css">
+  <!-- The App Store wears the Admin Panel's (and Settings') look: that stylesheet first, then what is only the store's. -->
+  <link rel="stylesheet" href="/apps/admin.css">
+  <link rel="stylesheet" href="/apps/store.css">
+</head>
+<body>
+  <section class="gate" id="gate">
+    <div class="gate-box">
+      <h1 id="gate-title">App Store</h1>
+      <p id="gate-text">Checking…</p>
+      <button class="btn" id="gate-signin" type="button" hidden>Open Settings &gt; Account</button>
+    </div>
+  </section>
+
+  <div class="app" id="app" hidden>
+    <nav class="nav" id="nav" aria-label="App Store sections">
+      <h1 class="nav-title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5z"/><path d="M8 8a4 4 0 0 1 8 0"/></svg>
+        App Store
+      </h1>
+      <button class="nav-item" data-view="home" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg><span>Home</span></button>
+      <div id="nav-categories"></div>
+      <div class="nav-gap"></div>
+      <button class="nav-item" data-view="mine" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5"/></svg><span>Your apps</span><b class="nav-count" id="mine-count" hidden></b></button>
+      <p class="nav-foot" id="nav-foot"></p>
+    </nav>
+    <main class="main" id="main" tabindex="-1"></main>
+  </div>
+
+  <dialog class="dialog" id="dialog"></dialog>
+  <dialog class="dialog" id="dialog2"></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="/proxy/store.js"></script>
+  <script src="/proxy/backup.js"></script>
+  <script src="/proxy/account.js"></script>
+  <script src="/resources/scripts/theme.js"></script>
+  <script src="/apps/store.js"></script>
+</body>
+</html>

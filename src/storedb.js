@@ -128,6 +128,7 @@ export function listMine(db, userId) {
 
 /** For the Admin Panel: apps by status, oldest first for the queue. */
 export function listByStatus(db, { status = "pending", q = "", limit = 100, offset = 0 } = {}) {
+  if (status === "none") return []; // the Admin Panel only wants the counts
   const where = [];
   const args = [];
   if (status === "pending" || status === "approved" || status === "rejected") { where.push("a.status = ?"); args.push(status); }

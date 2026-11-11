@@ -91,8 +91,8 @@ export function createStore({ db, site, userFor, policy }) {
   router.get("/apps", handle((req, res) => {
     const user = requireUser(req);
     limit(limits.read, req.ip);
-    const { q, category, sort, offset } = req.query;
-    const rows = apps.listApproved(db, { q: String(q ?? ""), category: String(category ?? ""), sort: String(sort ?? "popular"), offset });
+    const { q, category, sort, offset, limit: count } = req.query;
+    const rows = apps.listApproved(db, { q: String(q ?? ""), category: String(category ?? ""), sort: String(sort ?? "popular"), offset, limit: count });
     const installed = apps.installedIds(db, user.id);
     res.json({
       ...status(),

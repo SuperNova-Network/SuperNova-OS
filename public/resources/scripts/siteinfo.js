@@ -59,8 +59,22 @@
     if (document.readyState === "complete") fn(); else global.addEventListener("load", fn);
   }
 
+  // The App Store is pinned to the taskbar for everyone (new visitors get it by default), once for people who
+  // already had pins of their own. After that it is yours to unpin: a flag remembers it was offered. It runs
+  // after sign-in is known so it lands in the account's settings, not in a page that is about to be replaced.
+  function offerStore() {
+    if (global.SnStore.get("storePinned") === "1") return;
+    global.SnStore.set("storePinned", "1");
+    if (global.essentialIds().indexOf(global.storeID) === -1) global.pinEssential(global.storeID);
+  }
+
   if (global.SnAccount) {
-    global.SnAccount.status().then(function (state) { whenLoaded(function () { setupForUser(state); }); }, function () { /* not signed in */ });
+    global.SnAccount.status().then(
+      function (state) { whenLoaded(function () { offerStore(); setupForUser(state); }); },
+      function () { whenLoaded(offerStore); }
+    );
+  } else {
+    whenLoaded(offerStore);
   }
 
   function setupForUser(state) {
