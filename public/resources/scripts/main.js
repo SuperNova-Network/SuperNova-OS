@@ -8,7 +8,7 @@ var xStart = 0, yStart = 0, selWin = 0;
 var prevX = 0, prevY = 0;
 var clicked = false, resize = false, setFullscreen = 0, attr, select = false, preventEvents = false, expanded = false, slide = false;
 var lockTaskbar = true, lockTaskbah = false, hide = true, preventHide = false;
-var windows = [], origNames = [], winCount = 0, hiddenApps = 7, permaStickied = 2;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
+var windows = [], origNames = [], winCount = 0, hiddenApps = 7, permaStickied = 3;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
 var last = 0;
 var contextAssort = [
   [0, 1, 2, 3, 17],
@@ -183,11 +183,11 @@ function desktopLink(id) {
   return document.querySelector(".desktoplink[data-app='" + Number(id) + "']");
 }
 
-// Settings and the Chat are pinned permanently (the Console is not on the taskbar any more, but old saved pins of it are still ignored). Listing them in taskArr as well pinned
+// SuperNova, Settings and the Chat are pinned permanently (the Console is not on the taskbar any more, but old saved pins of it are still ignored). Listing them in taskArr as well pinned
 // them twice, which rewrote the icon's click handler to minWin(null) and made it crash
 // (this is how the File Explorer icon broke). Also drop duplicates and ids that no longer exist.
 taskArr = taskArr.map(Number).filter(function (id, index, all) {
-  return id >= 0 && id < programData.length && !programData[id].removed && id !== setID && id !== consoleID && id !== chatID && id !== adminID && all.indexOf(id) === index;
+  return id >= 0 && id < programData.length && !programData[id].removed && id !== 0 && id !== setID && id !== consoleID && id !== chatID && id !== adminID && all.indexOf(id) === index;
 });
 var defaultPage = "https://api.github.com/repos/SuperNova-Network/SuperNova-DY/contents"; // go to https://api.github.com/users/SuperNova-Network/repos and find "contents_url" to get the url for the default page. EX: https://media.discordapp.net/attachments/828071279424307221/1203153358597394534/image.png?ex=65d00ee2&is=65bd99e2&hm=9a4f32904842838ea9a40c8f45e2b860491aee8c4b55cb6fa4b7f995f5f64aff&=&format=webp&quality=lossless&width=1439&height=206
 // https://web.postman.co/
@@ -282,8 +282,14 @@ function setup() {
   // later, like the Settings title-bar icon, stayed an empty circle.
   document.querySelector("#svgbuffer .cog_icon path").setAttribute("d", genCog(40));
 
+  // The essentials come first, always, in this order: SuperNova, Settings, Chat. A thin line then
+  // separates them from the apps you pin yourself.
+  addTaskbarIcon(0, "null", 0, programData[0].name, programData[0].icon, true);
   addTaskbarIcon(setID, "null", 0, programData[setID].name, programData[setID].icon, true);
   addTaskbarIcon(chatID, "null", 0, programData[chatID].name, programData[chatID].icon, true);
+  var divider = document.createElement("div");
+  divider.className = "taskbarsep";
+  document.getElementById("taskbar").appendChild(divider);
   for (var i = 0; i < taskArr.length; i++) {
     addTaskbarIcon(taskArr[i], "null", 0, programData[taskArr[i]].name, programData[taskArr[i]].icon, true);
   }
@@ -521,7 +527,7 @@ function addTaskbarIcon(id, count, actLvl, name, icon, stickied) {
   iconEl.setAttribute("activelevel", actLvl);
   iconEl.setAttribute("onclick", actLvl == 2 ? "minWin(" + count + ")" : "selectIcon(event," + id + ",true)");
   iconEl.innerHTML = "<div class='icon'></div>";
-  iconEl.addEventListener("mousedown", function (event) { showContext(event, id < errID || isCustomApp(id) ? (id == viewerID || id == consoleID ? 4 : 1) : 4) });
+  iconEl.addEventListener("mousedown", function (event) { showContext(event, (id < errID && id != 0) || isCustomApp(id) ? (id == viewerID || id == consoleID ? 4 : 1) : 4) });
   setIcon(icon, iconEl.getElementsByClassName("icon")[0]);
   tbi.setAttribute("data-title", name);
   tbi.appendChild(iconEl);

@@ -969,6 +969,15 @@ kw {
   height: 100%;
 }
 
+/* A thin, see-through line between the essential apps and the ones you pin. */
+.taskbarsep {
+  float: left;
+  width: 1px;
+  height: 56%;
+  margin: 0.9em 0.45em 0;
+  background: rgba(255, 255, 255, 0.28);
+}
+
 .taskbaricon {
   display: block;
   position: relative;
