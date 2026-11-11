@@ -633,6 +633,11 @@
     refresh();
   }
 
+  $("open-admin-panel").addEventListener("click", () => {
+    try { if (window.parent !== window && window.parent.openAdmin) return void window.parent.openAdmin(); } catch { /* not on the desktop */ }
+    window.open("/apps/admin.html", "_blank");
+  });
+
   // --- admin: invite codes and bans ------------------------------------------------------------
 
   {

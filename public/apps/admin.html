@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Admin Panel</title>
+  <link rel="stylesheet" href="/resources/css/tokens.css">
+  <link rel="stylesheet" href="/apps/admin.css">
+</head>
+<body>
+  <section class="gate" id="gate">
+    <div class="gate-box">
+      <h1 id="gate-title">Admin Panel</h1>
+      <p id="gate-text">Checking…</p>
+      <button class="btn" id="gate-signin" type="button" hidden>Open Settings &gt; Account</button>
+    </div>
+  </section>
+
+  <div class="app" id="app" hidden>
+    <nav class="nav" id="nav" aria-label="Admin sections">
+      <h1 class="nav-title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+        Admin Panel
+      </h1>
+      <button class="nav-item" data-view="dashboard" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>Dashboard</span></button>
+      <button class="nav-item" data-view="accounts" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 5a3.2 3.2 0 0 1 0 6M18 14.4c2 .7 3.5 2.6 3.5 5.6"/></svg><span>Accounts</span></button>
+      <button class="nav-item" data-view="sessions" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12"/><path d="M8 20h8M12 16v4"/></svg><span>Sessions</span></button>
+      <button class="nav-item" data-view="invites" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12"/><path d="m3 7 9 7 9-7"/></svg><span>Invites</span></button>
+      <button class="nav-item" data-view="chat" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v12H10l-5 4v-4H3z"/></svg><span>Chat</span></button>
+      <button class="nav-item" data-view="filter" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg><span>Content filter</span></button>
+      <button class="nav-item" data-view="site" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Site</span></button>
+      <button class="nav-item" data-view="audit" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/></svg><span>Audit log</span></button>
+      <button class="nav-item" data-view="system" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="6"/><rect x="3" y="14" width="18" height="6"/><path d="M7 7h.01M7 17h.01"/></svg><span>System</span></button>
+      <p class="nav-foot" id="nav-foot"></p>
+    </nav>
+    <main class="main" id="main" tabindex="-1"></main>
+  </div>
+
+  <dialog class="dialog" id="dialog"></dialog>
+  <dialog class="dialog" id="dialog2"></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script src="/proxy/store.js"></script>
+  <script src="/proxy/backup.js"></script>
+  <script src="/proxy/account.js"></script>
+  <script src="/resources/scripts/theme.js"></script>
+  <script src="/apps/admin.js"></script>
+</body>
+</html>

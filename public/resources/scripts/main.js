@@ -8,7 +8,7 @@ var xStart = 0, yStart = 0, selWin = 0;
 var prevX = 0, prevY = 0;
 var clicked = false, resize = false, setFullscreen = 0, attr, select = false, preventEvents = false, expanded = false, slide = false;
 var lockTaskbar = true, lockTaskbah = false, hide = true, preventHide = false;
-var windows = [], origNames = [], winCount = 0, hiddenApps = 6, permaStickied = 3;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
+var windows = [], origNames = [], winCount = 0, hiddenApps = 7, permaStickied = 3;  //permaStickied denotes the taskbar icons that cannot be unpinned, and so don't get included in the editable taskArr array.
 var last = 0;
 var contextAssort = [
   [0, 1, 2, 3, 17],
@@ -84,12 +84,13 @@ var programData = [ //name, url, icon, keywords
   { name: "Prompt", url: "", icon: { svg: "info_icon" }, keywords: "" },
   { name: "Settings", url: "/apps/settings.html", icon: { svg: "cog_icon" }, keywords: "" },
   { name: "File Explorer", url: "", icon: { url: "explorer" }, keywords: "" },
-  { name: "Chat", url: "/apps/chat.html", icon: { svg: "chat_icon" }, keywords: "" }
+  { name: "Chat", url: "/apps/chat.html", icon: { svg: "chat_icon" }, keywords: "" },
+  { name: "Admin Panel", url: "/apps/admin.html", icon: { svg: "admin_icon" }, keywords: "" }
 ];
 
 pl = programData.length;
-// The Chat was added after these, at the very end, so every id that existed before keeps its number.
-var viewerID = pl - 6, consoleID = pl - 5, errID = pl - 4, setID = pl - 3, explorerID = pl - 2, chatID = pl - 1;
+// The Chat and the Admin Panel were added after these, at the very end, so every id that existed before keeps its number.
+var viewerID = pl - 7, consoleID = pl - 6, errID = pl - 5, setID = pl - 4, explorerID = pl - 3, chatID = pl - 2, adminID = pl - 1;
 
 // ---------------------------------------------------------------------------
 // Custom apps: web apps the user puts on the desktop. They are stored in SnStore
@@ -186,7 +187,7 @@ function desktopLink(id) {
 // them twice, which rewrote the icon's click handler to minWin(null) and made it crash
 // (this is how the File Explorer icon broke). Also drop duplicates and ids that no longer exist.
 taskArr = taskArr.map(Number).filter(function (id, index, all) {
-  return id >= 0 && id < programData.length && !programData[id].removed && id !== setID && id !== consoleID && id !== chatID && all.indexOf(id) === index;
+  return id >= 0 && id < programData.length && !programData[id].removed && id !== setID && id !== consoleID && id !== chatID && id !== adminID && all.indexOf(id) === index;
 });
 var defaultPage = "https://api.github.com/repos/SuperNova-Network/SuperNova-DY/contents"; // go to https://api.github.com/users/SuperNova-Network/repos and find "contents_url" to get the url for the default page. EX: https://media.discordapp.net/attachments/828071279424307221/1203153358597394534/image.png?ex=65d00ee2&is=65bd99e2&hm=9a4f32904842838ea9a40c8f45e2b860491aee8c4b55cb6fa4b7f995f5f64aff&=&format=webp&quality=lossless&width=1439&height=206
 // https://web.postman.co/
@@ -371,10 +372,10 @@ function addWindow(id, title, contStr, w, h, type) {
   };
 
   //prevents multiple settings panels (and multiple chats: one live connection is enough)
-  if (id == setID || id == chatID) {
+  if (id == setID || id == chatID || id == adminID) {
     var wins = document.getElementsByClassName("window");
     for (var i = 0; i < wins.length; i++) {
-      if (wins[i].getAttribute("type") == (id == chatID ? String(chatID) : "settings")) {
+      if (wins[i].getAttribute("type") == (id == setID ? "settings" : String(id))) {
         windows[i].collapsed = false;
         moveToTop(i);
         if (contStr && id == setID) {
@@ -416,7 +417,7 @@ function addWindow(id, title, contStr, w, h, type) {
     collapsed: false
   });
 
-  if (id == errID || id == setID || id == explorerID || id == consoleID || id == chatID) {
+  if (id == errID || id == setID || id == explorerID || id == consoleID || id == chatID || id == adminID) {
     elem.addEventListener("mousedown", function (event) {
       var win = getParent(event.target, "window");
       moveToTop(parseInt(win.id));
@@ -467,7 +468,7 @@ function addWindow(id, title, contStr, w, h, type) {
   setTimeout(function () { elem.classList.remove("init"); }, 200);
   addTaskbarIcon(id, winCount, 2, data.name, data.icon, false);
   moveToTop(winCount);
-  if (id < consoleID || id == setID || id == chatID || isCustomApp(id)) { delayIframe(elem, tmpUrl, programData[id].proxy, programData[id].custom); }
+  if (id < consoleID || id == setID || id == chatID || id == adminID || isCustomApp(id)) { delayIframe(elem, tmpUrl, programData[id].proxy, programData[id].custom); }
   winCount++;
   return elem;
 }
@@ -834,7 +835,7 @@ function selectIcon(evt, id, singleClick) {
   if (!preventEvents) {
     var time = new Date().getTime();
     if (time - last < 500 || singleClick) {
-      if (id == setID) { openSettings(); } else if (id == chatID) { openChat(); } else { addWindow(id, null, null, DEF_WIN_W, DEF_WIN_H); }
+      if (id == setID) { openSettings(); } else if (id == chatID) { openChat(); } else if (id == adminID) { openAdmin(); } else { addWindow(id, null, null, DEF_WIN_W, DEF_WIN_H); }
       prevX = -100;
     } else if (evt.target.getAttribute("class") == "ddesc" && time - last < 1000) {
       editName(id);
@@ -942,6 +943,17 @@ function openPopup(errtitle, errStr, icon) {
   addWindow(errID, errtitle, errStr, 25, 9);
 }
 
+// The items at the bottom of the start menu's left rail, found by id (not by their place in the
+// list, so adding one never moves the others). Home shows Power at the very bottom with Settings
+// above it, search hides Power; Chat and the Admin Panel stack above Settings either way.
+function layoutStartRail(home) {
+  var byId = function (id) { return document.getElementById(id); };
+  byId("start-power").style.display = home ? "block" : "none";
+  byId("start-settings").style.bottom = home ? "3.5em" : "0";
+  byId("start-chat").style.bottom = home ? "calc(3.5em + 3.5vw)" : "3.5vw";
+  byId("start-admin").style.bottom = home ? "calc(3.5em + 7vw)" : "7vw";
+}
+
 function showSearchFull(evt) {
   if (document.getElementById("search").value == "") { document.getElementById("innerbar").innerHTML = document.getElementById("resultsbuffer").innerHTML; }
   document.getElementById("searchbarbar").setAttribute("expanded", false);
@@ -950,9 +962,7 @@ function showSearchFull(evt) {
   var search = document.getElementById("searchbar").style;
   search.width = "27.5em";
   search.height = "50em";
-  var buttons = document.getElementsByClassName("sbbitem2");
-  buttons[0].style.bottom = "0";
-  buttons[1].style.display = "none";
+  layoutStartRail(false);
   document.getElementsByClassName("sbbitem")[1].style.display = "block";
   if (!expanded) {
     showSearch(evt);
@@ -976,9 +986,7 @@ function showHome(evt) {
   document.getElementById("sbblabel").innerHTML = "<b>HOME</b>";
   document.getElementById("search").setAttribute("active", false);
   document.getElementById("search").value = "";
-  var buttons = document.getElementsByClassName("sbbitem2");
-  buttons[0].style.bottom = "3.5em";
-  buttons[1].style.display = "block";
+  layoutStartRail(true);
   document.getElementsByClassName("sbbitem")[1].style.display = "none";
   var elem = document.getElementById("searchbar").style;
   if (!expanded) {
@@ -1346,7 +1354,7 @@ function showContext(evt, type) {
           items[6].innerHTML = "Open " + (stickied && icons[i].getAttribute("activelevel") == 0 ? "" : "new");
           //remove "open new" for error messages and settings
           var tgt = evt.target.getAttribute("type");
-          if (type == 4 && (tgt == errID || tgt == setID || tgt == chatID)) {
+          if (type == 4 && (tgt == errID || tgt == setID || tgt == chatID || tgt == adminID)) {
             items[6].style.display = "none";
           }
           items[7].style.display = icons[i].id == "null" ? "none" : "block";
@@ -1491,6 +1499,14 @@ function openSettings(section) {
 function openChat() {
   hideSearch();
   return addWindow(chatID, null, null, 58, 40);
+}
+
+// The Admin Panel (admins only: the page itself checks, and so does every request it makes).
+function openAdmin(section) {
+  hideSearch();
+  var win = addWindow(adminID, null, null, 76, 46);
+  if (section) { try { win.getElementsByTagName("iframe")[0].contentWindow.location.hash = section; } catch (e) { } }
+  return win;
 }
 
 
