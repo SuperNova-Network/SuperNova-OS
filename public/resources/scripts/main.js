@@ -171,6 +171,15 @@ function customAppEntry(app) {
 readCustomApps().forEach(function (app) { programData.push(customAppEntry(app)); });
 
 // The apps shown on the desktop, in the launcher and in search, by id.
+// For admins the Admin Panel can be found by searching and is in the all-apps list (it is not a
+// desktop icon). siteinfo.js turns this on once it knows you are an admin.
+var adminSearchable = false;
+function searchableAppIds() {
+  var ids = desktopAppIds();
+  if (adminSearchable) { ids.push(adminID); }
+  return ids;
+}
+
 function desktopAppIds() {
   var ids = [];
   for (var i = 0; i < programData.length; i++) {
@@ -1232,7 +1241,7 @@ function fillHome() {
   var output = "";
   searchFor = -1;
   var locData = [];
-  desktopAppIds().forEach(function (id) {
+  searchableAppIds().forEach(function (id) {
     var app = programData[id];
     app.index = id;
     app.oftenUsed = oftenUsed[id];
@@ -1369,7 +1378,7 @@ function search() {
   // The query is plain text, not a pattern: typing "(" or "[" must not throw.
   var input = new RegExp(escapeRegExp(document.getElementById("search").value), "gi");
   var results = [];
-  var ids = desktopAppIds();
+  var ids = searchableAppIds();
   for (var k = 0; k < ids.length; k++) {
     var i = ids[k];
     var arr = programData[i].keywords.split(",");

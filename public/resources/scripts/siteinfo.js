@@ -53,17 +53,37 @@
     box.appendChild(img);
   }
 
+  // The desktop's own script (main.js) is the last on the page; the account answer can arrive before
+  // it has run, so wait for the page to finish loading before touching anything it defines.
+  function whenLoaded(fn) {
+    if (document.readyState === "complete") fn(); else global.addEventListener("load", fn);
+  }
+
   if (global.SnAccount) {
-    global.SnAccount.status().then(function (state) {
+    global.SnAccount.status().then(function (state) { whenLoaded(function () { setupForUser(state); }); }, function () { /* not signed in */ });
+  }
+
+  function setupForUser(state) {
+    {
       var user = state && state.user;
       if (!user) return;
       // Your profile and, for admins, the Admin Panel, join the start menu's rail.
       document.getElementById("start-profile").setAttribute("data-show", "1");
       document.getElementById("start-username").textContent = user.username;
       paintAvatar(document.getElementById("start-avatar"), user);
-      if (user.admin) document.getElementById("start-admin").setAttribute("data-show", "1");
+      if (user.admin) {
+        document.getElementById("start-admin").setAttribute("data-show", "1");
+        // Findable by searching ("admin", "ban", "users", "audit"...).
+        global.programData[global.adminID].keywords = "admin,administration,admin panel,moderation,accounts,users,ban,unban,invites,sessions,audit,announcement,maintenance,filter,blocklist,chat moderation";
+        global.adminSearchable = true;
+        // Pinned to the taskbar by default, once. After that it is yours to unpin (a flag remembers it was offered).
+        if (global.SnStore.get("adminPinned") !== "1") {
+          global.SnStore.set("adminPinned", "1");
+          if (global.essentialIds().indexOf(global.adminID) === -1) global.pinEssential(global.adminID);
+        }
+      }
       if (global.layoutStartRail) global.layoutStartRail();
-    }, function () { /* not signed in */ });
+    }
   }
 
   setTimeout(check, 4000);        // after the desktop has settled
