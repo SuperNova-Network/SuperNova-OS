@@ -487,10 +487,9 @@ label.check input {
 }
 
 .chip.admin {
-  border: 1px solid transparent;
-  border-image: linear-gradient(90deg, #38d6ff, #b57bff) 1;
-  background: linear-gradient(90deg, rgb(56 214 255 / 16%), rgb(181 123 255 / 16%));
-  color: #cfeeff;
+  border: 1px solid #ff6b78;
+  background: transparent;
+  color: #ff6b78;
   line-height: 14px;
 }
 

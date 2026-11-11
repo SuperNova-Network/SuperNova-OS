@@ -12,9 +12,7 @@
   --text: #ffffff;
   --dim: #b8b8b8;
   --faint: #8c8c8c;
-  --admin: #5fd4ff;        /* admins: an icy cyan that fades into violet, never yellow */
-  --admin-2: #b78cff;
-  --admin-line: linear-gradient(90deg, #38d6ff, #b57bff);
+  --admin: #ff6b78;        /* admins: one flat coral red, nothing else (no yellow, no gradients or glow) */
   --warn: #ffc83d;
   --red: #c42b1c;
   --green: #4cc26b;
@@ -208,21 +206,18 @@ textarea.field {
   object-fit: cover;
 }
 
-/* The ADMIN badge: an outlined shield and a gradient outline on a faint glow, so it reads as important without a solid block of colour. */
+/* The ADMIN badge: an outlined shield and a flat outline, so it reads as important without a solid block of colour. */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-left: 7px;
   padding: 0 7px 0 5px;
-  border: 1px solid transparent;
-  border-image: var(--admin-line) 1;
-  background: linear-gradient(90deg, rgb(56 214 255 / 14%), rgb(181 123 255 / 14%));
-  box-shadow: 0 0 10px rgb(95 212 255 / 28%);
-  color: #cfeeff;
+  border: 1px solid var(--admin);
+  color: var(--admin);
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   line-height: 15px;
   vertical-align: 1px;
 }
@@ -232,7 +227,7 @@ textarea.field {
   height: 13px;
   flex: none;
   fill: none;
-  stroke: #7fe0ff;
+  stroke: currentColor;
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -368,20 +363,15 @@ textarea.field {
 
 .me-name.admin,
 .name.admin {
-  background: var(--admin-line);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  color: var(--admin);
   font-weight: 700;
-  letter-spacing: 0.01em;
 }
 
-/* admins' pictures get a thin ring, set off from the picture by a gap */
+/* admins' pictures get a thin flat ring, set off from the picture by a gap */
 .msg.admin .avatar,
 .online button.admin .avatar,
 .me .avatar.admin {
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--admin), 0 0 12px 2px rgb(95 212 255 / 35%);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--admin);
 }
 
 .banner {
@@ -459,11 +449,7 @@ textarea.field {
 }
 
 .online .who.admin {
-  background: var(--admin-line);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  color: var(--admin);
   font-weight: 700;
 }
 
@@ -528,9 +514,8 @@ textarea.field {
 }
 
 .msg.admin {
-  border-left-color: transparent;
-  border-image: linear-gradient(180deg, #38d6ff, #b57bff) 1;
-  background: linear-gradient(90deg, rgb(56 214 255 / 10%), rgb(181 123 255 / 5%) 55%, transparent);
+  border-left-color: var(--admin);
+  background: rgb(255 107 120 / 8%);
 }
 
 .msg .spacer-avatar {
