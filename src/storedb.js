@@ -22,6 +22,14 @@ export const CATEGORIES = [
 ];
 const CATEGORY_IDS = new Set(CATEGORIES.map((category) => category.id));
 
+export const REPORT_REASONS = [
+  { id: "broken", label: "It doesn't work" },
+  { id: "inappropriate", label: "It isn't appropriate" },
+  { id: "misleading", label: "It isn't what it says" },
+  { id: "other", label: "Something else" },
+];
+export const REPORTS_TO_PAUSE = 5; // this many reports send an app back to the approval queue
+
 export const LIMITS = {
   nameMin: 2,
   nameMax: 40,
@@ -81,7 +89,8 @@ export function checkSubmission(input) {
 
 const COLUMNS = `a.id, a.name, a.description, a.url, a.url_key, a.category, a.status, a.reason, a.created_at, a.updated_at,
   a.reviewed_by, a.reviewed_at, a.icon_version, u.username AS owner, u.is_admin AS owner_is_admin,
-  (SELECT COUNT(*) FROM store_installs i WHERE i.app_id = a.id) AS installs`;
+  (SELECT COUNT(*) FROM store_installs i WHERE i.app_id = a.id) AS installs,
+  (SELECT COUNT(*) FROM store_reports r WHERE r.app_id = a.id) AS reports`;
 
 export function publicApp(row, { forOwner = false } = {}) {
   return {
@@ -129,6 +138,10 @@ export function listMine(db, userId) {
 /** For the Admin Panel: apps by status, oldest first for the queue. */
 export function listByStatus(db, { status = "pending", q = "", limit = 100, offset = 0 } = {}) {
   if (status === "none") return []; // the Admin Panel only wants the counts
+  if (status === "reported") {
+    return db.prepare(`SELECT ${COLUMNS} FROM store_apps a JOIN users u ON u.id = a.owner_id
+      WHERE EXISTS (SELECT 1 FROM store_reports r WHERE r.app_id = a.id) ORDER BY reports DESC, a.updated_at DESC LIMIT 200`).all();
+  }
   const where = [];
   const args = [];
   if (status === "pending" || status === "approved" || status === "rejected") { where.push("a.status = ?"); args.push(status); }
@@ -148,6 +161,7 @@ export function listByStatus(db, { status = "pending", q = "", limit = 100, offs
 export function countByStatus(db) {
   const counts = { pending: 0, approved: 0, rejected: 0 };
   for (const row of db.prepare("SELECT status, COUNT(*) AS n FROM store_apps GROUP BY status").all()) counts[row.status] = row.n;
+  counts.reported = db.prepare("SELECT COUNT(DISTINCT app_id) AS n FROM store_reports").get().n;
   return counts;
 }
 
@@ -217,6 +231,36 @@ export function deleteApp(db, id) {
 
 export function getIcon(db, id) {
   return db.prepare("SELECT mime, data FROM store_icons WHERE app_id = ?").get(Number(id));
+}
+
+/**
+ * Report an app. Returns how many people have reported it. One report per person per app.
+ * `owner` is the app's owner's id: you can't report your own.
+ */
+export function addReport(db, { appId, reporterId, reason, note }) {
+  if (!REPORT_REASONS.some((r) => r.id === reason)) throw new AdminError(400, "Pick what is wrong with it.");
+  const text = note ? cleanText(note, { max: 200, lines: 2 }) : "";
+  try {
+    db.prepare("INSERT INTO store_reports (app_id, reporter_id, reason, note, created_at) VALUES (?, ?, ?, ?, ?)").run(appId, reporterId, reason, text || null, Date.now());
+  } catch (error) {
+    if (/UNIQUE/.test(String(error?.message))) throw new AdminError(409, "You already reported this app. An admin will look at it.");
+    throw error;
+  }
+  return db.prepare("SELECT COUNT(*) AS n FROM store_reports WHERE app_id = ?").get(appId).n;
+}
+
+/** Back to the approval queue (reports are kept so the admin can see why). */
+export function pauseApp(db, id) {
+  db.prepare("UPDATE store_apps SET status = 'pending', reason = NULL, updated_at = ? WHERE id = ? AND status = 'approved'").run(Date.now(), id);
+}
+
+export function reportsFor(db, appId) {
+  return db.prepare(`SELECT r.id, r.reason, r.note, r.created_at AS at, u.username AS reporter
+    FROM store_reports r JOIN users u ON u.id = r.reporter_id WHERE r.app_id = ? ORDER BY r.created_at DESC LIMIT 100`).all(appId);
+}
+
+export function dismissReports(db, appId) {
+  return db.prepare("DELETE FROM store_reports WHERE app_id = ?").run(appId).changes;
 }
 
 export function addInstall(db, appId, userId) {

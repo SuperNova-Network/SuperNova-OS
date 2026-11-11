@@ -208,6 +208,19 @@ const MIGRATIONS = [
       PRIMARY KEY (app_id, user_id)
     );
   `),
+  // 8: reports of store apps (one per person per app).
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS store_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      app_id INTEGER NOT NULL REFERENCES store_apps(id) ON DELETE CASCADE,
+      reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      note TEXT,
+      created_at INTEGER NOT NULL,
+      UNIQUE (app_id, reporter_id)
+    );
+    CREATE INDEX IF NOT EXISTS store_reports_app ON store_reports(app_id);
+  `),
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */

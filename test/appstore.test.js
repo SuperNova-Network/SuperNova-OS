@@ -224,3 +224,39 @@ test("deleting an app as an admin removes it for everyone", options, async () =>
   assert.equal((await reader.get("/api/store/apps")).data.apps.some((a) => a.id === id), false);
   assert.equal((await boss.post(`/api/admin/store/apps/${id}/delete`)).status, 404);
 });
+
+test("people can report an app, once each, and admins see and clear the reports", options, async () => {
+  await setApproval("auto");
+  const maker = await person(), a = await person(), b = await person();
+  const id = (await maker.post("/api/store/apps", submission())).data.app.id;
+  assert.equal((await maker.post(`/api/store/apps/${id}/report`, { reason: "broken" })).status, 400, "not your own app");
+  assert.equal((await a.post(`/api/store/apps/${id}/report`, { reason: "nonsense" })).status, 400, "a real reason");
+  assert.equal((await a.post(`/api/store/apps/${id}/report`, { reason: "broken", note: "Shows a blank page" })).status, 201);
+  assert.equal((await a.post(`/api/store/apps/${id}/report`, { reason: "other" })).status, 409, "only once");
+  assert.equal((await b.post(`/api/store/apps/${id}/report`, { reason: "misleading" })).status, 201);
+  assert.equal((await browser().post(`/api/store/apps/${id}/report`, { reason: "broken" })).status, 401);
+
+  const queue = (await boss.get("/api/admin/store?status=reported")).data;
+  const row = queue.apps.find((x) => x.id === id);
+  assert.equal(row.reports, 2);
+  assert.ok(queue.counts.reported >= 1);
+  assert.ok((await boss.get("/api/admin/overview")).data.store.reported >= 1);
+  const details = (await boss.get(`/api/admin/store/apps/${id}/reports`)).data.reports;
+  assert.deepEqual(details.map((r) => r.reason).sort(), ["broken", "misleading"]);
+  assert.equal(details.find((r) => r.reason === "broken").note, "Shows a blank page");
+  assert.equal((await a.get(`/api/admin/store/apps/${id}/reports`)).status, 403);
+
+  assert.equal((await boss.post(`/api/admin/store/apps/${id}/dismiss`)).status, 200);
+  assert.equal((await boss.get("/api/admin/store?status=reported")).data.apps.some((x) => x.id === id), false);
+  assert.equal((await a.post(`/api/store/apps/${id}/report`, { reason: "broken" })).status, 201, "and a new report can be made once dismissed");
+});
+
+test("five reports send an app back to the approval queue", options, async () => {
+  await setApproval("auto");
+  const maker = await person();
+  const id = (await maker.post("/api/store/apps", submission())).data.app.id;
+  for (let i = 0; i < 5; i++) assert.equal((await (await person()).post(`/api/store/apps/${id}/report`, { reason: "inappropriate" })).status, 201);
+  assert.equal((await (await person()).get("/api/store/apps")).data.apps.some((x) => x.id === id), false, "no longer listed");
+  assert.equal((await maker.get("/api/store/mine")).data.apps.find((x) => x.id === id).status, "pending");
+  assert.equal((await boss.post(`/api/admin/store/apps/${id}/approve`)).status, 200);
+});

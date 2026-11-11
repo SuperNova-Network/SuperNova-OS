@@ -268,7 +268,7 @@
           tile(d.users.admins, "Admins"),
           tile(d.users.banned, "Banned", "", d.users.banned ? "red" : ""),
           tile(d.invites, "Invite codes", "still usable"),
-          tile(d.store.pending, "Apps waiting for approval", `${d.store.live} in the App Store`, d.store.pending ? "red" : ""),
+          tile(d.store.pending, "Apps waiting for approval", `${d.store.live} in the App Store, ${d.store.reported} reported`, d.store.pending || d.store.reported ? "red" : ""),
           tile(d.chat.messages, "Chat messages", `${d.chat.today} in the last 24 hours`),
           tile(d.chat.sanctions, "Chat timeouts and bans", "in force now", d.chat.sanctions ? "red" : "")),
         h("div", { class: "cols section" },
@@ -759,8 +759,9 @@
   const storeState = { status: "pending", q: "" };
   const setStoreCount = (counts) => {
     const badge = $("store-count");
-    badge.hidden = !counts.pending;
-    badge.textContent = String(counts.pending);
+    const todo = counts.pending + (counts.reported ?? 0);
+    badge.hidden = !todo;
+    badge.textContent = String(todo);
   };
 
   views.store = async () => {
@@ -768,16 +769,16 @@
     const list = h("div");
     const tabs = h("div", { class: "tabs", role: "tablist" });
     const settingsBox = h("div", { class: "card section stack" });
-    let counts = { pending: 0, approved: 0, rejected: 0 };
+    let counts = { pending: 0, approved: 0, rejected: 0, reported: 0 };
 
-    const label = { pending: "Waiting", approved: "In the store", rejected: "Not approved" };
+    const label = { pending: "Waiting", approved: "In the store", rejected: "Not approved", reported: "Reported" };
     const drawTabs = () => tabs.replaceChildren(...Object.entries(label).map(([status, text]) =>
       h("button", { class: "tab", role: "tab", type: "button", "aria-selected": String(s.status === status), text: `${text} (${counts[status]})`, onclick: () => { s.status = status; load(); } })));
 
     async function decide(button, app, action, body) {
       const result = await act(button, () => A("POST", `/store/apps/${app.id}/${action}`, body ?? {}));
       if (!result) return false;
-      toast(action === "approve" ? `${app.name} is in the store.` : action === "reject" ? `${app.name} was ${app.status === "approved" ? "taken down" : "rejected"}.` : `${app.name} was deleted.`, "ok");
+      toast(action === "approve" ? `${app.name} is in the store.` : action === "dismiss" ? "The reports were dismissed." : action === "reject" ? `${app.name} was ${app.status === "approved" ? "taken down" : "rejected"}.` : `${app.name} was deleted.`, "ok");
       load();
       return true;
     }
@@ -794,8 +795,18 @@
           app.reviewedBy && h("dt", { text: "Decided by" }), app.reviewedBy && h("dd", { text: `${app.reviewedBy}${app.reviewedAt ? `, ${ago(app.reviewedAt)}` : ""}` }),
           app.reason && h("dt", { text: "Reason given" }), app.reason && h("dd", { text: app.reason }),
           h("dt", { text: "Installs" }), h("dd", { text: number(app.installs) })),
+        h("div", { id: "peek-reports" }),
         app.icon ? h("img", { src: `/api/store/icon/${app.id}?v=${app.icon}`, alt: "", width: "64", height: "64", style: "margin-top:12px;display:block" }) : null);
-      showDialog({ title: app.name, body, actions: [{ label: "Close" }] });
+      const actions = [{ label: "Close" }];
+      if (app.reports) actions.unshift({ label: "Dismiss reports", onClick: (b) => decide(b, app, "dismiss") });
+      showDialog({ title: app.name, body, actions });
+      if (app.reports) {
+        A("GET", `/store/apps/${app.id}/reports`).then(({ reports }) => {
+          const box = body.querySelector("#peek-reports");
+          box.append(h("h3", { text: `Reports (${reports.length})`, style: "margin:14px 0 6px;font-size:15px" }),
+            h("ul", { class: "feed" }, reports.map((r) => h("li", {}, h("span", { class: "when", title: dateTime(r.at), text: ago(r.at) }), h("span", {}, h("strong", { text: r.reporter }), ` ${r.reason}${r.note ? `: ${r.note}` : ""}`)))));
+        }).catch(() => {});
+      }
     }
 
     async function reject(button, app) {
@@ -819,12 +830,14 @@
         h("td", { text: app.category }),
         h("td", { title: dateTime(app.created), text: ago(app.created) }),
         h("td", { class: "num", text: number(app.installs) }),
+        h("td", {}, app.reports ? chip(`${app.reports} report${app.reports === 1 ? "" : "s"}`, "red") : ""),
         h("td", {}, h("div", { class: "row end" },
+          app.reports && h("button", { class: "btn small", type: "button", text: "Dismiss", onclick: (e) => decide(e.target, app, "dismiss") }),
           app.status !== "approved" && h("button", { class: "btn small primary", type: "button", text: "Approve", onclick: (e) => decide(e.target, app, "approve") }),
           app.status !== "rejected" && h("button", { class: "btn small", type: "button", text: app.status === "approved" ? "Take down…" : "Reject…", onclick: (e) => reject(e.target, app) }),
           h("button", { class: "btn small danger", type: "button", text: "Delete", onclick: async (e) => { if (await confirmBox(`Delete ${app.name}?`, "It is removed for good, along with its install counts.", { confirm: "Delete", danger: true })) decide(e.target, app, "delete"); } })))));
-      list.replaceChildren(table(["App", "Made by", "Site", "Category", "Sent", "Installs", ""], rows,
-        s.q ? "Nothing matches." : s.status === "pending" ? "Nothing is waiting for approval." : s.status === "approved" ? "No apps are in the store yet." : "No apps have been turned down."));
+      list.replaceChildren(table(["App", "Made by", "Site", "Category", "Sent", "Installs", "Reports", ""], rows,
+        s.q ? "Nothing matches." : s.status === "reported" ? "Nobody has reported an app." : s.status === "pending" ? "Nothing is waiting for approval." : s.status === "approved" ? "No apps are in the store yet." : "No apps have been turned down."));
     }
 
     function drawSettings(settings) {

@@ -28,6 +28,7 @@ export function createStore({ db, site, userFor, policy }) {
   const limits = {
     publish: createLimiter({ limit: 12, windowMs: 60 * 60_000 }),
     install: createLimiter({ limit: 120, windowMs: 60_000 }),
+    report: createLimiter({ limit: 20, windowMs: 60 * 60_000 }),
     read: createLimiter({ limit: 240, windowMs: 60_000 }),
   };
   const limit = (limiter, key) => {
@@ -85,7 +86,7 @@ export function createStore({ db, site, userFor, policy }) {
 
   const status = () => {
     const { approval, publishing, maxPerUser } = settings();
-    return { approval, publishing, maxPerUser, categories: apps.CATEGORIES };
+    return { approval, publishing, maxPerUser, categories: apps.CATEGORIES, reportReasons: apps.REPORT_REASONS };
   };
 
   router.get("/apps", handle((req, res) => {
@@ -171,6 +172,18 @@ export function createStore({ db, site, userFor, policy }) {
     if (!row || row.status !== "approved") throw new HttpError(404, "That app isn't in the store.");
     apps.addInstall(db, row.id, user.id);
     res.json({ app: { ...apps.publicApp(apps.getApp(db, row.id)), installed: true } });
+  }));
+
+  router.post("/apps/:id/report", handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.report, `u${user.id}`);
+    const row = apps.getApp(db, req.params.id);
+    if (!row || row.status !== "approved") throw new HttpError(404, "That app isn't in the store.");
+    if (row.owner === user.username) throw new HttpError(400, "That's your own app.");
+    const total = apps.addReport(db, { appId: row.id, reporterId: user.id, reason: req.body?.reason, note: req.body?.note });
+    // Several different people reporting it is reason enough to take another look before anyone gets it.
+    if (total >= apps.REPORTS_TO_PAUSE) apps.pauseApp(db, row.id);
+    res.status(201).json({ ok: true });
   }));
 
   router.post("/apps/:id/uninstall", handle((req, res) => {

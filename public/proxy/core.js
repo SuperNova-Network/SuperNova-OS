@@ -311,6 +311,7 @@
     isProxyPath: function (path) { return engineForPath(path) !== null; },
     get: get,
     set: set,
+    wispUrl: wispUrl,
     engine: engineKey,
     engines: ENGINES,
     transports: TRANSPORTS,

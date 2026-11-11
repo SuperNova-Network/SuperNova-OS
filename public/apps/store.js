@@ -288,6 +288,7 @@
       h("p", { class: "notice", text: "Apps are made by other people and open through the proxy, like any site you add yourself. Only add apps you trust." }));
     const actions = [{ label: "Close" }];
     if (me && app.owner === me.username) actions.unshift({ label: "Edit", onClick: () => { setTimeout(() => editor(app, reload), 0); } });
+    else actions.unshift({ label: "Report", onClick: () => { setTimeout(() => reportApp(app), 0); } });
     if (id() !== -1) {
       actions.push({ label: "Remove from desktop", kind: "danger", onClick: async (b) => { if (await uninstall(app, b)) reload(); } });
       actions.push({ label: "Open", kind: "primary", onClick: () => { open(app); } });
@@ -295,6 +296,28 @@
       actions.push({ label: "Get", kind: "primary", onClick: async (b) => { if (await install(app, b)) { reload(); return true; } return false; } });
     }
     showDialog({ body, actions });
+  }
+
+  /** Tell the admins something is wrong with an app. */
+  function reportApp(app) {
+    const reasons = meta.reportReasons ?? [];
+    const note = h("textarea", { class: "field", rows: "3", maxlength: "200", placeholder: "Tell us more (optional)" });
+    const message = h("p", { class: "status" });
+    const choices = h("div", { class: "radios", style: "flex-direction:column" }, reasons.map((r, i) =>
+      h("label", {}, h("input", { type: "radio", name: "reason", value: r.id, checked: i === 0 }), h("span", { text: r.label }))));
+    showDialog({
+      title: `Report ${app.name}`,
+      body: h("div", { class: "form-grid" }, h("p", { class: "dim", text: "An admin will look at it. Reports are private: the maker doesn't see who sent them." }), choices, note, message),
+      actions: [
+        { label: "Cancel" },
+        { label: "Send report", kind: "primary", onClick: async () => {
+          try {
+            await S("POST", `/apps/${app.id}/report`, { reason: choices.querySelector("input:checked")?.value, note: note.value });
+            toast("Thanks. An admin will look at it.", "ok");
+          } catch (error) { message.textContent = error.message; message.dataset.state = "error"; return false; }
+        } },
+      ],
+    });
   }
 
   // ---------------------------------------------------------------------------------------

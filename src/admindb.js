@@ -159,6 +159,7 @@ export function overview(db, now = Date.now()) {
     store: {
       pending: one("SELECT COUNT(*) AS n FROM store_apps WHERE status = 'pending'").n,
       live: one("SELECT COUNT(*) AS n FROM store_apps WHERE status = 'approved'").n,
+      reported: one("SELECT COUNT(DISTINCT app_id) AS n FROM store_reports").n,
     },
     recent: listAudit(db, { limit: 8 }),
   };
