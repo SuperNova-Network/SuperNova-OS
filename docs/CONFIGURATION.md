@@ -135,6 +135,15 @@ The desktop shows small pop-ups in the style of Windows 10's. Each person sets t
 
 The Chat is the first sender, called "Messaging app". Its notifications are **off until turned on**, either in the Chat's own settings (the Notifications button in its header) or in Settings > Notifications. Each one shows the sender's picture, their name and what they said, and clicking it opens the Chat. They don't show while the Chat window is in front and being looked at, and a person's own messages never notify them. This needs no setting on the server.
 
+## App Store
+
+The **App Store** is a taskbar app, pinned by default after Chat, where people publish apps for each other. It needs accounts and goes through `/api/store`.
+
+- **An app is a web address**, with a name, a description, a category and an optional picture. SuperNova never hosts anyone's page, so an app can't run script on this site; adding one puts it on your desktop like a site you add yourself, and it opens through the proxy. Addresses must be public: no IP addresses, `localhost`, or sign-in details in the address. Each address can be in the store once.
+- **Approval** is the admin's choice (Admin Panel > App Store): every new app waits for an admin, or new apps go live at once. Admins can always take an app down or delete it. With approval on, changing a live app sends it back to the queue. A rejected app shows its reason to the maker, who can fix and send it again.
+- **Rules.** The content filter's blocked sites and search words apply to what people publish. Limits: 5 apps in the store per person (changeable), 12 publish or edit requests an hour, pictures are PNG, JPEG or WebP up to 120 KB (the app shrinks them to 256 px).
+- **Installs** are counted once per person and shown on each app. They are kept in the same `accounts.db` (tables `store_apps`, `store_icons`, `store_installs`).
+
 ## Admin Panel
 
 Admins open the **Admin Panel** from the start menu (Admin) or Settings > Admin. Everything in it goes through `/api/admin`, which refuses anyone who isn't an admin, and every change is written to the audit log.
@@ -144,6 +153,7 @@ Admins open the **Admin Panel** from the start menu (Admin) or Settings > Admin.
 - **Sessions.** Every browser that is signed in, each of which can be ended.
 - **Invites.** Make up to 50 codes at once (they are shown only once), list them, revoke them.
 - **Chat.** Search all messages, also deleted ones, and delete from there; change the chat's rules and blocked words; lift timeouts and bans.
+- **App Store.** The approval queue (waiting, in the store, not approved) with approve, reject (with a reason the maker sees), take down and delete, and the settings: **approve each app** or **approve automatically**, whether people can publish at all, and how many apps each person can have in the store. Admins' own apps always go live at once. The queue count shows on the nav item and the dashboard.
 - **Content filter.** Add blocked sites (with all their subdomains), hostname keywords and search words on top of the server's built-in list. They apply at once, with no restart, and the page can check whether something would be blocked. Remove an entry to unblock it; the built-in list (and `BLOCKED_HOSTS`) is never touched.
 - **Site.** The accounts mode and who can sign up (locked when `ACCOUNTS` or `ACCOUNTS_SIGNUP` is set on the server), **maintenance mode** and the **announcement**. In maintenance mode everyone but admins gets a "we'll be right back" page with your message and the proxy closes to them, while sign-in and `/healthz` stay open so admins can get in and hosts can still check the app. An announcement is shown once to everyone signed in, as a notification on their desktop (if their notification settings allow it), and again whenever you change it.
 - **Audit log.** What admins did on the site and the chat's moderation actions, newest first, searchable and filterable. The latest 5000 site entries are kept.
