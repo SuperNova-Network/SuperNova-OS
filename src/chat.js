@@ -220,10 +220,18 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     res.json({ messages: messages.map((row) => store.publicMessage(row, isAdmin)) });
   }));
 
-  // Send a message. { text?, gif?: { giphy: id } | { data: base64 } }. GIF uploads need a bigger body.
-  router.post("/messages", express.json({ limit: "3mb" }), handle((req, res) => {
-    const user = requireUser(req);
-    limit(limits.send, req.ip);
+  // Send a message. { text?, gif?: { giphy: id } | { data: base64 } }. GIF uploads need a bigger
+  // body, so who is asking (and how often) is settled before the body is read: strangers can't
+  // make the server read megabytes only to say no.
+  const beforeBody = (req, _res, next) => {
+    try {
+      req.chatUser = requireUser(req);
+      limit(limits.send, req.ip);
+      next();
+    } catch (err) { next(err); }
+  };
+  router.post("/messages", beforeBody, express.json({ limit: "3mb" }), handle((req, res) => {
+    const user = req.chatUser;
     const s = settings();
     if (!s.enabled) throw new HttpError(403, "The chat is turned off.");
     const sanction = store.activeSanction(db, user.id);

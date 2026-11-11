@@ -133,6 +133,12 @@ test("the chat needs you to be signed in", options, async () => {
   assert.equal((await stranger.get("/api/chat/admin/settings")).status, 401);
 });
 
+test("a stranger's message is refused before its body is read", options, async () => {
+  // Not valid JSON: if the server read the body first it would answer 400, not 401.
+  const res = await fetch(server.url + "/api/chat/messages", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "192.0.2.248" }, body: `{"not json ${"A".repeat(2.5 * 1024 * 1024)}` });
+  assert.equal(res.status, 401);
+});
+
 test("a stream starts with the history, who you are and the settings, then delivers new messages live", options, async () => {
   const ann = await person();
   const bob = await person();
