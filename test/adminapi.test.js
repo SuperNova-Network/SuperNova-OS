@@ -265,6 +265,9 @@ test("maintenance mode closes the site to everyone but admins", options, async (
     assert.equal(page.status, 503);
     assert.match(page.text, /Back at &lt;3pm&gt;/, "the message is escaped");
     assert.ok(page.headers.get("retry-after"));
+    assert.match(page.text, /<img src="\/resources\/media\/app_icons\/SuperNova\.png"[^>]*><h1>/, "the logo sits above the title");
+    assert.match(page.text, /overflow:hidden/, "and the page never scrolls");
+    assert.equal((await user.get("/resources/media/app_icons/SuperNova.png")).status, 200, "the logo itself stays reachable");
     const json = await user.post("/api/chat/messages", { text: "hi" });
     assert.equal(json.status, 503);
     assert.equal(json.data.maintenance, true);
