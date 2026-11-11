@@ -73,7 +73,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   /** What every page may know about the settings (not the blocked words). */
   const publicSettings = (s = settings()) => ({
     enabled: s.enabled, locked: s.locked, slowSeconds: s.slowSeconds, links: s.links, gifs: s.gifs,
-    giphy: Boolean(giphyKey), maxLength: LIMITS.maxLength, minAccountMinutes: s.minAccountMinutes,
+    giphy: Boolean(giphyKey), maxLength: LIMITS.maxLength, minAccountMinutes: s.minAccountMinutes, adminLook: s.adminLook,
   });
 
   // --- live streams ---------------------------------------------------------------------
@@ -408,7 +408,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     const before = settings();
     const next = store.setChatSettings(db, req.body, admin.username);
     const changed = Object.keys(req.body).filter((key) => JSON.stringify(before[key]) !== JSON.stringify(next[key]));
-    for (const key of changed) store.addLog(db, admin.username, "setting", key, key === "words" ? `${next.words.length} words` : String(next[key]));
+    for (const key of changed) store.addLog(db, admin.username, "setting", key, key === "words" ? `${next.words.length} words` : key === "adminLook" ? `tag ${next.adminLook.tag}` : String(next[key]));
     broadcast("settings", publicSettings(next));
     if (changed.includes("enabled") && !next.enabled) broadcast("clear", {});
     res.json({ settings: next });

@@ -172,6 +172,7 @@
     <h2 id="panel-title">Chat moderation</h2>
     <div class="tabs" role="tablist">
       <button class="tab" type="button" role="tab" data-tab="settings" aria-selected="true">Settings</button>
+      <button class="tab" type="button" role="tab" data-tab="look" aria-selected="false">Admin look</button>
       <button class="tab" type="button" role="tab" data-tab="sanctions" aria-selected="false">Timeouts and bans</button>
       <button class="tab" type="button" role="tab" data-tab="log" aria-selected="false">Log</button>
     </div>
@@ -202,6 +203,38 @@
         <button class="btn primary" id="settings-save" type="button">Save settings</button>
         <span class="spacer"></span>
         <button class="btn danger" id="clear-chat" type="button">Clear the whole chat</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-look" hidden>
+      <p class="hint">How admins' names and tags look to everyone in the chat. It is the same for every admin, and it applies at once.</p>
+      <div class="look-preview" id="look-preview" aria-label="Preview"></div>
+      <div class="two">
+        <label class="field-row"><span>Tag text <small>(up to 12 characters)</small></span>
+          <input class="field" id="look-tag" maxlength="12" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field-row"><span>Tag style</span>
+          <select class="field" id="look-style"><option value="outline">Outline box</option><option value="brackets">Brackets</option><option value="plain">Plain text</option></select>
+        </label>
+      </div>
+      <div class="field-row"><span>Tag colour</span>
+        <div class="swatches" id="look-swatches"></div>
+      </div>
+      <div class="two">
+        <label class="field-row"><span>Name colour</span>
+          <select class="field" id="look-namecolor"><option value="white">White</option><option value="tag">Same as the tag</option></select>
+        </label>
+        <label class="field-row"><span>Sparkle size</span>
+          <select class="field" id="look-size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select>
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="look-shield"> Show the shield in the tag</label>
+      <label class="check"><input type="checkbox" id="look-spark-name"> Sparkle on the name</label>
+      <label class="check"><input type="checkbox" id="look-spark-tag"> Sparkle on the tag</label>
+      <p class="status" id="look-status" role="status"></p>
+      <div class="row">
+        <button class="btn primary" id="look-save" type="button">Save look</button>
+        <button class="btn" id="look-reset" type="button">Back to the default</button>
       </div>
     </div>
 

@@ -207,31 +207,59 @@ textarea.field {
   object-fit: cover;
 }
 
-/* The ADMIN badge: an outlined shield and a flat outline, so it reads as important without a solid block of colour. */
+/* The admin tag beside a name. How it looks (text, box, colour, shield, sparkle) is chosen by admins in the
+   moderation panel and arrives as attributes on the page: see applyAdminLook() in chat.js. */
 .badge {
+  position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 4px;
-  margin-left: 7px;
-  padding: 0 7px 0 5px;
+  align-self: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 0 6px 0 4px;
   border: 1px solid var(--admin);
   color: var(--admin);
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  line-height: 15px;
-  vertical-align: 1px;
+  letter-spacing: 0.08em;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.head .badge {
+  margin-left: 0;
 }
 
 .badge svg {
-  width: 13px;
-  height: 13px;
+  width: 11px;
+  height: 11px;
   flex: none;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.9;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+[data-tag-style="brackets"] .badge,
+[data-tag-style="plain"] .badge {
+  padding: 0;
+  border-color: transparent;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+[data-tag-style="brackets"] .badge-text::before {
+  content: "[";
+}
+
+[data-tag-style="brackets"] .badge-text::after {
+  content: "]";
+}
+
+[data-shield="off"] .badge svg {
+  display: none;
 }
 
 /* --- Gate (signed out, accounts off, loading) -------------------------------- */
@@ -363,83 +391,108 @@ textarea.field {
 }
 
 /*
- * Admins: only the name and the tag beside it stand out, and they twinkle. Two layers of tiny white
- * sparks sit over the text and fade in and out at different speeds, so they never move together.
+ * Admins: the name and the tag are what stand out, with a sparkle over them (the picture in
+ * /resources/media/images/ffffff.gif, tiled across the text). Which of them sparkle, and how big, is the admins' choice.
  */
-.me-name.admin,
-.name.admin,
-.online .who.admin,
-.badge {
-  position: relative;
+:root,
+.look-preview {
+  --admin: #ff6b78;
+  --admin-name: #ffffff;
+  --spark-h: 30px;
+}
+
+[data-spark-size="small"] {
+  --spark-h: 22px;
+}
+
+[data-spark-size="large"] {
+  --spark-h: 46px;
 }
 
 .me-name.admin,
 .name.admin,
 .online .who.admin {
+  position: relative;
+  color: var(--admin-name);
   font-weight: 700;
 }
 
-.me-name.admin::before,
-.name.admin::before,
-.online .who.admin::before,
-.badge::before,
 .me-name.admin::after,
 .name.admin::after,
 .online .who.admin::after,
 .badge::after {
   content: "";
   position: absolute;
-  inset: -4px -5px;
-  background-repeat: no-repeat;
+  left: -6px;
+  right: -6px;
+  top: 50%;
+  height: var(--spark-h);
+  display: none;
+  background: url("/resources/media/images/ffffff.gif") center / auto 100% repeat-x;
+  transform: translateY(-40%); /* the picture's sparks sit in its upper part: this centres them on the text */
   pointer-events: none;
-  opacity: 0;
-  animation: sparkle 1.9s ease-in-out infinite !important; /* beats the no-animation rule above */
 }
 
-.me-name.admin::before,
-.name.admin::before,
-.online .who.admin::before,
-.badge::before {
-  background-image:
-    radial-gradient(circle at 8% 28%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 31% 82%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 57% 14%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 78% 70%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 96% 24%, #fff 0 1px, transparent 2px);
-}
-
-.me-name.admin::after,
-.name.admin::after,
-.online .who.admin::after,
-.badge::after {
-  background-image:
-    radial-gradient(circle at 18% 66%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 44% 30%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 66% 90%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 88% 50%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 3% 90%, #fff 0 1px, transparent 2px);
-  animation-duration: 2.6s !important;
-  animation-delay: -0.9s !important;
-}
-
-@keyframes sparkle {
-  0%, 100% { opacity: 0; transform: scale(0.96); }
-  45% { opacity: 1; transform: scale(1.02); }
-  70% { opacity: 0.15; }
+[data-spark-name="on"] .me-name.admin::after,
+[data-spark-name="on"] .name.admin::after,
+[data-spark-name="on"] .online .who.admin::after,
+[data-spark-tag="on"] .badge::after {
+  display: block;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .me-name.admin::before,
-  .name.admin::before,
-  .online .who.admin::before,
-  .badge::before,
   .me-name.admin::after,
   .name.admin::after,
   .online .who.admin::after,
   .badge::after {
-    animation: none !important;
-    opacity: 0.7;
+    display: none !important;
   }
+}
+
+/* --- The admin look editor (moderation panel) ------------------------------------------------- */
+
+.look-preview {
+  margin: 8px 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.look-preview .head {
+  align-items: center;
+}
+
+.look-preview .line {
+  margin-top: 4px;
+  color: var(--dim);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid transparent;
+  outline: 1px solid #666;
+  outline-offset: -3px;
+}
+
+.swatch[aria-pressed="true"] {
+  border-color: var(--text);
+}
+
+input[type="color"].swatch-custom {
+  width: 40px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #666;
+  background: #1b1b1b;
 }
 
 .banner {

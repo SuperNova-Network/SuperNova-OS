@@ -101,7 +101,25 @@
   }
 
   const SHIELD = "M12 2 3.5 5.5v6c0 5 3.6 9 8.5 10.5 4.9-1.5 8.5-5.5 8.5-10.5v-6z";
-  function adminBadge() {
+  const DEFAULT_LOOK = { tag: "ADMIN", style: "outline", color: "#ff6b78", nameColor: "white", shield: true, sparkleName: true, sparkleTag: true, sparkleSize: "medium" };
+
+  /**
+   * Show a look (the admins' choice, kept on the server) on the page, or on one element of it (the preview).
+   * Only a #rrggbb colour and fixed words ever reach the styles, and the tag text is set as text.
+   */
+  function applyAdminLook(look = DEFAULT_LOOK, target = document.documentElement) {
+    const on = (value) => (value ? "on" : "off");
+    target.style.setProperty("--admin", look.color);
+    target.style.setProperty("--admin-name", look.nameColor === "tag" ? look.color : "#ffffff");
+    target.dataset.tagStyle = look.style;
+    target.dataset.shield = on(look.shield);
+    target.dataset.sparkName = on(look.sparkleName);
+    target.dataset.sparkTag = on(look.sparkleTag);
+    target.dataset.sparkSize = look.sparkleSize;
+    for (const text of target.querySelectorAll(".badge-text")) text.textContent = look.tag;
+  }
+
+  function adminBadge(look = state.settings?.adminLook ?? DEFAULT_LOOK) {
     const badge = el("span", "badge");
     badge.title = "This person is an admin";
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -113,7 +131,7 @@
       path.setAttribute("d", d);
       svg.append(path);
     }
-    badge.append(svg, "ADMIN");
+    badge.append(svg, el("span", "badge-text", look.tag));
     return badge;
   }
 
@@ -199,6 +217,7 @@
       failures = 0;
       state.me = data.me;
       state.settings = data.settings;
+      applyAdminLook(data.settings.adminLook);
       state.messages = data.messages;
       state.online = data.online;
       state.hasOlder = data.messages.length >= 60;
@@ -225,7 +244,7 @@
       renderOnline();
       applyAvatars(online);
     });
-    on("settings", (settings) => { state.settings = settings; renderComposerState(); });
+    on("settings", (settings) => { state.settings = settings; applyAdminLook(settings.adminLook); renderComposerState(); });
     on("sanction", (sanction) => { state.sanction = sanction; renderComposerState(); });
     on("sanction-lifted", () => { state.sanction = null; renderComposerState(); });
     on("closed", ({ reason }) => {
@@ -813,8 +832,9 @@
   function setPanelTab(tab) {
     status($("settings-status"), "");
     for (const button of panel.querySelectorAll(".tab")) button.setAttribute("aria-selected", String(button.dataset.tab === tab));
-    for (const name of ["settings", "sanctions", "log"]) $(`tab-${name}`).hidden = name !== tab;
+    for (const name of ["settings", "look", "sanctions", "log"]) $(`tab-${name}`).hidden = name !== tab;
     if (tab === "settings") loadSettings();
+    if (tab === "look") loadLook();
     if (tab === "sanctions") loadSanctions();
     if (tab === "log") loadLog();
   }
@@ -856,6 +876,85 @@
       status($("settings-status"), "Saved. It applies to everyone at once.", "ok");
     } catch (err) { status($("settings-status"), err.message, "error"); }
   });
+
+  // --- the admin look ---------------------------------------------------------------------------------------------------------------
+
+  const SWATCHES = [["#ff6b78", "Coral"], ["#ff9f43", "Orange"], ["#4cc26b", "Green"], ["#2dd4bf", "Teal"], ["#4aa3ff", "Blue"], ["#a78bfa", "Violet"], ["#f472b6", "Pink"], ["#ffffff", "White"]];
+  const look = { ...DEFAULT_LOOK }; // what the editor is showing, saved or not
+
+  function paintLook() {
+    const preview = $("look-preview");
+    preview.textContent = "";
+    const head = el("div", "head");
+    head.append(el("span", "name admin", state.me?.username ?? "Admin"), adminBadge(look), el("span", "time", "now"));
+    preview.append(head, el("div", "line", "This is how an admin's message looks."));
+    applyAdminLook(look, preview);
+    for (const swatch of $("look-swatches").querySelectorAll(".swatch")) swatch.setAttribute("aria-pressed", String(swatch.dataset.color === look.color));
+    $("look-color-custom").value = look.color;
+  }
+
+  function readLook() {
+    look.tag = $("look-tag").value.replace(/\s+/g, " ").trim().slice(0, 12) || look.tag;
+    look.style = $("look-style").value;
+    look.nameColor = $("look-namecolor").value;
+    look.sparkleSize = $("look-size").value;
+    look.shield = $("look-shield").checked;
+    look.sparkleName = $("look-spark-name").checked;
+    look.sparkleTag = $("look-spark-tag").checked;
+    paintLook();
+  }
+
+  function fillLook(saved) {
+    Object.assign(look, DEFAULT_LOOK, saved);
+    $("look-tag").value = look.tag;
+    $("look-style").value = look.style;
+    $("look-namecolor").value = look.nameColor;
+    $("look-size").value = look.sparkleSize;
+    $("look-shield").checked = look.shield;
+    $("look-spark-name").checked = look.sparkleName;
+    $("look-spark-tag").checked = look.sparkleTag;
+    paintLook();
+  }
+
+  {
+    const box = $("look-swatches");
+    for (const [color, name] of SWATCHES) {
+      const swatch = el("button", "swatch");
+      swatch.type = "button";
+      swatch.dataset.color = color;
+      swatch.style.background = color; // one of the fixed colours above
+      swatch.title = name;
+      swatch.setAttribute("aria-label", name);
+      swatch.addEventListener("click", () => { look.color = color; paintLook(); });
+      box.append(swatch);
+    }
+    const custom = el("input", "swatch-custom");
+    custom.type = "color";
+    custom.id = "look-color-custom";
+    custom.title = "Pick any colour";
+    custom.setAttribute("aria-label", "Pick any colour");
+    custom.addEventListener("input", () => { look.color = custom.value; paintLook(); });
+    box.append(custom);
+    for (const id of ["look-tag", "look-style", "look-namecolor", "look-size", "look-shield", "look-spark-name", "look-spark-tag"]) {
+      $(id).addEventListener(id === "look-tag" ? "input" : "change", readLook);
+    }
+  }
+
+  async function loadLook() {
+    try {
+      const { settings } = await api("GET", "/admin/settings");
+      fillLook(settings.adminLook);
+    } catch (err) { status($("look-status"), err.message, "error"); }
+  }
+
+  $("look-save").addEventListener("click", async () => {
+    try {
+      await api("POST", "/admin/settings", { adminLook: { ...look } });
+      status($("look-status"), "Saved. Everyone sees it now.", "ok");
+    } catch (err) { status($("look-status"), err.message, "error"); }
+  });
+
+  $("look-reset").addEventListener("click", () => { fillLook(DEFAULT_LOOK); status($("look-status"), "That is the default look. Save it to use it.", ""); });
 
   $("clear-chat").addEventListener("click", () => confirmTwice($("clear-chat"), "Clear the whole chat", async () => {
     try {
