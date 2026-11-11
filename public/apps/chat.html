@@ -30,6 +30,10 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.4 2.7-5.6 6-5.6s6 2.2 6 5.6"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.6c1.8.8 3 2.5 3 5.4"/></svg>
         <span><span id="online-count">0</span> online</span>
       </button>
+      <button class="tbtn" id="notify-open" type="button" aria-haspopup="dialog" data-on="false" title="Chat notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4z"/><path d="M10 21h4"/></svg>
+        <span>Notifications</span>
+      </button>
       <button class="tbtn" id="mod-open" type="button" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
         <span>Moderation</span>
@@ -120,6 +124,20 @@
     </div>
   </dialog>
 
+  <!-- Chat settings: notifications -->
+  <dialog class="dialog" id="chat-settings" aria-labelledby="chat-settings-title">
+    <h2 id="chat-settings-title">Chat settings</h2>
+    <label class="check"><input type="checkbox" id="chat-notify"> <strong>Notifications for new messages</strong></label>
+    <p class="hint">A small pop-up with the sender's picture and what they said, whenever the Chat isn't in front of you, even if its window is closed. Off until you turn it on.</p>
+    <p class="status" id="chat-notify-note" role="status"></p>
+    <div class="row">
+      <button class="btn" id="chat-notify-test" type="button">Send a test notification</button>
+      <button class="btn" id="chat-notify-settings" type="button">Change how they look…</button>
+    </div>
+    <p class="hint">Size, colours, sound, where they appear and how long they stay are in Settings &gt; Notifications.</p>
+    <div class="row end"><button class="btn primary" id="chat-settings-close" type="button">Done</button></div>
+  </dialog>
+
   <!-- Moderate one person (admins) -->
   <dialog class="dialog" id="moderate" aria-labelledby="moderate-title">
     <h2 id="moderate-title">Moderate</h2>
@@ -204,6 +222,7 @@
   <script src="/proxy/backup.js"></script>
   <script src="/proxy/account.js"></script>
   <script src="/resources/scripts/theme.js"></script>
+  <script src="/resources/scripts/notify-core.js"></script>
   <script src="/apps/chat-emoji.js"></script>
   <script src="/apps/chat.js"></script>
 </body>

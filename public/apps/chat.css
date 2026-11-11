@@ -315,7 +315,8 @@ textarea.field {
   font-size: 13px;
 }
 
-.tbtn[aria-pressed="true"] {
+.tbtn[aria-pressed="true"],
+.tbtn[data-on="true"] {
   background: var(--raised);
   border-color: var(--line);
 }

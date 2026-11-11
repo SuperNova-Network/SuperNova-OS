@@ -711,6 +711,46 @@
     if (changed) renderAll();
   }
 
+  // --- notifications ------------------------------------------------------------------------------------------------------
+  // The pop-ups belong to the desktop around this window (notify.js, chatwatch.js). This only
+  // turns the Chat's notifications on and off; how they look is Settings > Notifications.
+
+  const notifier = (() => { try { return desktop && desktop.SnNotify ? desktop.SnNotify : null; } catch { return null; } })();
+
+  function renderNotifyState() {
+    const settings = SnNotifyCore.settings();
+    $("chat-notify").checked = settings.chat;
+    $("notify-open").dataset.on = String(settings.chat && settings.enabled && !settings.dnd);
+    let note = "";
+    if (settings.chat && !settings.enabled) note = "All notifications are turned off in Settings > Notifications, so none will show.";
+    else if (settings.chat && settings.dnd) note = "Do not disturb is on, so none will show for now.";
+    else if (settings.chat && !notifier) note = "Notifications show on the desktop. Open the Chat from the desktop to get them.";
+    status($("chat-notify-note"), note);
+    $("chat-notify-test").hidden = !notifier;
+    $("chat-notify-settings").hidden = !desktop;
+  }
+
+  $("notify-open").addEventListener("click", () => { renderNotifyState(); $("chat-settings").showModal(); });
+  $("chat-settings-close").addEventListener("click", () => $("chat-settings").close());
+  $("chat-notify").addEventListener("change", () => { SnStore.set("notifyChat", $("chat-notify").checked ? "1" : "0"); renderNotifyState(); });
+  SnStore.onChange((key) => { if (key === "*" || key.startsWith("notify")) renderNotifyState(); });
+  $("chat-notify-test").addEventListener("click", () => {
+    const name = state.me?.username ?? "You";
+    const shown = notifier?.show({
+      app: "Messaging app",
+      icon: "chat",
+      title: name,
+      text: "This is what a Chat notification looks like.",
+      picture: { url: state.me ? SnAccount.avatarUrl(state.me.username, state.me.avatar) : "", letter: name.charAt(0).toUpperCase(), color: SnNotifyCore.avatarColor(name) },
+    });
+    if (!shown) status($("chat-notify-note"), "Nothing was shown, because notifications are off or Do not disturb is on in Settings.", "error");
+  });
+  $("chat-notify-settings").addEventListener("click", () => {
+    $("chat-settings").close();
+    try { if (desktop && desktop.openSettings) desktop.openSettings("notifications"); } catch { /* not on the desktop */ }
+  });
+  renderNotifyState();
+
   // --- moderation: single messages and people -------------------------------------------------------------------------------------------
 
   let armed = null;
