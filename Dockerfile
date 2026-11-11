@@ -20,8 +20,10 @@ COPY . .
 ENV DATA_DIR=/app/data
 RUN mkdir -p /app/data && chown node:node /app/data
 
-# Run as the unprivileged user that ships with the image.
-USER node
+# Start as root only to make a freshly mounted volume writable, then the entrypoint
+# drops to the unprivileged user that ships with the image.
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV PORT=3000
 EXPOSE 3000
@@ -29,4 +31,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+process.env.PORT+'/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "app.js"]

@@ -11,11 +11,14 @@ primary_region = 'iad'
   # Fly's proxy sits in front of the app: trust it for the visitor's address.
   TRUST_PROXY = '1'
 
-# Accounts (ACCOUNTS=1) need a volume for their database:
-#   fly volumes create supernova_data --size 1
-# [mounts]
-#   source = 'supernova_data'
-#   destination = '/app/data'
+# The accounts database lives on a volume so admin accounts survive restarts, idle
+# auto-stop and new deploys. Create it once per app, and keep one machine, since a
+# volume attaches to a single machine:
+#   fly volumes create supernova_data --size 1 -a <app>
+#   fly scale count 1 -a <app>
+[mounts]
+  source = 'supernova_data'
+  destination = '/app/data'
 
 [http_service]
   internal_port = 3000
