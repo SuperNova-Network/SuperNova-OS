@@ -2,7 +2,9 @@
  * The network speed graph in the taskbar, like the ones in a Linux panel: a small line of how fast data
  * is moving through the proxy. The server counts the bytes that go through this person's proxy
  * connections (GET /api/traffic gives running totals) and this works out the speed every 2 seconds.
- * It only measures SuperNova's own proxy traffic, not the whole computer's.
+ * Two things add up to the download line: the proxy connections' bytes (counted by the server) and what the pages
+ * themselves load (this page, and every app and proxied page open in a window, from the browser's own resource timings).
+ * It only measures SuperNova's traffic, not the whole computer's.
  *
  * Plain script. Exposes SnNet.rates() -> { down, up } in bytes per second, for the status panel.
  */
@@ -29,7 +31,7 @@
     var ctx = canvas.getContext("2d");
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    var max = Math.max(20000, Math.max.apply(null, down), Math.max.apply(null, up)); // the scale never shrinks below 20 KB/s
+    var max = Math.max(8000, Math.max.apply(null, down), Math.max.apply(null, up)); // the scale never shrinks below 8 KB/s
     function line(values, stroke, fill, width) {
       ctx.beginPath();
       values.forEach(function (v, i) {
@@ -43,13 +45,34 @@
     line(down, "#42a5f5", "rgba(66, 165, 245, 0.28)", 1.4);
   }
 
+  // What the desktop and its open windows downloaded since the last look (each window keeps its own list of loads).
+  var seen = new WeakMap();
+  function pageBytes() {
+    var total = 0;
+    var windows = [global];
+    var frames = document.querySelectorAll("iframe");
+    for (var i = 0; i < frames.length; i++) {
+      try { if (frames[i].contentWindow && frames[i].contentWindow.performance) windows.push(frames[i].contentWindow); } catch (e) { /* another site: can't be read */ }
+    }
+    windows.forEach(function (w) {
+      try {
+        var entries = w.performance.getEntriesByType("resource");
+        var done = seen.get(w) || 0;
+        for (var j = done; j < entries.length; j++) total += entries[j].transferSize || entries[j].encodedBodySize || 0;
+        if (entries.length >= 200) { w.performance.clearResourceTimings(); seen.set(w, 0); } else { seen.set(w, entries.length); }
+      } catch (e) { /* closed */ }
+    });
+    return total;
+  }
+
   function sample() {
     if (document.hidden) { last = null; return; }
     fetch("/api/traffic", { credentials: "same-origin", cache: "no-store" }).then(function (res) { return res.ok ? res.json() : null; }).then(function (now) {
       if (!now) return;
+      var loaded = pageBytes();
       if (last && now.at > last.at) {
         var seconds = (now.at - last.at) / 1000;
-        down.push(Math.max(0, (now.down - last.down) / seconds)); up.push(Math.max(0, (now.up - last.up) / seconds));
+        down.push(Math.max(0, (now.down - last.down + loaded) / seconds)); up.push(Math.max(0, (now.up - last.up) / seconds));
         down.shift(); up.shift();
         if (canvas) canvas.title = "Proxy traffic\nDownload " + format(down[POINTS - 1]) + "\nUpload " + format(up[POINTS - 1]);
         draw();
