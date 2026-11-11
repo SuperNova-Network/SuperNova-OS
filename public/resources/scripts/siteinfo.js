@@ -39,8 +39,10 @@
   function paintAvatar(box, user) {
     var url = global.SnAccount.avatarUrl(user.username, user.avatar);
     var letter = function () {
-      box.textContent = user.username.charAt(0).toUpperCase();
-      box.style.background = global.SnNotifyCore ? global.SnNotifyCore.avatarColor(user.username) : "#6d7b8a";
+      // Without a picture: Windows' grey circle with a person in it.
+      box.textContent = "";
+      box.classList.add("plain");
+      box.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="8.6" r="4.3"></circle><path d="M3.6 21.5c.5-4.6 4-7.3 8.4-7.3s7.9 2.7 8.4 7.3z"></path></svg>';
     };
     box.textContent = "";
     if (!url) { letter(); return; }
@@ -58,9 +60,7 @@
       // Your profile and, for admins, the Admin Panel, join the start menu's rail.
       document.getElementById("start-profile").setAttribute("data-show", "1");
       document.getElementById("start-username").textContent = user.username;
-      document.getElementById("pm-name").textContent = user.username;
       paintAvatar(document.getElementById("start-avatar"), user);
-      paintAvatar(document.getElementById("pm-avatar"), user);
       if (user.admin) document.getElementById("start-admin").setAttribute("data-show", "1");
       if (global.layoutStartRail) global.layoutStartRail();
     }, function () { /* not signed in */ });

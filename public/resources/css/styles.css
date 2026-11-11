@@ -1844,51 +1844,30 @@ div[data-title]:hover:before {
 #profilemenu {
   position: fixed;
   z-index: 10001;
-  width: 17vw;
+  width: 18vw;
   background: #2b2b2b;
   color: #fff;
-  font-size: 1.15vw;
-  box-shadow: 0 0.4vw 1.4vw rgba(0, 0, 0, 0.6);
-}
-
-#profilemenu .pm-head {
-  display: flex;
-  align-items: center;
-  gap: 1vw;
-  padding: 1.1vw 1.2vw;
-  border-bottom: 1px solid #444;
-}
-
-#profilemenu .pm-head > div {
-  min-width: 0;
-}
-
-#profilemenu .pm-head strong,
-#profilemenu .pm-head small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-#profilemenu .pm-head small {
-  color: #b3b3b3;
-  font-size: 0.85em;
-}
-
-#profilemenu .sbbavatar.pm-big {
-  position: static;
-  flex: none;
-  width: 3.4vw;
-  height: 3.4vw;
-  font-size: 1.7vw;
+  font-size: 1vw;
+  box-shadow: 0 0.3vw 1vw rgba(0, 0, 0, 0.55);
 }
 
 #profilemenu .pm-item {
-  padding: 0.85vw 1.2vw;
+  padding: 0.8vw 1vw;
   cursor: default;
 }
 
 #profilemenu .pm-item:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: #414141;
+}
+
+/* No picture: Windows' plain grey circle with a person in it. */
+.sbbavatar.plain {
+  background: #6b6b6b;
+}
+
+.sbbavatar.plain svg {
+  width: 62%;
+  height: 62%;
+  fill: #fff;
+  stroke: none;
 }

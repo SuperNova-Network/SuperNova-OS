@@ -968,9 +968,10 @@ function hideProfileMenu() {
 function toggleProfileMenu(evt) {
   var menu = document.getElementById("profilemenu");
   if (menu.style.display === "block") { hideProfileMenu(); } else {
+    // Like Windows 10: a small box that pops up above the account icon, at the left edge of the rail.
     var rect = document.getElementById("start-profile").getBoundingClientRect();
-    menu.style.left = rect.right + "px";
-    menu.style.bottom = (window.innerHeight - rect.bottom) + "px";
+    menu.style.left = document.getElementById("searchbarbar").getBoundingClientRect().left + "px";
+    menu.style.bottom = (window.innerHeight - rect.top) + "px";
     menu.style.display = "block";
   }
   evt.stopPropagation();
@@ -980,6 +981,13 @@ function profileSettings() {
   hideProfileMenu();
   hideSearch();
   openSettings("account");
+}
+
+// Lock: back to the lock screen, where you sign in again. Unlike Sign out, this browser keeps its settings.
+function profileLock() {
+  hideProfileMenu();
+  hideSearch();
+  (window.SnAccount ? SnAccount.logout({ keepSettings: true }) : Promise.resolve()).then(function () { location.href = "/signin"; });
 }
 
 function profileSignOut() {
