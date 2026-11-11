@@ -1,94 +1,193 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-motion="full">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#000000">
   <title>Sign in · SuperNova OS</title>
   <link rel="icon" href="/resources/media/app_icons/SuperNova.png">
   <link rel="stylesheet" href="/resources/css/tokens.css">
   <link rel="stylesheet" href="/signin.css">
 </head>
-<body>
-  <main class="signin">
-    <div class="brand">
-      <span class="logo"><img src="/resources/media/app_icons/SuperNova.png" alt="" width="64" height="64"></span>
-      <h1>SuperNova OS</h1>
+<body class="is-locked">
+
+  <!-- The picture behind everything, and the things that float in front of it -->
+  <div class="stage" id="stage">
+    <div class="wall" id="wall" aria-hidden="true">
+      <div class="wall-drift">
+        <img class="wall-img" id="wall-sharp" alt="" decoding="async">
+        <img class="wall-img wall-blur" id="wall-blur" alt="" decoding="async">
+      </div>
     </div>
+    <canvas class="dust" id="dust" aria-hidden="true"></canvas>
+    <div class="shade" aria-hidden="true"></div>
 
-    <p class="message" id="loading">Loading…</p>
-
-    <p class="message" id="off" hidden>Accounts are turned off on this site, so only admins can sign in. <a href="/">Go to the desktop</a></p>
-
-    <!-- first run: /setup -->
-    <section class="card" id="setup" hidden>
-      <h2>Set up SuperNova OS</h2>
-      <p class="hint">Create the admin account that manages this site: accounts, sign-up, invite codes and bans. The setup code is in the server's log.</p>
-      <form id="form-setup" novalidate>
-        <label>Setup code<input class="mono" name="code" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXXX-XXXXX" required></label>
-        <label>Username<small>3 to 32 letters, numbers, dots, dashes or underscores</small>
-          <input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" maxlength="32" required></label>
-        <label>Password<small>At least 8 characters</small>
-          <input name="password" type="password" autocomplete="new-password" required></label>
-        <label>Confirm password<input name="confirm" type="password" autocomplete="new-password" required></label>
-        <p class="error" role="alert"></p>
-        <button class="primary" type="submit">Create admin account</button>
-      </form>
+    <!-- ===================== LOCK SCREEN ===================== -->
+    <section class="lock" id="lock" role="button" tabindex="0" aria-label="Lock screen. Click, or press any key, to sign in.">
+      <div class="lock-credit">
+        <button class="credit" id="credit" type="button" aria-label="Like what you see? Show the next picture">
+          <strong>Like what you see?</strong>
+          <span id="wall-name"></span>
+        </button>
+      </div>
+      <div class="lock-clock" id="lock-clock">
+        <div class="lock-time" id="lock-time" aria-hidden="true"></div>
+        <div class="lock-date" id="lock-date" aria-hidden="true"></div>
+      </div>
+      <div class="lock-hint" id="lock-hint" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="m6 14 6-6 6 6"/></svg>
+        <span>Click or press any key to sign in</span>
+      </div>
     </section>
 
-    <!-- sign in / create account / forgot password -->
-    <section class="card" id="forms" hidden>
-      <div class="tabs" role="tablist">
-        <button class="tab" role="tab" type="button" data-mode="login" aria-selected="true">Sign in</button>
-        <button class="tab" role="tab" type="button" data-mode="register" aria-selected="false" id="tab-register">Create account</button>
+    <!-- ===================== SIGN-IN ===================== -->
+    <main class="login" id="login" aria-label="Sign in">
+      <div class="stack" id="stack">
+        <div class="avatar" id="avatar" aria-hidden="true">
+          <svg class="silhouette" viewBox="0 0 24 24"><circle cx="12" cy="8.6" r="4.3"/><path d="M3.6 21.5c.5-4.6 4-7.3 8.4-7.3s7.9 2.7 8.4 7.3z"/></svg>
+          <span class="letter" id="avatar-letter"></span>
+          <img class="picture" id="avatar-picture" alt="">
+        </div>
+        <h1 class="who" id="who">SuperNova OS</h1>
+
+        <div class="ring" id="ring" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+
+        <div class="panels" id="panels">
+          <p class="note" id="loading" role="status">Just a moment…</p>
+
+          <p class="note" id="off" hidden>Accounts are turned off on this site, so only admins can sign in. <a href="/">Go to the desktop</a></p>
+
+          <!-- first run: /setup -->
+          <section class="panel" id="setup" hidden>
+            <p class="hint">Create the admin account that manages this site: accounts, sign-up, invite codes and bans. The setup code is in the server's log.</p>
+            <form id="form-setup" novalidate>
+              <label class="field"><span class="sr">Setup code</span>
+                <input class="mono" name="code" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="Setup code (XXXXX-XXXXX)" required></label>
+              <label class="field"><span class="sr">Username</span>
+                <input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" maxlength="32" placeholder="Username" required></label>
+              <p class="small">3 to 32 letters, numbers, dots, dashes or underscores</p>
+              <label class="field"><span class="sr">Password</span>
+                <input name="password" type="password" autocomplete="new-password" placeholder="Password" required></label>
+              <p class="small">At least 8 characters</p>
+              <label class="field"><span class="sr">Confirm password</span>
+                <input name="confirm" type="password" autocomplete="new-password" placeholder="Confirm password" required></label>
+              <p class="error" role="alert"></p>
+              <button class="btn" type="submit">Create admin account</button>
+            </form>
+          </section>
+
+          <!-- sign in / create account / forgot password -->
+          <section class="panel" id="forms" hidden>
+            <form id="form-login" data-mode="login" novalidate>
+              <label class="field"><span class="sr">Username</span>
+                <input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" placeholder="Username" required></label>
+              <div class="field pw">
+                <label class="sr" for="login-password">Password</label>
+                <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Password" required>
+                <button class="peek" type="button" aria-label="Show password" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+                <button class="go" type="submit" aria-label="Sign in">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+                </button>
+              </div>
+              <p class="caps" hidden>Caps lock is on</p>
+              <p class="error" role="alert"></p>
+              <div class="links">
+                <button class="link" type="button" data-show="recover">I forgot my password</button>
+                <button class="link" type="button" data-show="register" id="to-register">Create an account</button>
+              </div>
+            </form>
+
+            <form id="form-register" data-mode="register" novalidate hidden>
+              <label class="field"><span class="sr">Username</span>
+                <input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" maxlength="32" placeholder="Choose a username" required></label>
+              <p class="small">3 to 32 letters, numbers, dots, dashes or underscores</p>
+              <label class="field"><span class="sr">Password</span>
+                <input name="password" type="password" autocomplete="new-password" placeholder="Create a password" required></label>
+              <p class="small">At least 8 characters</p>
+              <label class="field"><span class="sr">Confirm password</span>
+                <input name="confirm" type="password" autocomplete="new-password" placeholder="Confirm password" required></label>
+              <label class="field" id="invite-field" hidden><span class="sr">Invite code</span>
+                <input name="invite" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Invite code (ask whoever runs this site)"></label>
+              <p class="caps" hidden>Caps lock is on</p>
+              <p class="error" role="alert"></p>
+              <button class="btn" type="submit">Create account</button>
+              <div class="links"><button class="link" type="button" data-show="login">I already have an account</button></div>
+            </form>
+
+            <form id="form-recover" data-mode="recover" novalidate hidden>
+              <p class="hint">Enter the recovery code you saved when you created your account, and choose a new password.</p>
+              <label class="field"><span class="sr">Username</span>
+                <input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" placeholder="Username" required></label>
+              <label class="field"><span class="sr">Recovery code</span>
+                <input class="mono" name="code" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" required></label>
+              <label class="field"><span class="sr">New password</span>
+                <input name="password" type="password" autocomplete="new-password" placeholder="New password" required></label>
+              <p class="small">At least 8 characters</p>
+              <p class="caps" hidden>Caps lock is on</p>
+              <p class="error" role="alert"></p>
+              <button class="btn" type="submit">Reset password</button>
+              <div class="links"><button class="link" type="button" data-show="login">Back to sign in</button></div>
+            </form>
+          </section>
+
+          <!-- shown once after creating an account or using the recovery code -->
+          <section class="panel" id="code" hidden>
+            <p class="hint">If you forget your password, this code is the only way back in. It works once and won't be shown again.</p>
+            <div class="code"><code id="recovery-code"></code><button class="copy" type="button" id="copy">Copy</button></div>
+            <button class="btn" type="button" id="continue">I've saved it, continue</button>
+          </section>
+        </div>
+
+        <p class="footnote" id="footnote">Your apps, wallpaper and preferences are saved to your account.</p>
       </div>
 
-      <form id="form-login" data-mode="login" novalidate>
-        <label>Username<input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" required></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
-        <p class="error" role="alert"></p>
-        <button class="primary" type="submit">Sign in</button>
-        <button class="link" type="button" data-show="recover">Forgot password?</button>
-      </form>
+      <div class="brand" id="brand" aria-hidden="true">
+        <img src="/resources/media/app_icons/SuperNova.png" alt="" width="28" height="28">
+        <span>SuperNova OS</span>
+      </div>
+    </main>
 
-      <form id="form-register" data-mode="register" novalidate hidden>
-        <label>Username<small>3 to 32 letters, numbers, dots, dashes or underscores</small>
-          <input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" maxlength="32" required></label>
-        <label>Password<small>At least 8 characters</small>
-          <input name="password" type="password" autocomplete="new-password" required></label>
-        <label>Confirm password<input name="confirm" type="password" autocomplete="new-password" required></label>
-        <label id="invite-field" hidden>Invite code<small>Ask whoever runs this site</small>
-          <input name="invite" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
-        <p class="error" role="alert"></p>
-        <button class="primary" type="submit">Create account</button>
-      </form>
+    <!-- ===================== STATUS ICONS (both screens) ===================== -->
+    <div class="tray" id="tray">
+      <span class="tray-icon" id="tray-net" role="img" aria-label="Network: connected" title="Connected">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.6a10 10 0 0 1 13 0M9 16.2a5 5 0 0 1 6 0"/><circle cx="12" cy="19.4" r=".9"/><path class="slash" d="m3 3 18 18"/></svg>
+      </span>
+      <span class="tray-icon" id="tray-battery" role="img" aria-label="Battery" title="Battery" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="16" height="10"/><path d="M21 10v4"/><rect class="level" id="battery-level" x="4.2" y="8.7" width="12.6" height="6.6" stroke="none"/><path class="bolt" d="m11 8.5-2.6 4H12l-1.2 3.5 3.2-4.4h-3.4z" stroke="none"/></svg>
+      </span>
+      <button class="tray-button" id="tray-access" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Ease of access" title="Ease of access">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.6" r=".9"/><path d="M7 10.4c3.3 1 6.7 1 10 0M12 11v3.4M9.6 18.4l2.4-4 2.4 4"/></svg>
+      </button>
+      <button class="tray-button" id="tray-power" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Power" title="Power">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M6.8 6.6a8 8 0 1 0 10.4 0"/></svg>
+      </button>
 
-      <form id="form-recover" data-mode="recover" novalidate hidden>
-        <p class="hint">Enter the recovery code you saved when you created your account, and choose a new password.</p>
-        <label>Username<input name="username" autocomplete="username" spellcheck="false" autocapitalize="off" required></label>
-        <label>Recovery code<input class="mono" name="code" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" required></label>
-        <label>New password<small>At least 8 characters</small>
-          <input name="password" type="password" autocomplete="new-password" required></label>
-        <p class="error" role="alert"></p>
-        <button class="primary" type="submit">Reset password</button>
-        <button class="link" type="button" data-show="login">Back to sign in</button>
-      </form>
-    </section>
+      <div class="flyout" id="flyout-access" role="menu" aria-label="Ease of access" hidden>
+        <label class="flyout-row"><input type="checkbox" id="opt-reduce"><span>Reduce motion<small>Turns off the animations and moving background</small></span></label>
+      </div>
+      <div class="flyout" id="flyout-power" role="menu" aria-label="Power" hidden>
+        <button class="flyout-item" type="button" role="menuitem" id="power-sleep">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>Sleep</button>
+        <button class="flyout-item" type="button" role="menuitem" id="power-restart">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.5-5.8M20 4v5h-5"/></svg>Restart</button>
+      </div>
+    </div>
+  </div>
 
-    <!-- shown once after creating an account or using the recovery code -->
-    <section class="card" id="code" hidden>
-      <h2>Save your recovery code</h2>
-      <p class="hint">If you forget your password, this code is the only way back in. It works once and won't be shown again.</p>
-      <div class="code"><code id="recovery-code"></code><button type="button" id="copy">Copy</button></div>
-      <button class="primary" type="button" id="continue">I've saved it, continue</button>
-    </section>
-
-    <p class="footnote" id="footnote">Your apps, wallpaper and preferences are saved to your account.</p>
-  </main>
+  <!-- Sleep and restart cover everything -->
+  <div class="cover" id="sleep" aria-hidden="true" hidden><span>Click or press a key to wake</span></div>
+  <div class="cover" id="restart" role="status" hidden>
+    <div class="ring"><i></i><i></i><i></i><i></i><i></i></div>
+    <p>Restarting</p>
+  </div>
 
   <script src="/proxy/store.js"></script>
   <script src="/proxy/backup.js"></script>
   <script src="/proxy/account.js"></script>
+  <script src="/resources/scripts/theme.js"></script>
   <script src="/signin.js"></script>
 </body>
 </html>

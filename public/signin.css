@@ -1,257 +1,1185 @@
-/* The sign-in screen (ACCOUNTS=required): a lock screen over the default wallpaper. */
+/*
+ * The sign-in screen: a Windows 10 lock screen, then the sign-in screen, then the
+ * "Welcome" screen that carries you to the desktop. States are classes on <body>:
+ *   is-locked   the lock screen (clock, wallpaper)
+ *   is-signin   the sign-in screen (blurred wallpaper, avatar, fields)
+ *   is-welcome  signed in: the spinning dots and the greeting
+ *   is-leaving  the zoom and fade into the desktop
+ * Motion only uses transform and opacity (cheap for the GPU). Turning on "Reduce
+ * motion" (Ease of access, or the system setting) switches nearly all of it off.
+ */
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-/* Layout rules below (display: flex) must not un-hide hidden forms and panels. */
+/* Layout rules below (display: flex or grid) must not un-hide hidden parts. */
 [hidden] {
   display: none !important;
+}
+
+:root {
+  --win: #0078d7;
+  --glass: rgb(255 255 255 / 58%);
+  --glass-focus: rgb(255 255 255 / 92%);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-win: cubic-bezier(0.1, 0.9, 0.2, 1);
 }
 
 html,
 body {
   height: 100%;
   margin: 0;
+  overflow: hidden;
+  background: #000;
 }
 
 body {
-  display: grid;
-  place-items: center;
-  padding: 24px 16px;
-  font-family: var(--font);
-  color: var(--text);
-  background: #05050c url("/resources/media/wallpapers/space.jpg") center / cover no-repeat fixed;
+  color: #fff;
+  font-family: "Segoe UI", var(--font), system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
 }
 
-/* Dim and blur the wallpaper like a lock screen */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: rgb(5 5 14 / 55%);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}
-
-.signin {
-  position: relative;
-  width: min(100%, 400px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-}
-
-.brand {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.logo {
-  display: grid;
-  place-items: center;
-  width: 112px;
-  height: 112px;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 10%);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow);
-}
-
-h1 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
-}
-
-h2 {
-  margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.card {
-  width: 100%;
-  padding: 20px;
-  background: rgb(20 20 34 / 72%);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-lg);
-}
-
-.tabs {
-  display: flex;
-  margin: -4px 0 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.tab {
-  flex: 1;
-  padding: 8px 4px 10px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  background: none;
-  color: var(--text-muted);
+input,
+button,
+a {
   font: inherit;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.tab[aria-selected="true"] {
-  color: var(--text);
-  border-bottom-color: var(--accent);
-}
-
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 14px;
-}
-
-label small,
-.hint {
-  color: var(--text-muted);
-  font-size: 12.5px;
-}
-
-.hint {
-  margin: 0 0 4px;
-  line-height: 1.45;
-}
-
-input {
-  height: 38px;
-  padding: 0 11px;
-  border: 2px solid rgb(255 255 255 / 22%);
-  background: rgb(0 0 0 / 35%);
-  color: var(--text);
-  font: inherit;
-  outline: none;
-}
-
-input:hover {
-  border-color: rgb(255 255 255 / 38%);
-}
-
-input:focus {
-  border-color: var(--accent);
-  background: rgb(0 0 0 / 50%);
-}
-
-.mono,
-.code code {
-  font-family: var(--mono);
-  letter-spacing: 0.04em;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 button {
-  font: inherit;
   cursor: pointer;
 }
 
-.primary {
-  height: 40px;
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ============================ STAGE AND WALLPAPER ============================ */
+
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+  transition: transform 0.6s var(--ease-win), opacity 0.5s ease;
+}
+
+.wall {
+  position: absolute;
+  inset: -3%;
+  transform: translate3d(var(--px, 0px), var(--py, 0px), 0);
+  transition: transform 0.5s var(--ease-out);
+}
+
+.wall-drift {
+  position: absolute;
+  inset: 0;
+  animation: drift 48s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.wall-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+
+.wall-img.ready {
+  opacity: 1;
+}
+
+/* A second, blurred copy fades in on top: cheaper than animating a blur. */
+.wall-blur {
+  filter: blur(30px) saturate(1.25) brightness(0.78);
+  transform: scale(1.08);
+  transition: opacity 0.8s ease;
+}
+
+/* Hidden while locked (the sharp picture shows), faded in on the sign-in screen. */
+.wall-img.wall-blur.ready {
+  opacity: 0;
+}
+
+body:not(.is-locked) .wall-img.wall-blur.ready {
+  opacity: 1;
+}
+
+body.is-swapping .wall-img.wall-blur.ready {
+  opacity: 0;
+}
+
+body.is-swapping .wall-img {
+  transition-duration: 0.25s;
+  opacity: 0;
+}
+
+@keyframes drift {
+  from {
+    transform: scale(1.02) translate3d(-1.2%, -0.6%, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(1.2%, 0.8%, 0);
+  }
+}
+
+.dust {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.9;
+  transition: opacity 0.8s ease;
+}
+
+body:not(.is-locked) .dust {
+  opacity: 0.35;
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to top, rgb(0 0 0 / 58%), transparent 42%),
+    linear-gradient(to bottom, rgb(0 0 0 / 28%), transparent 26%);
+  transition: background-color 0.8s ease;
+}
+
+body:not(.is-locked) .shade {
+  background: rgb(0 0 0 / 38%);
+}
+
+/* ================================= LOCK SCREEN ================================= */
+
+.lock {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  cursor: default;
+  touch-action: none;
+  transform: translate3d(0, var(--lock-y, 0px), 0);
+  transition: transform 0.7s var(--ease-win), opacity 0.5s ease;
+  will-change: transform;
+}
+
+.lock.dragging {
+  transition: none;
+}
+
+body:not(.is-locked) .lock {
+  transform: translate3d(0, -104%, 0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lock-clock {
+  position: absolute;
+  left: clamp(20px, 3.4vw, 56px);
+  bottom: clamp(70px, 9vh, 110px);
+  transform: translate3d(var(--cx, 0px), var(--cy, 0px), 0);
+  transition: transform 0.5s var(--ease-out);
+  text-shadow: 0 2px 24px rgb(0 0 0 / 45%);
+  animation: rise 1s var(--ease-out) both 0.15s;
+}
+
+.lock-time {
+  font-size: clamp(64px, 11vw, 148px);
+  font-weight: 200;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.lock-date {
   margin-top: 4px;
+  font-size: clamp(20px, 2.6vw, 38px);
+  font-weight: 300;
+}
+
+.lock-time.tick {
+  animation: tick 0.5s var(--ease-out);
+}
+
+@keyframes tick {
+  from {
+    opacity: 0.35;
+    transform: translateY(8px);
+  }
+}
+
+.lock-credit {
+  position: absolute;
+  top: clamp(18px, 3vh, 36px);
+  right: clamp(18px, 3vw, 44px);
+  animation: rise 1s var(--ease-out) both 0.5s;
+}
+
+.credit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  padding: 6px 10px;
   border: 0;
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: transparent;
+  color: #fff;
+  font-size: 13px;
+  text-align: right;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 60%);
+}
+
+.credit strong {
   font-weight: 600;
 }
 
-.primary:hover {
-  background: var(--accent-hover);
+.credit span {
+  opacity: 0.8;
 }
 
-.primary:disabled {
-  opacity: 0.6;
+.credit:hover {
+  background: rgb(255 255 255 / 14%);
+}
+
+.lock-hint {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(22px, 5vh, 56px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  opacity: 0;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 70%);
+  transform: translateX(-50%);
+  animation: hint 3.4s ease-in-out infinite 2.6s;
+}
+
+.lock-hint svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: bob 1.7s ease-in-out infinite 2.6s;
+}
+
+@keyframes hint {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  30%,
+  70% {
+    opacity: 0.95;
+  }
+}
+
+@keyframes bob {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0);
+  }
+}
+
+/* ================================== SIGN-IN =================================== */
+
+.login {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px 96px;
+  overflow-y: auto;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+body:not(.is-locked) .login {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 340px);
+  margin-block: auto;
+  text-align: center;
+}
+
+/* Everything on the sign-in screen rises into place, one after another. */
+.stack > *,
+.brand {
+  opacity: 0;
+  transform: translate3d(0, 30px, 0);
+}
+
+body:not(.is-locked) .stack > *,
+body:not(.is-locked) .brand {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.7s ease calc(var(--i, 0) * 90ms + 180ms), transform 0.8s var(--ease-out) calc(var(--i, 0) * 90ms + 180ms);
+}
+
+.avatar {
+  --i: 0;
+}
+
+.who {
+  --i: 1;
+}
+
+.panels {
+  --i: 2;
+}
+
+.footnote {
+  --i: 4;
+}
+
+.avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(120px, 24vh, 192px);
+  height: clamp(120px, 24vh, 192px);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 20%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 30%), 0 14px 50px rgb(0 0 0 / 40%);
+}
+
+body:not(.is-locked) .avatar {
+  transition: opacity 0.7s ease 0.18s, transform 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.18s, box-shadow 0.4s ease;
+}
+
+.avatar::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 0%);
+  pointer-events: none;
+}
+
+/* A soft ring breathes around the picture, like a heartbeat. */
+body.is-signin .avatar::before {
+  animation: breathe 3.6s ease-in-out infinite 1.2s;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    border-color: rgb(255 255 255 / 0%);
+    transform: scale(0.97);
+  }
+  50% {
+    border-color: rgb(255 255 255 / 32%);
+    transform: scale(1.03);
+  }
+}
+
+.avatar .silhouette {
+  width: 74%;
+  height: 74%;
+  fill: rgb(255 255 255 / 86%);
+}
+
+.avatar .letter,
+.avatar .picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.avatar .letter {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: clamp(54px, 11vh, 88px);
+  font-weight: 300;
+  opacity: 0;
+}
+
+.avatar .picture {
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.avatar.has-letter .letter {
+  opacity: 1;
+}
+
+.avatar.has-letter .silhouette {
+  opacity: 0;
+}
+
+.avatar.has-picture .picture {
+  opacity: 1;
+}
+
+.avatar.pop {
+  animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.92);
+  }
+}
+
+.avatar.fail {
+  animation: fail 0.6s ease;
+}
+
+@keyframes fail {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 30%), 0 14px 50px rgb(0 0 0 / 40%);
+  }
+  30% {
+    box-shadow: 0 0 0 4px rgb(255 99 99 / 85%), 0 0 60px rgb(255 70 70 / 55%);
+  }
+}
+
+.who {
+  position: relative;
+  margin: 20px 0 18px;
+  min-height: 1.3em;
+  max-width: 100%;
+  font-size: clamp(24px, 4vh, 32px);
+  font-weight: 300;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  text-shadow: 0 2px 14px rgb(0 0 0 / 40%);
+}
+
+.who.swap {
+  animation: swap 0.5s var(--ease-out);
+}
+
+@keyframes swap {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.panels {
+  width: 100%;
+}
+
+.panel {
+  width: 100%;
+  animation: panel-in 0.5s var(--ease-out);
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.98);
+  }
+}
+
+.note,
+.hint,
+.small,
+.footnote {
+  margin: 0 0 12px;
+  color: rgb(255 255 255 / 85%);
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 45%);
+}
+
+.small {
+  margin: -4px 0 10px;
+  font-size: 12px;
+  color: rgb(255 255 255 / 70%);
+  text-align: left;
+}
+
+.note a {
+  color: #fff;
+}
+
+/* Windows 10's translucent boxes: white glass that turns solid on focus. */
+.field {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+}
+
+.field input {
+  display: block;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: var(--glass);
+  color: #000;
+  font-size: 15px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field input::placeholder {
+  color: #3a3a3a;
+}
+
+.field input:focus-visible {
+  outline: none;
+}
+
+.field input:focus {
+  border-color: var(--accent, var(--win));
+  background: var(--glass-focus);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 28%);
+}
+
+.field input.mono {
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+}
+
+.field.pw {
+  display: flex;
+}
+
+.field.pw input {
+  flex: 1;
+  min-width: 0;
+}
+
+.peek,
+.go {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.peek {
+  position: absolute;
+  top: 0;
+  right: 40px;
+  background: transparent;
+  color: #222;
+}
+
+.go {
+  background: var(--accent, var(--win));
+  color: #fff;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.go:hover {
+  filter: brightness(1.12);
+}
+
+.go:active {
+  transform: scale(0.94);
+}
+
+.peek svg,
+.go svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.field.pw input {
+  padding-right: 44px;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin: 4px 0 0;
+  padding: 0 14px;
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: var(--accent, var(--win));
+  color: #fff;
+  font-size: 15px;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.btn:hover {
+  filter: brightness(1.12);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.go.busy svg {
+  display: none;
+}
+
+.go.busy::after {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgb(255 255 255 / 40%);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn[disabled],
+.go[disabled] {
+  filter: grayscale(0.4) brightness(0.8);
   cursor: progress;
 }
 
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 18px;
+  margin-top: 14px;
+}
+
 .link {
-  align-self: center;
-  padding: 4px;
+  padding: 4px 2px;
   border: 0;
-  background: none;
-  color: var(--text-muted);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  background: transparent;
+  color: #fff;
+  font-size: 13.5px;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 55%);
 }
 
 .link:hover {
-  color: var(--text);
+  text-decoration: underline;
 }
 
 .error {
-  min-height: 1.2em;
   margin: 0;
-  color: var(--danger);
-  font-size: 13px;
+  color: #ffd0cc;
+  font-size: 13.5px;
+  line-height: 1.4;
+  text-align: left;
 }
 
-.error:empty {
-  min-height: 0;
+.error:not(:empty) {
+  margin: 2px 0 10px;
+  padding: 8px 10px;
+  background: rgb(120 20 20 / 72%);
+  border-left: 3px solid #ff6b6b;
+  animation: panel-in 0.35s var(--ease-out);
+}
+
+.caps {
+  margin: -2px 0 8px;
+  padding: 5px 8px;
+  background: rgb(0 0 0 / 55%);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.stack.shake {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translate3d(-3px, 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(6px, 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-10px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(10px, 0, 0);
+  }
 }
 
 .code {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0 16px;
-  padding: 12px 14px;
-  border: 1px dashed var(--border-strong);
-  background: rgb(0 0 0 / 30%);
+  align-items: stretch;
+  margin-bottom: 10px;
+  background: rgb(0 0 0 / 52%);
+  border: 1px solid rgb(255 255 255 / 25%);
 }
 
 .code code {
   flex: 1;
-  font-size: 15px;
-  white-space: nowrap;
-  user-select: all;
-  overflow-wrap: anywhere;
-}
-
-.code button {
-  flex: none;
-  padding: 6px 14px;
-  border: 0;
-  background: var(--surface-active);
-  color: var(--text);
-}
-
-#code .primary {
-  width: 100%;
-}
-
-.message,
-.footnote {
-  margin: 0;
-  text-align: center;
-  color: var(--text-muted);
+  padding: 12px 10px;
+  font-family: var(--mono);
   font-size: 14px;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
-.message a {
-  color: var(--text);
+.copy {
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid rgb(255 255 255 / 25%);
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
 }
 
 .footnote {
+  margin: 24px 0 0;
   font-size: 12.5px;
+  opacity: 0.8;
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  body::before {
-    backdrop-filter: none;
-    background: rgb(5 5 14 / 85%);
+.brand {
+  --i: 5;
+  position: fixed;
+  left: clamp(16px, 2.4vw, 34px);
+  bottom: clamp(14px, 3vh, 30px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 60%);
+}
+
+.brand img {
+  border-radius: 6px;
+}
+
+/* ============================ WELCOME (signing in) ============================ */
+
+/* Windows 10's ring of five dots that chase each other round. */
+.ring {
+  position: relative;
+  display: none;
+  width: 44px;
+  height: 44px;
+  margin-top: 6px;
+}
+
+.ring i {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: rotate(225deg);
+  animation: orbit 3.4s infinite;
+}
+
+.ring i::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px rgb(255 255 255 / 70%);
+}
+
+.ring i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.ring i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.ring i:nth-child(4) {
+  animation-delay: 0.48s;
+}
+
+.ring i:nth-child(5) {
+  animation-delay: 0.64s;
+}
+
+@keyframes orbit {
+  0% {
+    opacity: 1;
+    transform: rotate(225deg);
+    animation-timing-function: ease-out;
+  }
+  7% {
+    transform: rotate(345deg);
+    animation-timing-function: linear;
+  }
+  30% {
+    transform: rotate(455deg);
+    animation-timing-function: ease-in-out;
+  }
+  39% {
+    transform: rotate(690deg);
+    animation-timing-function: linear;
+  }
+  70% {
+    transform: rotate(815deg);
+    opacity: 1;
+    animation-timing-function: ease-out;
+  }
+  75% {
+    transform: rotate(945deg);
+    animation-timing-function: ease-out;
+  }
+  76%,
+  100% {
+    opacity: 0;
+    transform: rotate(945deg);
+  }
+}
+
+#ring {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  margin: 0 0 0 -22px;
+}
+
+body.is-welcome .stack {
+  position: relative;
+  padding-bottom: 70px;
+}
+
+body.is-welcome #ring {
+  display: block;
+  animation: panel-in 0.5s var(--ease-out) 0.2s both;
+}
+
+/* The fields and links fold away; the picture and the greeting stay. */
+body.is-welcome .panels,
+body.is-welcome .footnote {
+  opacity: 0 !important;
+  transform: translate3d(0, -14px, 0) !important;
+  pointer-events: none;
+  position: absolute;
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease !important;
+}
+
+body.is-welcome .avatar {
+  animation: welcome-avatar 1.1s var(--ease-out) both;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 40%), 0 0 90px rgb(255 255 255 / 25%), 0 18px 60px rgb(0 0 0 / 45%);
+}
+
+@keyframes welcome-avatar {
+  from {
+    transform: scale(0.94);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+body.is-welcome .shade {
+  background: rgb(0 0 0 / 52%);
+}
+
+body.is-welcome .brand {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Into the desktop: the whole screen swells and dissolves into black. */
+body.is-leaving .stage {
+  transform: scale(1.1);
+  opacity: 0;
+}
+
+body.is-leaving .tray {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* ================================ STATUS ICONS ================================ */
+
+.tray {
+  position: absolute;
+  right: clamp(10px, 1.6vw, 26px);
+  bottom: clamp(10px, 2.4vh, 24px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tray-icon,
+.tray-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  filter: drop-shadow(0 1px 6px rgb(0 0 0 / 60%));
+}
+
+.tray-button:hover,
+.tray-button[aria-expanded="true"] {
+  background: rgb(255 255 255 / 18%);
+}
+
+.tray svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tray svg circle[r=".9"] {
+  fill: currentColor;
+  stroke: none;
+}
+
+.tray .slash {
+  display: none;
+}
+
+.tray-icon[data-offline="true"] .slash {
+  display: block;
+}
+
+.tray-icon[data-offline="true"] svg > path:not(.slash) {
+  opacity: 0.45;
+}
+
+.tray .level {
+  fill: currentColor;
+  transform-origin: left center;
+  transform: scaleX(var(--level, 1));
+}
+
+.tray .bolt {
+  display: none;
+  fill: #000;
+}
+
+.tray-icon[data-charging="true"] .bolt {
+  display: block;
+}
+
+.flyout {
+  position: absolute;
+  right: 0;
+  bottom: 48px;
+  min-width: 220px;
+  padding: 4px 0;
+  background: rgb(26 26 26 / 94%);
+  border: 1px solid rgb(255 255 255 / 18%);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 55%);
+  animation: panel-in 0.25s var(--ease-out);
+}
+
+.flyout-item,
+.flyout-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+  text-align: left;
+}
+
+.flyout-item:hover,
+.flyout-row:hover {
+  background: rgb(255 255 255 / 12%);
+}
+
+.flyout-item svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.flyout-row {
+  align-items: flex-start;
+}
+
+.flyout-row small {
+  display: block;
+  margin-top: 2px;
+  color: rgb(255 255 255 / 65%);
+  font-size: 12px;
+}
+
+.flyout-row input {
+  flex: none;
+  margin-top: 3px;
+  accent-color: var(--accent, var(--win));
+}
+
+/* ================================ SLEEP, RESTART ================================ */
+
+.cover {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: #000;
+  animation: fade-in 0.7s ease both;
+}
+
+.cover.out {
+  animation: fade-out 0.4s ease both;
+}
+
+.cover > span {
+  color: rgb(255 255 255 / 35%);
+  font-size: 13px;
+  animation: fade-in 1s ease 2.2s both;
+}
+
+.cover p {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 300;
+}
+
+.cover .ring {
+  display: block;
+  position: relative;
+  margin: 0;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* ================================ SMALL SCREENS ================================ */
+
+@media (max-width: 520px) {
+  .lock-clock {
+    bottom: 96px;
+  }
+  .brand {
+    display: none;
+  }
+}
+
+@media (max-height: 560px) {
+  .avatar {
+    width: 96px;
+    height: 96px;
+  }
+  .who {
+    margin: 12px 0 12px;
+  }
+}
+
+/* ================================== LESS MOTION ================================== */
+
+[data-motion="reduced"] *,
+[data-motion="reduced"] *::before,
+[data-motion="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0ms !important;
+}
+
+[data-motion="reduced"] .dust,
+[data-motion="reduced"] .ring i,
+[data-motion="reduced"] .lock-hint svg {
+  display: none;
+}
+
+[data-motion="reduced"] .lock-hint {
+  opacity: 0.9;
+}
+
+[data-motion="reduced"] body.is-leaving .stage {
+  transform: none;
+}
+
+@media (prefers-contrast: more) {
+  .field input {
+    background: #fff;
+  }
+  .shade {
+    background: rgb(0 0 0 / 60%) !important;
   }
 }

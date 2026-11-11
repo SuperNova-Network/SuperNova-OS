@@ -59,8 +59,24 @@ test("visitors are sent to the sign-in screen instead of a Basic auth prompt", o
 });
 
 test("the sign-in screen's own files and the health check stay open", options, async () => {
-  for (const path of ["/signin.css", "/signin.js", "/proxy/account.js", "/proxy/store.js", "/resources/css/tokens.css", "/resources/media/wallpapers/space.jpg", "/healthz", "/api/info"]) {
+  for (const path of ["/signin.css", "/signin.js", "/proxy/account.js", "/proxy/store.js", "/proxy/backup.js", "/resources/css/tokens.css", "/resources/scripts/theme.js", "/resources/media/app_icons/SuperNova.png", "/healthz", "/api/info"]) {
     assert.equal((await page(path)).status, 200, path);
+  }
+});
+
+test("every file the lock screen uses is reachable while signed out (so nothing breaks the screen)", options, async () => {
+  const html = await (await page("/signin")).text();
+  // The wallpapers the script rotates through, and every local file the page links to.
+  const wallpapers = [...(await (await page("/signin.js")).text()).matchAll(/\["([A-Za-z]+\.jpg)", "/g)].map((m) => `/resources/media/wallpapers/${m[1]}`);
+  assert.ok(wallpapers.length >= 4, "the script lists its wallpapers");
+  const linked = [...html.matchAll(/(?:src|href)="(\/[^"]+)"/g)].map((m) => m[1]);
+  for (const path of [...new Set([...wallpapers, ...linked])]) assert.equal((await page(path)).status, 200, path);
+});
+
+test("the sign-in page has the lock screen, the sign-in form and the status icons", options, async () => {
+  const html = await (await page("/signin")).text();
+  for (const id of ["lock", "lock-time", "form-login", "form-register", "form-recover", "form-setup", "avatar", "tray", "flyout-power", "opt-reduce"]) {
+    assert.match(html, new RegExp(`id="${id}"`), id);
   }
 });
 
