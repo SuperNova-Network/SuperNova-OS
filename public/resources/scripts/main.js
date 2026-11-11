@@ -183,12 +183,76 @@ function desktopLink(id) {
   return document.querySelector(".desktoplink[data-app='" + Number(id) + "']");
 }
 
-// SuperNova, Settings and the Chat are pinned permanently (the Console is not on the taskbar any more, but old saved pins of it are still ignored). Listing them in taskArr as well pinned
+// SuperNova, Settings and the Chat are pinned by default (and can be unpinned: see "essentials" below) (the Console is not on the taskbar any more, but old saved pins of it are still ignored). Listing them in taskArr as well pinned
 // them twice, which rewrote the icon's click handler to minWin(null) and made it crash
 // (this is how the File Explorer icon broke). Also drop duplicates and ids that no longer exist.
 taskArr = taskArr.map(Number).filter(function (id, index, all) {
   return id >= 0 && id < programData.length && !programData[id].removed && id !== 0 && id !== setID && id !== consoleID && id !== chatID && id !== adminID && all.indexOf(id) === index;
 });
+// ---------------------------------------------------------------------------
+// The essential apps: SuperNova, Settings, Chat and the Admin Panel. They sit first on the taskbar,
+// in this order, left of a thin divider, and are pinned like any other app (right click: Unpin; an
+// open one: Pin). Which are pinned is the "essentialPins" setting (by name, so it survives new apps
+// being added), and starts as SuperNova, Settings and Chat. They never appear in taskArr.
+// ---------------------------------------------------------------------------
+var ESSENTIALS = [["supernova", 0], ["settings", setID], ["chat", chatID], ["admin", adminID]];
+var taskbarDivider = null;
+SnStore.defaults({ essentialPins: "supernova,settings,chat" });
+
+function isEssential(id) {
+  id = Number(id);
+  return ESSENTIALS.some(function (e) { return e[1] === id; });
+}
+
+/** The pinned essentials' ids, in their fixed order. */
+function essentialIds() {
+  var names = String(SnStore.get("essentialPins") || "").split(",");
+  return ESSENTIALS.filter(function (e) { return names.indexOf(e[0]) !== -1; }).map(function (e) { return e[1]; });
+}
+
+function saveEssentials(ids) {
+  SnStore.set("essentialPins", ESSENTIALS.filter(function (e) { return ids.indexOf(e[1]) !== -1; }).map(function (e) { return e[0]; }).join(","));
+  permaStickied = ids.length;
+  if (taskbarDivider) { taskbarDivider.style.display = ids.length ? "" : "none"; }
+}
+
+/** Put an essential's taskbar item in its place: before the next pinned essential, else before the divider. */
+function placeEssential(item, id) {
+  var order = ESSENTIALS.map(function (e) { return e[1]; });
+  var before = taskbarDivider;
+  for (var j = order.indexOf(id) + 1; j < order.length; j++) {
+    var other = document.querySelector('.taskbaricon.stickied[type="' + order[j] + '"]');
+    if (other) { before = other.parentElement; break; }
+  }
+  document.getElementById("taskbar").insertBefore(item, before);
+}
+
+function pinEssential(id) {
+  var ids = essentialIds();
+  if (ids.indexOf(id) === -1) { ids.push(id); }
+  saveEssentials(ids);
+  var icon = document.querySelector('.taskbaricon[type="' + id + '"]');
+  if (icon) {
+    icon.classList.add("stickied"); // an open window's icon becomes the pinned one
+  } else {
+    addTaskbarIcon(id, "null", 0, programData[id].name, programData[id].icon, true);
+    icon = document.querySelector('.taskbaricon[type="' + id + '"]');
+  }
+  placeEssential(icon.parentElement, id);
+}
+
+function unpinEssential(id) {
+  saveEssentials(essentialIds().filter(function (other) { return other !== id; }));
+  var icon = document.querySelector('.taskbaricon.stickied[type="' + id + '"]');
+  if (!icon) { return; }
+  if (icon.id == "null") {
+    icon.parentElement.parentElement.removeChild(icon.parentElement); // not open: gone
+  } else {
+    icon.classList.remove("stickied"); // open: stays, like any unpinned app, at the end
+    document.getElementById("taskbar").appendChild(icon.parentElement);
+  }
+}
+
 var defaultPage = "https://api.github.com/repos/SuperNova-Network/SuperNova-DY/contents"; // go to https://api.github.com/users/SuperNova-Network/repos and find "contents_url" to get the url for the default page. EX: https://media.discordapp.net/attachments/828071279424307221/1203153358597394534/image.png?ex=65d00ee2&is=65bd99e2&hm=9a4f32904842838ea9a40c8f45e2b860491aee8c4b55cb6fa4b7f995f5f64aff&=&format=webp&quality=lossless&width=1439&height=206
 // https://web.postman.co/
 
@@ -282,14 +346,14 @@ function setup() {
   // later, like the Settings title-bar icon, stayed an empty circle.
   document.querySelector("#svgbuffer .cog_icon path").setAttribute("d", genCog(40));
 
-  // The essentials come first, always, in this order: SuperNova, Settings, Chat. A thin line then
-  // separates them from the apps you pin yourself.
-  addTaskbarIcon(0, "null", 0, programData[0].name, programData[0].icon, true);
-  addTaskbarIcon(setID, "null", 0, programData[setID].name, programData[setID].icon, true);
-  addTaskbarIcon(chatID, "null", 0, programData[chatID].name, programData[chatID].icon, true);
-  var divider = document.createElement("div");
-  divider.className = "taskbarsep";
-  document.getElementById("taskbar").appendChild(divider);
+  // The essentials come first, in a fixed order, then a thin line, then the apps you pin yourself.
+  var pinnedEssentials = essentialIds();
+  permaStickied = pinnedEssentials.length;
+  pinnedEssentials.forEach(function (id) { addTaskbarIcon(id, "null", 0, programData[id].name, programData[id].icon, true); });
+  taskbarDivider = document.createElement("div");
+  taskbarDivider.className = "taskbarsep";
+  taskbarDivider.style.display = pinnedEssentials.length ? "" : "none";
+  document.getElementById("taskbar").appendChild(taskbarDivider);
   for (var i = 0; i < taskArr.length; i++) {
     addTaskbarIcon(taskArr[i], "null", 0, programData[taskArr[i]].name, programData[taskArr[i]].icon, true);
   }
@@ -527,7 +591,7 @@ function addTaskbarIcon(id, count, actLvl, name, icon, stickied) {
   iconEl.setAttribute("activelevel", actLvl);
   iconEl.setAttribute("onclick", actLvl == 2 ? "minWin(" + count + ")" : "selectIcon(event," + id + ",true)");
   iconEl.innerHTML = "<div class='icon'></div>";
-  iconEl.addEventListener("mousedown", function (event) { showContext(event, (id < errID && id != 0) || isCustomApp(id) ? (id == viewerID || id == consoleID ? 4 : 1) : 4) });
+  iconEl.addEventListener("mousedown", function (event) { showContext(event, isEssential(id) ? 1 : (id < errID || isCustomApp(id) ? (id == viewerID || id == consoleID ? 4 : 1) : 4)) });
   setIcon(icon, iconEl.getElementsByClassName("icon")[0]);
   tbi.setAttribute("data-title", name);
   tbi.appendChild(iconEl);
@@ -1407,7 +1471,7 @@ function showContext(evt, type) {
           items[6].innerHTML = "Open " + (stickied && icons[i].getAttribute("activelevel") == 0 ? "" : "new");
           //remove "open new" for error messages and settings
           var tgt = evt.target.getAttribute("type");
-          if (type == 4 && (tgt == errID || tgt == setID || tgt == chatID || tgt == adminID)) {
+          if ((type == 4 || type == 1) && (tgt == errID || tgt == setID || tgt == chatID || tgt == adminID)) {
             items[6].style.display = "none";
           }
           items[7].style.display = icons[i].id == "null" ? "none" : "block";
@@ -1490,6 +1554,7 @@ function contextPin(type) {
   document.getElementById("context").style.display = "none";
   var id = document.getElementById("context").getAttribute("target");
   var index = document.getElementById("context").getAttribute("targetIndex");
+  if (isEssential(id)) { pinEssential(Number(id)); return; }
   for (var i = 0; i < taskArr.length; i++) {
     if (id == taskArr[i]) { return; }
   }
@@ -1510,6 +1575,7 @@ function contextUnpin() {
   document.getElementById("context").style.display = "none";
   var icons = document.getElementsByClassName("taskbaricon");
   var target = document.getElementById("context").getAttribute("target");
+  if (isEssential(target)) { unpinEssential(Number(target)); return; }
   for (var i = 0; i < icons.length; i++) {
     if (icons[i].getAttribute("type") == target) {
       var id = icons[i].id;
