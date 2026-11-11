@@ -71,8 +71,6 @@
           global.SnNotify.show({ app: "Friends", icon: "bell", title: "New friend request", text: "Open Friends to answer it." });
         }
         requests = data.requests;
-        var label = document.getElementById("start-friends-count");
-        if (label) label.textContent = data.requests ? " (" + data.requests + ")" : "";
       })
       .catch(function () { /* offline: the next beat will do */ });
   }
@@ -107,7 +105,6 @@
       if (!user) return;
       // Your profile and, for admins, the Admin Panel, join the start menu's rail.
       document.getElementById("start-profile").setAttribute("data-show", "1");
-      document.getElementById("start-friends").setAttribute("data-show", "1");
       startHeartbeat();
       document.getElementById("start-username").textContent = user.username;
       paintAvatar(document.getElementById("start-avatar"), user);

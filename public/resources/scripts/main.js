@@ -1028,17 +1028,17 @@ function openPopup(errtitle, errStr, icon) {
 
 // The items at the bottom of the start menu's left rail, found by id (not by their place in the
 // list, so adding one never moves the others). Home shows Power at the very bottom with Settings
-// above it, search hides Power; Chat and the Admin Panel stack above Settings either way.
+// above it, search hides Power; the Admin Panel (for admins) stacks above Settings either way.
 var startHome = false;
 function layoutStartRail(home) {
   if (home !== undefined) { startHome = home; }
-  // From the bottom up: Power (Home only), Settings, Chat, then the Admin Panel and your profile
+  // From the bottom up: Power (Home only), Settings, then the Admin Panel and your profile
   // when there is one (siteinfo.js turns those on). Every item is one slot tall, with no gaps.
-  var order = ["start-power", "start-settings", "start-chat", "start-store", "start-friends", "start-admin", "start-profile"];
+  var order = ["start-power", "start-settings", "start-admin", "start-profile"];
   var slot = 0;
   order.forEach(function (id) {
     var el = document.getElementById(id);
-    var on = id === "start-power" ? startHome : (id === "start-admin" || id === "start-profile" || id === "start-friends") ? el.getAttribute("data-show") === "1" : true;
+    var on = id === "start-power" ? startHome : (id === "start-admin" || id === "start-profile") ? el.getAttribute("data-show") === "1" : true;
     el.style.display = on ? "block" : "none";
     if (on) { el.style.bottom = (slot * 3.5) + "vw"; slot++; }
   });
