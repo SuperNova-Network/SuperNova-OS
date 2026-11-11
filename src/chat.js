@@ -485,6 +485,11 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
 
   return {
     router,
+    /** How many people are in the chat (counting each once) and how many quiet notification streams are open. */
+    stats() {
+      const loud = [...streams].filter((stream) => !stream.quiet);
+      return { online: new Set(loud.map((stream) => stream.user.id)).size, streams: loud.length, quietStreams: streams.size - loud.length };
+    },
     close() {
       clearInterval(revalidate);
       for (const stream of streams) { clearInterval(stream.heartbeat); stream.res.end(); }

@@ -18,10 +18,19 @@ import config from "./config.js";
 import { createPolicy } from "./src/policy.js";
 import { createAccounts } from "./src/accounts.js";
 import { createChat, disabledChat } from "./src/chat.js";
+import { createAdmin, disabledAdmin } from "./src/admin.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
-const policy = createPolicy(config.filter);
+// The content policy: the server's built-in list, plus what admins add in the Admin Panel.
+// It is rebuilt when they change it, and Wisp reads its blacklist on every connection.
+const buildPolicy = (custom) => createPolicy({
+  ...config.filter,
+  hosts: [...config.filter.hosts, ...custom.hosts],
+  hostKeywords: [...config.filter.hostKeywords, ...custom.keywords],
+  queryWords: [...config.filter.queryWords, ...custom.queryWords],
+});
+let policy = buildPolicy({ hosts: [], keywords: [], queryWords: [] });
 const accounts = await createAccounts({ ...config.accounts, authPass: config.auth.pass });
 const chat = accounts.database
   ? createChat({
@@ -36,6 +45,30 @@ const chat = accounts.database
     giphy: { key: config.chat.giphyKey, apiUrl: config.chat.giphyApiUrl, mediaUrl: config.chat.giphyMediaUrl },
   })
   : disabledChat();
+
+const admin = accounts.database
+  ? createAdmin({
+    db: accounts.database,
+    dataDir: config.accounts.dataDir,
+    userFor: accounts.userFor,
+    isAdmin: accounts.isAdmin,
+    serverAdmins: accounts.serverAdmins,
+    kick: accounts.kick,
+    applyBlocklist,
+    runtime: () => ({
+      chat: chat.stats?.() ?? { online: 0, streams: 0, quietStreams: 0 },
+      wisp: proxySockets.size,
+      filter: { enabled: policy.enabled, hosts: config.filter.hosts.length, tlds: config.filter.tlds.length, keywords: config.filter.hostKeywords.length, words: config.filter.queryWords.length },
+      config: { accounts: accounts.site(), trustProxy: config.trustProxy, giphy: Boolean(config.chat.giphyKey), sitePassword: Boolean(config.auth.pass), version: info.version },
+    }),
+  })
+  : disabledAdmin();
+
+/** Make the admins' extra blocked sites live: the policy, and the list Wisp checks on each connection. */
+function applyBlocklist(custom) {
+  policy = buildPolicy(custom);
+  wisp.options.hostname_blacklist = policy.wispBlacklist();
+}
 
 // Accounts can be switched off, optional or required at any time in Settings > Admin,
 // so these are asked per request. When sign-in is required, the account sign-in
@@ -78,6 +111,7 @@ wisp.options.allow_private_ips = false;
 // The content filter lives here so it covers every connection: links followed
 // inside proxied pages and hand-typed /service/ URLs included.
 wisp.options.hostname_blacklist = policy.wispBlacklist();
+applyBlocklist(admin.blocklist()); // plus anything admins added in the Admin Panel
 
 // ---------------------------------------------------------------------------
 // HTTP app
@@ -103,6 +137,24 @@ if (config.auth.pass) {
 }
 
 app.use("/api/account", accounts.router);
+
+// Maintenance mode (Admin Panel > Site): everyone but admins gets a "back soon" page, and the
+// proxy is closed to them too. Only what sign-in and the health check need stays reachable.
+{
+  const stillOpen = /^\/(?:signin|setup)$|^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$|healthz$|api\/info$)/;
+  app.use((req, res, next) => {
+    const maintenance = admin.maintenance();
+    if (!maintenance.on || stillOpen.test(req.path) || accounts.userFor(req)?.admin) return next();
+    res.set("Cache-Control", "no-store").set("Retry-After", "300");
+    const dest = req.get("sec-fetch-dest");
+    const navigation = req.method === "GET" && (dest ? ["document", "iframe", "frame"].includes(dest) : (req.get("accept") ?? "").includes("text/html"));
+    if (!navigation) return res.status(503).json({ error: maintenance.message, maintenance: true });
+    const text = maintenance.message.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    res.status(503).type("html").send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Back soon</title><style>html,body{height:100%;margin:0;background:#0b0b14;color:#fff;font:16px "Segoe UI",system-ui,sans-serif}body{display:grid;place-items:center;text-align:center;padding:24px}h1{font-weight:300;font-size:34px;margin:0 0 10px}p{margin:0;color:#b8b8c8;max-width:420px;line-height:1.5}a{color:#fff;display:inline-block;margin-top:22px}</style></head><body><main><h1>We'll be right back</h1><p>${text}</p><a href="/signin">Admin sign-in</a></main></body></html>`);
+  });
+}
+
+app.use("/api/admin", admin.router);
 app.use("/api/chat", chat.router);
 
 app.get("/api/info", (_req, res) => {
@@ -141,6 +193,12 @@ app.get("/setup", (_req, res) => {
     res.status(401).json({ error: "Sign in first." });
   });
 }
+
+// The announcement an admin posted (Admin Panel > Site): the desktop shows it as a notification.
+app.get("/api/announcement", (_req, res) => {
+  const { id, text, level, active } = admin.announcement();
+  res.set("Cache-Control", "no-store").json({ announcement: active ? { id, text, level } : null });
+});
 
 // Lets the client explain *why* something is blocked before it navigates. The
 // blacklist above is what actually enforces the policy.
@@ -267,6 +325,7 @@ function safeEqual(a, b) {
 // The Express auth middleware does not see WebSocket upgrades, so check here.
 function isAuthorized(req) {
   req.account = accounts.userFor(req); // remembered so the socket can be tracked
+  if (admin.maintenance().on && !req.account?.admin) return false;
   if (accountsRequired()) return Boolean(req.account);
   if (!basicAuthOn()) return true;
   const header = req.headers.authorization || "";

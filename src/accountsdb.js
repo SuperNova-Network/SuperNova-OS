@@ -151,6 +151,29 @@ const MIGRATIONS = [
       detail TEXT
     );
   `),
+  // 6: the admin panel. Where a session was started from, an audit log of what admins do,
+  // and settings it manages (announcement, maintenance mode, extra blocked sites).
+  (db) => {
+    const columns = new Set(db.prepare("PRAGMA table_info(sessions)").all().map((column) => column.name));
+    for (const name of ["ip", "user_agent"]) if (!columns.has(name)) db.exec(`ALTER TABLE sessions ADD COLUMN ${name} TEXT`);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS admin_log (
+        id INTEGER PRIMARY KEY,
+        at INTEGER NOT NULL,
+        actor TEXT NOT NULL,
+        action TEXT NOT NULL,
+        target TEXT,
+        detail TEXT
+      );
+      CREATE INDEX IF NOT EXISTS admin_log_at ON admin_log(at);
+      CREATE TABLE IF NOT EXISTS admin_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at INTEGER NOT NULL,
+        updated_by TEXT
+      );
+    `);
+  },
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */

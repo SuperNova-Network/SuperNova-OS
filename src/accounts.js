@@ -13,17 +13,16 @@
  * asks for the password again.
  */
 import express from "express";
-import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createLimiter } from "./ratelimit.js";
 import {
   AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, newInviteCode, newRecoveryCode,
   getAvatar, normalizeCode, openDatabase, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
 } from "./accountsdb.js";
+import { logAdmin } from "./admindb.js";
 import { HttpError, guardWrites } from "./http.js";
+import { checkPassword, hashPassword } from "./passwords.js";
 import { imageInfo } from "./imageinfo.js";
-
-const scrypt = promisify(scryptCb);
 
 export const COOKIE = "sn_session";
 const SESSION_DAYS = 30;
@@ -44,25 +43,6 @@ const DEVICE_ONLY = new Set(["history", "visited-before", "welcome-popup"]);
 const MAX_KEYS = 500;
 const MAX_VALUE = 200_000;
 const MAX_SETTINGS_BYTES = 512 * 1024;
-
-// scrypt cost: about 50 ms and 32 MB per hash. Hashing runs off the main thread.
-const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
-
-async function hashPassword(password) {
-  const salt = randomBytes(16);
-  const key = await scrypt(password.normalize("NFKC"), salt, 32, SCRYPT);
-  return `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${salt.toString("base64")}$${key.toString("base64")}`;
-}
-
-async function checkPassword(password, stored) {
-  const [scheme, N, r, p, salt, expected] = String(stored).split("$");
-  if (scheme !== "scrypt") return false;
-  const want = Buffer.from(expected, "base64");
-  const key = await scrypt(password.normalize("NFKC"), Buffer.from(salt, "base64"), want.length, {
-    N: Number(N), r: Number(r), p: Number(p), maxmem: SCRYPT.maxmem,
-  });
-  return key.length === want.length && timingSafeEqual(key, want);
-}
 
 function readCookie(req, name) {
   for (const part of (req.headers.cookie ?? "").split(";")) {
@@ -111,9 +91,11 @@ function unavailable() {
     sessionActive: () => false,
     database: null,
     isAdmin: () => false,
+    serverAdmins: new Set(),
     site: () => ({ mode: "off", signup: "closed", locked: { mode: true, signup: true } }),
     setupCode: null,
     onBan() {},
+    kick() {},
     onSiteChange() {},
     onAvatarChange() {},
     close() {},
@@ -192,7 +174,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     // A banned account has no sessions, and gets none: checked here as well, so a ban
     // made from the command line takes effect even for a session created meanwhile.
     session: db.prepare("SELECT users.*, sessions.expires_at AS session_expires FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ? AND users.banned_at IS NULL"),
-    insertSession: db.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)"),
+    insertSession: db.prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at, ip, user_agent) VALUES (?, ?, ?, ?, ?, ?)"),
     extendSession: db.prepare("UPDATE sessions SET expires_at = ? WHERE token_hash = ?"),
     deleteSession: db.prepare("DELETE FROM sessions WHERE token_hash = ?"),
     deleteOtherSessions: db.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?"),
@@ -231,7 +213,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     const token = randomBytes(32).toString("base64url");
     const now = Date.now();
     sql.deleteExpired.run(now);
-    sql.insertSession.run(sha256(token), userId, now, now + SESSION_DAYS * DAY);
+    sql.insertSession.run(sha256(token), userId, now, now + SESSION_DAYS * DAY, req.ip ?? null, String(req.get("user-agent") ?? "").slice(0, 200) || null);
     setCookie(req, res, token, SESSION_DAYS * DAY);
     return token;
   }
@@ -331,6 +313,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
       return newId;
     });
     setupCode = null;
+    logAdmin(db, username, "setup", username, "created the first admin account");
     startSession(req, res, id);
     res.status(201).json({ user: { username, admin: true }, recoveryCode });
   }));
@@ -510,6 +493,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
       if (req.body?.[key] === undefined || req.body[key] === current[key]) continue;
       if (current.locked[key]) throw new HttpError(409, `${variable} is set on the server, so this is fixed there.`);
       setSiteSetting(db, key, req.body[key], admin.username);
+      logAdmin(db, admin.username, `set ${key}`, null, `${current[key]} -> ${req.body[key]}`);
     }
     siteCache = null;
     const next = site();
@@ -518,14 +502,16 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   }));
 
   router.post("/admin/users/:username/admin", handle((req, res) => {
-    requireAdmin(req);
+    const admin = requireAdmin(req);
     setAdmin(db, req.params.username, true, { serverAdmins });
+    logAdmin(db, admin.username, "made admin", req.params.username);
     res.json({ ok: true });
   }));
 
   router.post("/admin/users/:username/unadmin", handle((req, res) => {
-    requireAdmin(req);
+    const admin = requireAdmin(req);
     setAdmin(db, req.params.username, false, { serverAdmins });
+    logAdmin(db, admin.username, "removed admin", req.params.username);
     res.json({ ok: true });
   }));
 
@@ -539,12 +525,14 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     if (req.params.username.toLowerCase() === admin.username.toLowerCase()) throw new HttpError(400, "You can't ban yourself.");
     const id = setBanned(db, req.params.username, true, { reason: req.body?.reason, admins: serverAdmins });
     for (const listener of banListeners) listener(id);
+    logAdmin(db, admin.username, "banned", req.params.username, String(req.body?.reason ?? "").trim().slice(0, 200) || null);
     res.json({ ok: true });
   }));
 
   router.post("/admin/users/:username/unban", handle((req, res) => {
-    requireAdmin(req);
+    const admin = requireAdmin(req);
     setBanned(db, req.params.username, false);
+    logAdmin(db, admin.username, "unbanned", req.params.username);
     res.json({ ok: true });
   }));
 
@@ -556,12 +544,15 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   router.post("/admin/invites", handle((req, res) => {
     const admin = requireAdmin(req);
     const { label, maxUses, expiresInDays } = req.body ?? {};
-    res.status(201).json(createInvite(db, { label, maxUses, expiresInDays, createdBy: admin.username }));
+    const made = createInvite(db, { label, maxUses, expiresInDays, createdBy: admin.username });
+    logAdmin(db, admin.username, "made invite", `…${made.invite.hint}`, `${made.invite.label || "no label"}, ${made.invite.maxUses} use${made.invite.maxUses === 1 ? "" : "s"}`);
+    res.status(201).json(made);
   }));
 
   router.post("/admin/invites/:id/revoke", handle((req, res) => {
-    requireAdmin(req);
+    const admin = requireAdmin(req);
     revokeInvite(db, req.params.id);
+    logAdmin(db, admin.username, "revoked invite", `#${req.params.id}`);
     res.json({ ok: true });
   }));
 
@@ -599,12 +590,16 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     database: db,
     /** Whether a users row ({ username, is_admin }) is an admin, ADMINS included. */
     isAdmin,
+    /** Names that are admins through ADMINS on the server (lowercase). */
+    serverAdmins,
     /** { mode, signup, locked }: the current site settings. */
     site,
     /** The first-run code for /setup, while nobody can manage the site yet. */
     get setupCode() { return setupCode && needsSetup() ? setupCode : null; },
     /** fn(userId) is called right after someone is banned from the web admin page. */
     onBan: (fn) => banListeners.push(fn),
+    /** Drop a person's live connections (proxy sockets, chat streams) now, as a ban does. */
+    kick: (userId) => { for (const listener of banListeners) listener(userId); },
     /** fn(site) is called after the site settings change in the admin panel. */
     onSiteChange: (fn) => siteListeners.push(fn),
     /** fn(userId) is called after someone sets or removes their profile picture. */
