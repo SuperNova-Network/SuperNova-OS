@@ -945,13 +945,53 @@ function openPopup(errtitle, errStr, icon) {
 // The items at the bottom of the start menu's left rail, found by id (not by their place in the
 // list, so adding one never moves the others). Home shows Power at the very bottom with Settings
 // above it, search hides Power; Chat and the Admin Panel stack above Settings either way.
+var startHome = false;
 function layoutStartRail(home) {
-  var byId = function (id) { return document.getElementById(id); };
-  byId("start-power").style.display = home ? "block" : "none";
-  byId("start-settings").style.bottom = home ? "3.5em" : "0";
-  byId("start-chat").style.bottom = home ? "calc(3.5em + 3.5vw)" : "3.5vw";
-  byId("start-admin").style.bottom = home ? "calc(3.5em + 7vw)" : "7vw";
+  if (home !== undefined) { startHome = home; }
+  // From the bottom up: Power (Home only), Settings, Chat, then the Admin Panel and your profile
+  // when there is one (siteinfo.js turns those on). Every item is one slot tall, with no gaps.
+  var order = ["start-power", "start-settings", "start-chat", "start-admin", "start-profile"];
+  var slot = 0;
+  order.forEach(function (id) {
+    var el = document.getElementById(id);
+    var on = id === "start-power" ? startHome : (id === "start-admin" || id === "start-profile") ? el.getAttribute("data-show") === "1" : true;
+    el.style.display = on ? "block" : "none";
+    if (on) { el.style.bottom = (slot * 3.5) + "vw"; slot++; }
+  });
 }
+
+// Your account, at the top of the start menu's rail: its picture, and a flyout like Windows 10's.
+function hideProfileMenu() {
+  document.getElementById("profilemenu").style.display = "none";
+}
+
+function toggleProfileMenu(evt) {
+  var menu = document.getElementById("profilemenu");
+  if (menu.style.display === "block") { hideProfileMenu(); } else {
+    var rect = document.getElementById("start-profile").getBoundingClientRect();
+    menu.style.left = rect.right + "px";
+    menu.style.bottom = (window.innerHeight - rect.bottom) + "px";
+    menu.style.display = "block";
+  }
+  evt.stopPropagation();
+}
+
+function profileSettings() {
+  hideProfileMenu();
+  hideSearch();
+  openSettings("account");
+}
+
+function profileSignOut() {
+  hideProfileMenu();
+  hideSearch();
+  // The same as Settings > Account > Sign out: this browser's copy of the account's settings is removed.
+  (window.SnAccount ? SnAccount.logout() : Promise.resolve()).then(function () { restart(); });
+}
+
+document.addEventListener("mousedown", function (event) {
+  if (!event.target.closest("#profilemenu, #start-profile")) { hideProfileMenu(); }
+}, true);
 
 function showSearchFull(evt) {
   if (document.getElementById("search").value == "") { document.getElementById("innerbar").innerHTML = document.getElementById("resultsbuffer").innerHTML; }
@@ -1646,6 +1686,7 @@ window.SnOS = {
   openAddApp: openAddAppDialog
 };
 
+layoutStartRail(false);
 newTime();
 setInterval(newTime, 1000);
 setInterval(handleTaskbar, 50);
