@@ -270,7 +270,8 @@
     sort.addEventListener("change", () => { browse.sort = sort.value; load().catch((e) => toast(e.message, "error")); });
     main.replaceChildren(
       h("div", { class: "view-head" }, h("h2", { text: category ? category.label : "App Store" }), h("button", { class: "btn primary", type: "button", text: "Publish an app", onclick: () => editor(null, () => show("mine")) })),
-      !category && h("p", { class: "lead", text: "Apps made by people on this site. Get one and it joins your desktop, and it opens like any other app." }),
+      // (replaceChildren turns a stray false into the text "false", so leave the line out instead of passing false)
+      ...(category ? [] : [h("p", { class: "lead", text: "Apps made by people on this site. Get one and it joins your desktop, and it opens like any other app." })]),
       h("div", { class: "toolbar" }, q, sort),
       grid);
     await load();
