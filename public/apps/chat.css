@@ -602,6 +602,7 @@ textarea.field {
 .composer textarea {
   flex: 1;
   min-width: 0;
+  min-height: 36px;
   max-height: 110px;
   padding: 7px 9px;
   overflow-y: hidden;

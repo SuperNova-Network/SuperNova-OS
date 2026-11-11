@@ -206,6 +206,7 @@
       renderAll();
       renderOnline();
       renderComposerState();
+      autosize(); // now that the chat is showing, so it can be measured
       $("mod-open").hidden = !state.me.admin;
       scrollToEnd();
     });
@@ -468,6 +469,8 @@
   function autosize() {
     text.style.height = "auto";
     const wanted = text.scrollHeight;
+    // Hidden (the chat is still connecting) it measures 0: leave the box at its normal height.
+    if (!wanted) { text.style.height = ""; return; }
     text.style.height = `${Math.min(wanted, MAX_HEIGHT)}px`;
     // A scrollbar only when the text really is taller than the box (some browsers draw
     // one, arrows and all, for a single line otherwise).
