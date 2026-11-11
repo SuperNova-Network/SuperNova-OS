@@ -15,28 +15,22 @@ const ORPHANED_MEDIA = "DELETE FROM chat_media WHERE id NOT IN (SELECT media_ref
 
 // --- settings ----------------------------------------------------------------------
 
-// How admins look in the chat: the tag beside their name, and the sparkle. Set by admins in the Chat's
+// How admins look in the chat: the tag beside their name. Set by admins in the Chat's
 // moderation panel and the same for every admin. Everything is a short fixed choice or a #rrggbb colour,
 // so nothing a page puts on screen from it can be script or markup.
 export const ADMIN_LOOK_DEFAULTS = {
   tag: "ADMIN",             // the text beside the name (1 to 12 characters)
   style: "outline",         // "outline" (a box), "brackets" ([Tag]) or "plain"
   color: "#ff6b78",         // the tag's colour
-  nameColor: "white",       // "white" or "tag" (the same colour as the tag)
+  nameColor: "white",       // "white", "tag" (the same colour as the tag) or a #rrggbb colour
   shield: true,             // the little shield in the tag
-  sparkleName: true,
-  sparkleTag: true,
-  sparkleSize: "medium",    // "small", "medium" or "large"
 };
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const LOOK_CHECKS = {
   style: (v) => v === "outline" || v === "brackets" || v === "plain",
   color: (v) => typeof v === "string" && HEX.test(v),
-  nameColor: (v) => v === "white" || v === "tag",
+  nameColor: (v) => v === "white" || v === "tag" || (typeof v === "string" && HEX.test(v)),
   shield: (v) => typeof v === "boolean",
-  sparkleName: (v) => typeof v === "boolean",
-  sparkleTag: (v) => typeof v === "boolean",
-  sparkleSize: (v) => v === "small" || v === "medium" || v === "large",
 };
 
 /**
@@ -55,7 +49,7 @@ export function cleanAdminLook(input, { strict = false } = {}) {
       if (typeof value === "string" && text) out.tag = text;
       else if (strict) throw new AdminError(400, "The tag needs 1 to 12 characters.");
     } else if (LOOK_CHECKS[key]) {
-      if (LOOK_CHECKS[key](value)) out[key] = key === "color" ? value.toLowerCase() : value;
+      if (LOOK_CHECKS[key](value)) out[key] = key === "color" || (key === "nameColor" && value.startsWith("#")) ? value.toLowerCase() : value;
       else if (strict) throw new AdminError(400, `That isn't a valid value for ${key}.`);
     } else if (strict) {
       throw new AdminError(400, `Unknown admin look setting "${key}".`);

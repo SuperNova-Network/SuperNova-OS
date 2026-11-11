@@ -221,16 +221,12 @@
         <div class="swatches" id="look-swatches"></div>
       </div>
       <div class="two">
-        <label class="field-row"><span>Name colour</span>
-          <select class="field" id="look-namecolor"><option value="white">White</option><option value="tag">Same as the tag</option></select>
-        </label>
-        <label class="field-row"><span>Sparkle size</span>
-          <select class="field" id="look-size"><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select>
-        </label>
+        <div class="field-row"><span>Name colour</span>
+          <div class="swatches"><select class="field" id="look-namecolor" style="width:auto"><option value="white">White</option><option value="tag">Same as the tag</option><option value="custom">Pick a colour</option></select>
+          <input type="color" class="swatch-custom" id="look-name-custom" title="Name colour" aria-label="Name colour" hidden></div>
+        </div>
       </div>
       <label class="check"><input type="checkbox" id="look-shield"> Show the shield in the tag</label>
-      <label class="check"><input type="checkbox" id="look-spark-name"> Sparkle on the name</label>
-      <label class="check"><input type="checkbox" id="look-spark-tag"> Sparkle on the tag</label>
       <p class="status" id="look-status" role="status"></p>
       <div class="row">
         <button class="btn primary" id="look-save" type="button">Save look</button>

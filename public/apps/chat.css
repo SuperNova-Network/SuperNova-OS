@@ -1,7 +1,6 @@
 /*
  * Chat app. Deliberately flat, like the Windows 10 desktop around it: square
- * corners, 1px lines, no shadows, no hover effects, no transitions or animation (the one exception
- * is the sparkle on admins' names and tags, below).
+ * corners, 1px lines, no shadows, no hover effects, no transitions or animation .
  * The accent colour follows the desktop's colour scheme (see theme.js).
  */
 
@@ -207,11 +206,10 @@ textarea.field {
   object-fit: cover;
 }
 
-/* The admin tag beside a name. How it looks (text, box, colour, shield, sparkle) is chosen by admins in the
+/* The admin tag beside a name. How it looks (text, box, colour, shield) is chosen by admins in the
    moderation panel and arrives as attributes on the page: see applyAdminLook() in chat.js. */
 .badge {
   position: relative;
-  isolation: isolate;
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -391,64 +389,18 @@ textarea.field {
   font-weight: 600;
 }
 
-/*
- * Admins: the name and the tag are what stand out, with a sparkle over them (the picture in
- * /resources/media/images/ffffff.gif, tiled over the text at its own size or larger, like a text style). Which of them sparkle, and how big, is the admins' choice.
- */
+/* Admins: the colour of the tag and (if chosen) the name is theirs to pick in the moderation panel. */
 :root,
 .look-preview {
   --admin: #ff6b78;
   --admin-name: #ffffff;
-  --spark-scale: 1.15;  /* the sparkle picture is drawn this many times its own size, smoothly scaled */
-  --spark-pad: 4px;    /* how far the sparkle reaches past the text */
-}
-
-[data-spark-size="small"] {
-  --spark-scale: 1;
-  --spark-pad: 3px;
-}
-
-[data-spark-size="large"] {
-  --spark-scale: 2;
-  --spark-pad: 8px;
 }
 
 .me-name.admin,
 .name.admin,
 .online .who.admin {
-  position: relative;
-  isolation: isolate;
   color: var(--admin-name);
   font-weight: 700;
-}
-
-.me-name.admin::after,
-.name.admin::after,
-.online .who.admin::after,
-.badge::after {
-  content: "";
-  position: absolute;
-  inset: calc(var(--spark-pad) * -1) calc(var(--spark-pad) * -1 - 2px);
-  display: none;
-  background: url("/resources/media/images/ffffff.gif") center / calc(90px * var(--spark-scale)) auto repeat;
-  z-index: -1; /* behind the text (the element isolates its own layers, below) */
-  pointer-events: none;
-}
-
-[data-spark-name="on"] .me-name.admin::after,
-[data-spark-name="on"] .name.admin::after,
-[data-spark-name="on"] .online .who.admin::after,
-[data-spark-tag="on"] .badge::after {
-  display: block;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .me-name.admin::after,
-  .name.admin::after,
-  .online .who.admin::after,
-  .badge::after {
-    display: none !important;
-  }
 }
 
 /* --- The admin look editor (moderation panel) ------------------------------------------------- */

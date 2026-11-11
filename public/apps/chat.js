@@ -101,7 +101,7 @@
   }
 
   const SHIELD = "M12 2 3.5 5.5v6c0 5 3.6 9 8.5 10.5 4.9-1.5 8.5-5.5 8.5-10.5v-6z";
-  const DEFAULT_LOOK = { tag: "ADMIN", style: "outline", color: "#ff6b78", nameColor: "white", shield: true, sparkleName: true, sparkleTag: true, sparkleSize: "medium" };
+  const DEFAULT_LOOK = { tag: "ADMIN", style: "outline", color: "#ff6b78", nameColor: "white", shield: true };
 
   /**
    * Show a look (the admins' choice, kept on the server) on the page, or on one element of it (the preview).
@@ -110,12 +110,9 @@
   function applyAdminLook(look = DEFAULT_LOOK, target = document.documentElement) {
     const on = (value) => (value ? "on" : "off");
     target.style.setProperty("--admin", look.color);
-    target.style.setProperty("--admin-name", look.nameColor === "tag" ? look.color : "#ffffff");
+    target.style.setProperty("--admin-name", look.nameColor === "tag" ? look.color : look.nameColor.startsWith("#") ? look.nameColor : "#ffffff");
     target.dataset.tagStyle = look.style;
     target.dataset.shield = on(look.shield);
-    target.dataset.sparkName = on(look.sparkleName);
-    target.dataset.sparkTag = on(look.sparkleTag);
-    target.dataset.sparkSize = look.sparkleSize;
     for (const text of target.querySelectorAll(".badge-text")) text.textContent = look.tag;
   }
 
@@ -891,16 +888,14 @@
     applyAdminLook(look, preview);
     for (const swatch of $("look-swatches").querySelectorAll(".swatch")) swatch.setAttribute("aria-pressed", String(swatch.dataset.color === look.color));
     $("look-color-custom").value = look.color;
+    $("look-name-custom").hidden = $("look-namecolor").value !== "custom";
   }
 
   function readLook() {
     look.tag = $("look-tag").value.replace(/\s+/g, " ").trim().slice(0, 12) || look.tag;
     look.style = $("look-style").value;
-    look.nameColor = $("look-namecolor").value;
-    look.sparkleSize = $("look-size").value;
+    look.nameColor = $("look-namecolor").value === "custom" ? $("look-name-custom").value : $("look-namecolor").value;
     look.shield = $("look-shield").checked;
-    look.sparkleName = $("look-spark-name").checked;
-    look.sparkleTag = $("look-spark-tag").checked;
     paintLook();
   }
 
@@ -908,11 +903,9 @@
     Object.assign(look, DEFAULT_LOOK, saved);
     $("look-tag").value = look.tag;
     $("look-style").value = look.style;
-    $("look-namecolor").value = look.nameColor;
-    $("look-size").value = look.sparkleSize;
+    $("look-namecolor").value = look.nameColor.startsWith("#") ? "custom" : look.nameColor;
+    if (look.nameColor.startsWith("#")) $("look-name-custom").value = look.nameColor;
     $("look-shield").checked = look.shield;
-    $("look-spark-name").checked = look.sparkleName;
-    $("look-spark-tag").checked = look.sparkleTag;
     paintLook();
   }
 
@@ -935,9 +928,10 @@
     custom.setAttribute("aria-label", "Pick any colour");
     custom.addEventListener("input", () => { look.color = custom.value; paintLook(); });
     box.append(custom);
-    for (const id of ["look-tag", "look-style", "look-namecolor", "look-size", "look-shield", "look-spark-name", "look-spark-tag"]) {
+    for (const id of ["look-tag", "look-style", "look-namecolor", "look-shield"]) {
       $(id).addEventListener(id === "look-tag" ? "input" : "change", readLook);
     }
+    $("look-name-custom").addEventListener("input", readLook);
   }
 
   async function loadLook() {

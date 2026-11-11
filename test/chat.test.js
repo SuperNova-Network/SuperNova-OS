@@ -589,14 +589,14 @@ test("a cross-site request can't post", options, async () => {
 
 test("admins choose how admins look, and everyone gets it with the settings", options, async () => {
   const gus = await person();
-  const mine = { tag: "  Elite  ", style: "brackets", color: "#AA33CC", nameColor: "tag", shield: false, sparkleName: false, sparkleTag: true, sparkleSize: "large" };
+  const mine = { tag: "  Elite  ", style: "brackets", color: "#AA33CC", nameColor: "#33CCAA", shield: false };
   assert.equal((await gus.post("/api/chat/admin/settings", { adminLook: mine })).status, 403, "only admins");
   const defaults = (await gus.get("/api/chat/messages")).status; // anyone signed in can read the chat
   assert.equal(defaults, 200);
   try {
     assert.equal((await boss.post("/api/chat/admin/settings", { adminLook: mine })).status, 200);
     const saved = (await boss.get("/api/chat/admin/settings")).data.settings.adminLook;
-    assert.deepEqual(saved, { tag: "Elite", style: "brackets", color: "#aa33cc", nameColor: "tag", shield: false, sparkleName: false, sparkleTag: true, sparkleSize: "large" });
+    assert.deepEqual(saved, { tag: "Elite", style: "brackets", color: "#aa33cc", nameColor: "#33ccaa", shield: false });
     const ready = await new Promise((resolve, reject) => {
       const controller = new AbortController();
       fetch(server.url + "/api/chat/stream", { headers: { cookie: gus.cookie, "x-forwarded-for": "192.0.2.250" }, signal: controller.signal }).then(async (res) => {
@@ -609,11 +609,11 @@ test("admins choose how admins look, and everyone gets it with the settings", op
   } finally {
     await boss.post("/api/chat/admin/settings", { adminLook: {} });
   }
-  assert.deepEqual((await boss.get("/api/chat/admin/settings")).data.settings.adminLook, { tag: "ADMIN", style: "outline", color: "#ff6b78", nameColor: "white", shield: true, sparkleName: true, sparkleTag: true, sparkleSize: "medium" }, "an empty look is the default one");
+  assert.deepEqual((await boss.get("/api/chat/admin/settings")).data.settings.adminLook, { tag: "ADMIN", style: "outline", color: "#ff6b78", nameColor: "white", shield: true }, "an empty look is the default one");
 });
 
 test("an admin look with anything unexpected in it is refused", options, async () => {
-  for (const bad of [{ color: "red" }, { color: "#fff" }, { color: "url(javascript:1)" }, { style: "glow" }, { tag: "" }, { tag: 42 }, { sparkleSize: "huge" }, { shield: "yes" }, { sneaky: true }, "ADMIN", [], null]) {
+  for (const bad of [{ color: "red" }, { color: "#fff" }, { color: "url(javascript:1)" }, { style: "glow" }, { tag: "" }, { tag: 42 }, { nameColor: "blue" }, { shield: "yes" }, { sneaky: true }, "ADMIN", [], null]) {
     assert.equal((await boss.post("/api/chat/admin/settings", { adminLook: bad })).status, 400, JSON.stringify(bad));
   }
   const tall = (await boss.post("/api/chat/admin/settings", { adminLook: { tag: "<b>way too long for a tag</b>" } }));
