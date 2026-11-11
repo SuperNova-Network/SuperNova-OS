@@ -1071,7 +1071,7 @@ kw {
 }
 
 #wifi path {
-  stroke-width: 10;
+  stroke-width: 13;
 }
 
 #wifi[level="2"] path[greyout*="2"],
@@ -1982,3 +1982,17 @@ div[data-title]:hover:before {
 #healthmenu .hm-button:hover {
   background: #414141;
 }
+
+/* The network icon is a speedometer: the needle swings with how well things work (health.js sets the level). */
+#wifi .needle {
+  stroke: #fff;
+  stroke-width: 12;
+  stroke-linecap: round;
+  transform-origin: 45px 68px;
+  transition: transform 0.4s;
+}
+
+#wifi[level="3"] .needle { transform: rotate(70deg); }
+#wifi[level="2"] .needle { transform: rotate(25deg); }
+#wifi[level="1"] .needle { transform: rotate(-25deg); }
+#wifi[level="0"] .needle { transform: rotate(-70deg); }

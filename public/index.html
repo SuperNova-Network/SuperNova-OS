@@ -243,10 +243,11 @@
       </div>
       <div id="wifi" level="3" onclick="SnHealth.toggle(event)" title="Checking…">
         <svg viewBox="0 0 90 90" height="90" width="90">
-          <path d="M5 85 A80 80 0 0 1 85 5" fill="none" greyout="012"></path>
-          <path d="M25 85 A60 60 0 0 1 85 25" fill="none" greyout="01"></path>
-          <path d="M45 85 A40 40 0 0 1 85 45" fill="none" greyout="0"></path>
-          <circle cx="75" cy="75" r="10" stroke="none"></circle>
+          <path d="M5 68 A40 40 0 0 1 25 33.4" fill="none" greyout="0"></path>
+          <path d="M25 33.4 A40 40 0 0 1 65 33.4" fill="none" greyout="01"></path>
+          <path d="M65 33.4 A40 40 0 0 1 85 68" fill="none" greyout="012"></path>
+          <line class="needle" x1="45" y1="68" x2="45" y2="34" fill="none"></line>
+          <circle cx="45" cy="68" r="11" stroke="none"></circle>
         </svg>
       </div>
       <div id="time" onclick="toggleClock()">22:20<br>2016-10-07</div>
