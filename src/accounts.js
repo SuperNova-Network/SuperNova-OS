@@ -20,6 +20,7 @@ import {
   AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, newInviteCode, newRecoveryCode,
   getAvatar, normalizeCode, openDatabase, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
 } from "./accountsdb.js";
+import { HttpError, guardWrites } from "./http.js";
 import { imageInfo } from "./imageinfo.js";
 
 const scrypt = promisify(scryptCb);
@@ -69,14 +70,6 @@ function readCookie(req, name) {
     if (index !== -1 && part.slice(0, index).trim() === name) return decodeURIComponent(part.slice(index + 1).trim());
   }
   return null;
-}
-
-class HttpError extends Error {
-  constructor(status, message, extra = {}) {
-    super(message);
-    this.status = status;
-    this.extra = extra;
-  }
 }
 
 /** Validate a settings change ({ set, remove }) and apply it to `current`. */
@@ -289,19 +282,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   const router = express.Router();
   router.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 
-  // Changes must come from this site's own pages: the cookie is SameSite=Strict and
-  // bodies must be JSON, and a cross-site Origin is refused outright.
-  router.use((req, _res, next) => {
-    if (req.method === "GET" || req.method === "HEAD") return next();
-    const origin = req.get("origin");
-    if (origin) {
-      let host = null;
-      try { host = new URL(origin).host; } catch { /* "null" or garbage */ }
-      if (host !== req.get("host")) return next(new HttpError(403, "Cross-site requests are not allowed."));
-    }
-    if (!req.is("application/json")) return next(new HttpError(415, "Send JSON."));
-    next();
-  });
+  router.use(guardWrites());
   router.use(express.json({ limit: "640kb" }));
 
   // Async handlers: errors go to the error handler below.
