@@ -752,6 +752,37 @@
   };
 
   // ---------------------------------------------------------------------------------------
+  // Reveal highlight, like Settings: borders and surfaces glow near the pointer
+  // ---------------------------------------------------------------------------------------
+
+  {
+    const REVEAL = ".nav-item, .tile, .card, .btn, .tab, .radios label";
+    const REACH = 150; // px beyond an element's edge where its light still shows
+    const mark = () => document.querySelectorAll(REVEAL).forEach((el) => el.classList.add("reveal"));
+    mark();
+    let pointer = null, frame = 0;
+    const paint = () => {
+      frame = 0;
+      for (const el of document.querySelectorAll(".reveal")) {
+        if (!pointer) { el.style.setProperty("--ro", "0"); continue; }
+        const rect = el.getBoundingClientRect();
+        const dx = Math.max(rect.left - pointer.x, 0, pointer.x - rect.right);
+        const dy = Math.max(rect.top - pointer.y, 0, pointer.y - rect.bottom);
+        const strength = Math.max(0, 1 - Math.hypot(dx, dy) / REACH);
+        el.style.setProperty("--ro", strength.toFixed(2));
+        if (strength > 0) {
+          el.style.setProperty("--rx", `${pointer.x - rect.left}px`);
+          el.style.setProperty("--ry", `${pointer.y - rect.top}px`);
+        }
+      }
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(paint); };
+    document.addEventListener("pointermove", (event) => { pointer = { x: event.clientX, y: event.clientY }; schedule(); }, { passive: true });
+    document.addEventListener("pointerleave", () => { pointer = null; schedule(); });
+    new MutationObserver(mark).observe(document.body, { childList: true, subtree: true });
+  }
+
+  // ---------------------------------------------------------------------------------------
   // Start
   // ---------------------------------------------------------------------------------------
 
