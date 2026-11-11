@@ -2356,11 +2356,7 @@ function apiToHttps(url) {
 
 //loadFiles("https://api.github.com/repos/PicturElements/picturelements.github.io/contents");
 
-function randWifi() {
-  document.getElementById("wifi").setAttribute("level", Math.floor(Math.random() * 4));
-}
-
-setInterval(randWifi, 3000);
+// The network icon is driven by health.js (it shows whether the server and the proxy really work).
 
 function setIcon(obj, elem) {
   if (obj.letter != undefined) {

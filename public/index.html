@@ -157,6 +157,15 @@
     <div class="pm-item" onclick="profileLock()">Lock</div>
     <div class="pm-item" onclick="profileSignOut()">Sign out</div>
   </div>
+  <div id="healthmenu" style="display:none" onmousedown="event.stopPropagation()">
+    <div class="hm-title">SuperNova status</div>
+    <div id="hm-rows"></div>
+    <div class="hm-foot"><span id="hm-when"></span></div>
+    <div class="hm-buttons">
+      <div class="hm-button" onclick="SnHealth.again()">Check again</div>
+      <div class="hm-button" onclick="SnHealth.full()">Run a full test</div>
+    </div>
+  </div>
   <div id="clockbar" class="specColor" style="display:none;">
     <p id="clocklbl"></p>
     <table id="calendar">
@@ -210,6 +219,7 @@
     <script src="./resources/scripts/notify.js"></script>
     <script src="./resources/scripts/chatwatch.js"></script>
     <script src="./resources/scripts/siteinfo.js"></script>
+    <script src="./resources/scripts/health.js"></script>
 
     <div id="infocorner">
       <div id="batterywrapper">
@@ -221,7 +231,7 @@
           </svg>
         </div>
       </div>
-      <div id="wifi" level="2">
+      <div id="wifi" level="3" onclick="SnHealth.toggle(event)" title="Checking…">
         <svg viewBox="0 0 90 90" height="90" width="90">
           <path d="M5 85 A80 80 0 0 1 85 5" fill="none" greyout="012"></path>
           <path d="M25 85 A60 60 0 0 1 85 25" fill="none" greyout="01"></path>
