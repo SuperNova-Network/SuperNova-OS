@@ -37,6 +37,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/><path d="m4 4 16 16"/></svg>
       <span>Cloaking</span>
     </button>
+    <button class="nav-item" role="tab" data-panel="notifications" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4z"/><path d="M10 21h4"/></svg>
+      <span>Notifications</span>
+    </button>
     <button class="nav-item" role="tab" data-panel="appearance" type="button">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21c-1.5 0-2-1.2-1.4-2.4.5-1 .2-2.1-.8-2.6"/></svg>
       <span>Appearance</span>
@@ -63,6 +67,10 @@
         <button class="home-tile" type="button" data-go="cloaking">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/><path d="m4 4 16 16"/></svg>
           <span><strong>Cloaking</strong><small>Tab disguise, panic key, about:blank</small></span>
+        </button>
+        <button class="home-tile" type="button" data-go="notifications">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4z"/><path d="M10 21h4"/></svg>
+          <span><strong>Notifications</strong><small>Pop-ups, sounds, do not disturb</small></span>
         </button>
         <button class="home-tile" type="button" data-go="appearance">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21c-1.5 0-2-1.2-1.4-2.4.5-1 .2-2.1-.8-2.6"/></svg>
@@ -464,6 +472,107 @@
       </div>
     </section>
 
+    <!-- ===================== NOTIFICATIONS ===================== -->
+    <section class="panel" id="panel-notifications" role="tabpanel" hidden>
+      <header class="panel-head">
+        <h2>Notifications</h2>
+        <p>Small pop-ups at the corner of the desktop, like Windows 10's. Choose who may send them and how they look.</p>
+      </header>
+
+      <div class="group">
+        <h3>Notifications</h3>
+        <label class="row" for="n-enabled">
+          <span class="row-label"><strong>Get notifications from apps and other senders</strong><small>Turn this off to stop every pop-up.</small></span>
+          <input class="switch" id="n-enabled" type="checkbox" role="switch" data-flag="notifyEnabled">
+        </label>
+        <label class="row" for="n-dnd">
+          <span class="row-label"><strong>Do not disturb</strong><small>Hide pop-ups and sounds for now. Turn it off to get them again.</small></span>
+          <input class="switch" id="n-dnd" type="checkbox" role="switch" data-flag="notifyDnd">
+        </label>
+      </div>
+
+      <div class="group">
+        <h3>Get notifications from these senders</h3>
+        <label class="row" for="n-chat">
+          <span class="row-label"><strong>Messaging app</strong><small>New messages in the Chat, with the sender's picture and what they said. Off until you turn it on. You can also turn it on in the Chat's own settings.</small></span>
+          <input class="switch" id="n-chat" type="checkbox" role="switch" data-flag="notifyChat">
+        </label>
+      </div>
+
+      <div class="group">
+        <h3>Style</h3>
+        <p class="hint">What the pop-ups look like. They are flat and small, like the real thing.</p>
+        <div class="choices" role="radiogroup" aria-label="Notification theme" data-radio="notifyTheme">
+          <label class="choice">
+            <input type="radio" name="notifyTheme" value="dark">
+            <span class="choice-body"><strong>Dark</strong><small>Dark grey with white text, the Windows 10 default.</small></span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="notifyTheme" value="light">
+            <span class="choice-body"><strong>Light</strong><small>Light grey with dark text.</small></span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="notifyTheme" value="accent">
+            <span class="choice-body"><strong>Match my colour scheme</strong><small>Uses the colour chosen in Personalization.</small></span>
+          </label>
+        </div>
+        <label class="row" for="n-size">
+          <span class="row-label"><strong>Size</strong><small>Small fits in a corner; Standard is as big as Windows' own.</small></span>
+          <select class="field narrow" id="n-size" data-setting="notifySize">
+            <option value="small">Small</option>
+            <option value="standard">Standard</option>
+          </select>
+        </label>
+        <label class="row" for="n-position">
+          <span class="row-label"><strong>Where they appear</strong><small>Notifications pile up from this corner and never reach higher than three quarters of the way up the lower half of the screen; the oldest fade away.</small></span>
+          <select class="field narrow" id="n-position" data-setting="notifyPosition">
+            <option value="bottom-right">Bottom right</option>
+            <option value="bottom-left">Bottom left</option>
+            <option value="top-right">Top right</option>
+            <option value="top-left">Top left</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="group">
+        <h3>What they show</h3>
+        <label class="row" for="n-banners">
+          <span class="row-label"><strong>Show notification banners</strong><small>With this off a notification only plays its sound.</small></span>
+          <input class="switch" id="n-banners" type="checkbox" role="switch" data-flag="notifyBanners">
+        </label>
+        <label class="row" for="n-pictures">
+          <span class="row-label"><strong>Show profile pictures</strong><small>The sender's picture, or their initial if they have none.</small></span>
+          <input class="switch" id="n-pictures" type="checkbox" role="switch" data-flag="notifyPictures">
+        </label>
+        <label class="row" for="n-preview">
+          <span class="row-label"><strong>Show message previews</strong><small>With this off a notification says who sent a message but not what it says.</small></span>
+          <input class="switch" id="n-preview" type="checkbox" role="switch" data-flag="notifyPreview">
+        </label>
+        <label class="row" for="n-sound">
+          <span class="row-label"><strong>Play a sound when a notification arrives</strong></span>
+          <input class="switch" id="n-sound" type="checkbox" role="switch" data-flag="notifySound">
+        </label>
+        <label class="row" for="n-duration">
+          <span class="row-label"><strong>Show notifications for</strong><small>How long each one stays before it fades away.</small></span>
+          <select class="field narrow" id="n-duration" data-setting="notifyDuration">
+            <option value="5">5 seconds</option>
+            <option value="7">7 seconds</option>
+            <option value="15">15 seconds</option>
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+            <option value="300">5 minutes</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="group" id="notify-try">
+        <h3>Try it</h3>
+        <p class="hint">Shows a sample notification with the settings above.</p>
+        <div class="buttons"><button class="btn btn-primary" id="notify-test" type="button">Send a test notification</button></div>
+        <small class="status" id="notify-status" role="status"></small>
+      </div>
+    </section>
+
     <!-- ===================== APPEARANCE ===================== -->
     <section class="panel" id="panel-appearance" role="tabpanel" hidden>
       <header class="panel-head">
@@ -576,6 +685,7 @@
   <script src="/proxy/resolve.js"></script>
   <script src="/proxy/core.js"></script>
   <script src="/resources/scripts/theme.js"></script>
+  <script src="/resources/scripts/notify-core.js"></script>
   <script src="/resources/scripts/cloak.js"></script>
   <script src="/apps/settings.js"></script>
 </body>

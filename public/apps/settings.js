@@ -90,6 +90,15 @@
     SnStore.onChange((changedKey) => { if (changedKey === key || changedKey === "*") sync(); });
   });
 
+  // Drop-downs bound straight to a setting, like the notification ones.
+  document.querySelectorAll("select[data-setting]").forEach((select) => {
+    const key = select.dataset.setting;
+    const sync = () => { select.value = SnStore.get(key); };
+    sync();
+    select.addEventListener("change", () => SnStore.set(key, select.value));
+    SnStore.onChange((changedKey) => { if (changedKey === key || changedKey === "*") sync(); });
+  });
+
   // --- proxy: wisp, search ----------------------------------------------------------------
 
   const wisp = $("wisp");
@@ -425,6 +434,18 @@
       zone.value = state.timezone;
     }
     syncDesktop();
+  }
+
+  // --- notifications ---------------------------------------------------------------------------------
+
+  {
+    // The pop-ups are shown by the desktop around this window; opened on its own, there is nothing to preview with.
+    const notifier = (() => { try { return window.parent !== window ? window.parent.SnNotify ?? null : null; } catch { return null; } })();
+    if (!notifier) $("notify-try").hidden = true;
+    $("notify-test").addEventListener("click", () => {
+      const shown = notifier?.test();
+      status($("notify-status"), shown ? "" : "Nothing was shown, because notifications are off or Do not disturb is on.", shown ? "" : "error");
+    });
   }
 
   // --- account ------------------------------------------------------------------------------------
