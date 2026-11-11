@@ -1,0 +1,182 @@
+/*
+ * Notification pop-ups ("toasts"), styled after Windows 10's: small, flat, square
+ * corners, an app name line on top, then a title and the text. They stack at a corner
+ * of the screen (see notify.js); the oldest fade away when the stack gets too tall.
+ * The only motion is the short slide-in and the fade-out, and not at all for people
+ * who ask their system for less motion.
+ */
+
+#sn-toasts {
+  position: fixed;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+#sn-toasts[data-pos^="bottom"] {
+  justify-content: flex-end;
+}
+
+.sn-toast {
+  --sn-bg: #1f1f1f;
+  --sn-fg: #ffffff;
+  --sn-dim: #b9b9b9;
+  --sn-line: #3d3d3d;
+  box-sizing: border-box;
+  width: 262px;
+  padding: 8px 10px 9px;
+  border: 1px solid var(--sn-line);
+  background: var(--sn-bg);
+  color: var(--sn-fg);
+  font: 12px/1.35 "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  text-align: left;
+  cursor: default;
+  pointer-events: auto;
+  animation: sn-toast-in 180ms ease-out;
+}
+
+#sn-toasts[data-size="standard"] .sn-toast {
+  width: 364px;
+  padding: 11px 13px 12px;
+  font-size: 14px;
+}
+
+.sn-toast[data-theme="light"] {
+  --sn-bg: #f2f2f2;
+  --sn-fg: #111111;
+  --sn-dim: #5b5b5b;
+  --sn-line: #c9c9c9;
+}
+
+.sn-toast[data-theme="accent"] {
+  --sn-bg: var(--sn-accent, #6b5cff);
+  --sn-fg: #ffffff;
+  --sn-dim: rgb(255 255 255 / 80%);
+  --sn-line: rgb(255 255 255 / 30%);
+}
+
+.sn-toast[data-leaving] {
+  opacity: 0;
+  transition: opacity 300ms linear;
+  pointer-events: none;
+}
+
+.sn-toast-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sn-dim);
+  font-size: 11px;
+}
+
+#sn-toasts[data-size="standard"] .sn-toast-head {
+  font-size: 12px;
+}
+
+.sn-toast-head svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.sn-toast-close {
+  margin: -3px -4px -3px auto;
+  padding: 2px 5px;
+  border: 0;
+  background: transparent;
+  color: var(--sn-dim);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sn-toast-body {
+  display: flex;
+  gap: 9px;
+  margin-top: 6px;
+}
+
+.sn-toast-pic {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #666;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#sn-toasts[data-size="standard"] .sn-toast-pic {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+}
+
+.sn-toast-pic img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sn-toast-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sn-toast-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.sn-toast-msg {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--sn-dim);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.sn-toast[data-theme="light"] .sn-toast-msg {
+  color: #333;
+}
+
+@keyframes sn-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--sn-from, 28px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+#sn-toasts[data-pos$="left"] .sn-toast {
+  --sn-from: -28px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-toast {
+    animation: none;
+  }
+  .sn-toast[data-leaving] {
+    transition: none;
+  }
+}
