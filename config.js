@@ -83,6 +83,16 @@ export default {
     dataDir: env.DATA_DIR || "data",
   },
 
+  // The live chat needs accounts. GIF search is optional: with a GIPHY API key
+  // (free at developers.giphy.com) the chat gets a GIF picker; without one, people
+  // can still upload GIFs. The two URLs are only for pointing tests at a stand-in.
+  //   GIPHY_API_KEY    the key
+  chat: {
+    giphyKey: env.GIPHY_API_KEY || "",
+    giphyApiUrl: env.GIPHY_API_URL || "",
+    giphyMediaUrl: env.GIPHY_MEDIA_URL || "",
+  },
+
   // URL prefixes the service worker intercepts. Both must start and end with "/".
   prefixes: {
     uv: "/service/",

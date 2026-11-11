@@ -17,11 +17,24 @@ import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import config from "./config.js";
 import { createPolicy } from "./src/policy.js";
 import { createAccounts } from "./src/accounts.js";
+import { createChat, disabledChat } from "./src/chat.js";
 
 const publicPath = fileURLToPath(new URL("./public/", import.meta.url));
 const { prefixes, wispPath } = config;
 const policy = createPolicy(config.filter);
 const accounts = await createAccounts({ ...config.accounts, authPass: config.auth.pass });
+const chat = accounts.database
+  ? createChat({
+    db: accounts.database,
+    site: accounts.site,
+    userFor: accounts.userFor,
+    isAdmin: accounts.isAdmin,
+    sessionActive: accounts.sessionActive,
+    onBan: accounts.onBan,
+    onSiteChange: accounts.onSiteChange,
+    giphy: { key: config.chat.giphyKey, apiUrl: config.chat.giphyApiUrl, mediaUrl: config.chat.giphyMediaUrl },
+  })
+  : disabledChat();
 
 // Accounts can be switched off, optional or required at any time in Settings > Admin,
 // so these are asked per request. When sign-in is required, the account sign-in
@@ -89,6 +102,7 @@ if (config.auth.pass) {
 }
 
 app.use("/api/account", accounts.router);
+app.use("/api/chat", chat.router);
 
 app.get("/api/info", (_req, res) => {
   res.set("Cache-Control", "no-cache").json({ ...info, accounts: accounts.site().mode });
@@ -347,6 +361,7 @@ function shutdown(signal) {
   const force = setTimeout(() => process.exit(1), 5000);
   force.unref();
 
+  chat.close(); // ends the live streams, or server.close() would wait for them
   server.close(() => { accounts.close(); process.exit(0); });
   server.closeAllConnections?.();
 }

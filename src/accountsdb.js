@@ -103,6 +103,54 @@ const MIGRATIONS = [
       );
     `);
   },
+  // 5: the live chat (see chatdb.js). Messages and sanctions belong to the account and
+  // go with it when it is deleted.
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL DEFAULT '',
+      media_kind TEXT,
+      media_ref TEXT,
+      created_at INTEGER NOT NULL,
+      deleted_at INTEGER,
+      deleted_by TEXT
+    );
+    CREATE INDEX IF NOT EXISTS chat_messages_user ON chat_messages(user_id, created_at);
+    CREATE TABLE IF NOT EXISTS chat_media (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      mime TEXT NOT NULL,
+      data BLOB NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS chat_sanctions (
+      id INTEGER PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('timeout', 'ban')),
+      reason TEXT,
+      created_by TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER,
+      lifted_at INTEGER,
+      lifted_by TEXT
+    );
+    CREATE INDEX IF NOT EXISTS chat_sanctions_user ON chat_sanctions(user_id);
+    CREATE TABLE IF NOT EXISTS chat_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      updated_by TEXT
+    );
+    CREATE TABLE IF NOT EXISTS chat_log (
+      id INTEGER PRIMARY KEY,
+      at INTEGER NOT NULL,
+      actor TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target TEXT,
+      detail TEXT
+    );
+  `),
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */
