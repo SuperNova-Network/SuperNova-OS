@@ -46,14 +46,20 @@
   }
 
   // What the desktop and its open windows downloaded since the last look (each window keeps its own list of loads).
+  // Windows inside windows count too: the browser app's page, and the site inside it.
   var seen = new WeakMap();
-  function pageBytes() {
-    var total = 0;
-    var windows = [global];
-    var frames = document.querySelectorAll("iframe");
+  function allWindows(win, found, depth) {
+    found.push(win);
+    if (depth > 4) return;
+    var frames;
+    try { frames = win.document.querySelectorAll("iframe"); } catch (e) { return; }
     for (var i = 0; i < frames.length; i++) {
-      try { if (frames[i].contentWindow && frames[i].contentWindow.performance) windows.push(frames[i].contentWindow); } catch (e) { /* another site: can't be read */ }
+      try { if (frames[i].contentWindow && frames[i].contentWindow.document) allWindows(frames[i].contentWindow, found, depth + 1); } catch (e) { /* another site: can't be read */ }
     }
+  }
+  function pageBytes() {
+    var total = 0, windows = [];
+    allWindows(global, windows, 0);
     windows.forEach(function (w) {
       try {
         var entries = w.performance.getEntriesByType("resource");
@@ -65,20 +71,25 @@
     return total;
   }
 
+  // The server's totals may be unavailable (an old server without /api/traffic): the page's own loads still show.
   function sample() {
     if (document.hidden) { last = null; return; }
-    fetch("/api/traffic", { credentials: "same-origin", cache: "no-store" }).then(function (res) { return res.ok ? res.json() : null; }).then(function (now) {
-      if (!now) return;
-      var loaded = pageBytes();
-      if (last && now.at > last.at) {
-        var seconds = (now.at - last.at) / 1000;
-        down.push(Math.max(0, (now.down - last.down + loaded) / seconds)); up.push(Math.max(0, (now.up - last.up) / seconds));
-        down.shift(); up.shift();
-        if (canvas) canvas.title = "Proxy traffic\nDownload " + format(down[POINTS - 1]) + "\nUpload " + format(up[POINTS - 1]);
-        draw();
-      }
-      last = now;
-    }).catch(function () { last = null; });
+    fetch("/api/traffic", { credentials: "same-origin", cache: "no-store" })
+      .then(function (res) { return res.ok ? res.json() : null; }, function () { return null; })
+      .then(function (now) {
+        var loaded = pageBytes();
+        var at = Date.now();
+        var totals = now || (last ? { down: last.down, up: last.up } : { down: 0, up: 0 });
+        if (last) {
+          var seconds = Math.max(0.5, (at - last.at) / 1000);
+          down.push(Math.max(0, (totals.down - last.down + loaded) / seconds));
+          up.push(Math.max(0, (totals.up - last.up) / seconds));
+          down.shift(); up.shift();
+          if (canvas) canvas.title = "Proxy traffic\nDownload " + format(down[POINTS - 1]) + "\nUpload " + format(up[POINTS - 1]);
+          draw();
+        }
+        last = { down: totals.down, up: totals.up, at: at };
+      });
   }
 
   global.SnNet = { rates: function () { return { down: down[POINTS - 1], up: up[POINTS - 1] }; }, format: format };
