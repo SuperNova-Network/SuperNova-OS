@@ -168,6 +168,15 @@
               <div class="hint" id="account-sync">Your settings are saved to your account.</div>
             </div>
           </div>
+          <div class="row">
+            <span class="row-label"><strong>Profile picture</strong><small>Shown beside your name in the Chat. It is shrunk to fit and saved to your account, so it follows you to any browser.</small></span>
+            <span class="inline">
+              <label class="btn" for="avatar-file">Choose a picture</label>
+              <input class="visually-hidden" id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Choose a profile picture">
+              <button class="btn btn-ghost" id="avatar-remove" type="button">Remove</button>
+            </span>
+          </div>
+          <small class="status" id="avatar-status" role="status"></small>
           <p class="hint">Saved to your account: desktop apps and names, wallpaper and colours, bookmarks, and proxy, search and cloaking preferences. Browsing history stays in this browser.</p>
           <div class="row">
             <span class="row-label"><strong>Sign out</strong><small id="logout-hint">Removes your settings from this browser. They stay in your account.</small></span>

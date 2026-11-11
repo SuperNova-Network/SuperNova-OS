@@ -451,11 +451,51 @@
         if (requestedPanel === "admin") showPanel("admin");
       }
       text($("account-name"), user.username);
-      text($("account-avatar"), user.username.charAt(0).toUpperCase());
+      paintAvatar(user.username, user.avatar);
+      $("avatar-remove").disabled = !user.avatar;
       text($("account-tile"), `Signed in as ${user.username}`);
       status($("account-status"), "");
       show("in");
     }
+
+    /** The picture (or, without one, the initial on the accent colour) in the account card. */
+    function paintAvatar(username, version) {
+      const box = $("account-avatar");
+      const letter = () => text(box, username.charAt(0).toUpperCase());
+      const url = SnAccount.avatarUrl(username, version);
+      if (!url) return letter();
+      const img = document.createElement("img");
+      img.alt = "";
+      img.addEventListener("error", letter, { once: true });
+      img.src = url;
+      box.replaceChildren(img);
+    }
+
+    $("avatar-file").addEventListener("change", async () => {
+      const file = $("avatar-file").files[0];
+      $("avatar-file").value = "";
+      if (!file) return;
+      status($("avatar-status"), "Saving your picture…");
+      try {
+        const version = await SnAccount.uploadAvatar(file);
+        paintAvatar($("account-name").textContent, version);
+        $("avatar-remove").disabled = false;
+        status($("avatar-status"), "Your picture is saved. It shows in the Chat right away.", "ok");
+      } catch (err) {
+        status($("avatar-status"), err.message, "error");
+      }
+    });
+
+    $("avatar-remove").addEventListener("click", async () => {
+      try {
+        await SnAccount.removeAvatar();
+        paintAvatar($("account-name").textContent, 0);
+        $("avatar-remove").disabled = true;
+        status($("avatar-status"), "Your picture was removed.", "ok");
+      } catch (err) {
+        status($("avatar-status"), err.message, "error");
+      }
+    });
 
     function signedOutView(state) {
       $("nav-admin").hidden = true;

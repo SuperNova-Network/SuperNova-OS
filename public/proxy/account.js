@@ -278,6 +278,63 @@
     });
   }
 
+  var AVATAR_SIZE = 256;           // pixels: pictures are small, so they load quickly everywhere
+  var AVATAR_MAX_BYTES = 100 * 1024; // the server allows 120 KB
+
+  function readAsBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error("That file could not be read.")); };
+      reader.onload = function () { resolve(String(reader.result).split(",")[1] || ""); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  /** The first of these (type, quality) encodings of the canvas that is small enough, or null. */
+  function encodeSmall(canvas, attempts) {
+    if (!attempts.length) return Promise.resolve(null);
+    return new Promise(function (resolve) { canvas.toBlob(resolve, attempts[0][0], attempts[0][1]); }).then(function (blob) {
+      return blob && blob.type === attempts[0][0] && blob.size <= AVATAR_MAX_BYTES ? blob : encodeSmall(canvas, attempts.slice(1));
+    });
+  }
+
+  /**
+   * Crop a picture file to a square, shrink it and re-encode it (WebP, or JPEG where
+   * that is not available), so what is uploaded is small and clean. Resolves to a Blob.
+   */
+  function prepareAvatar(file) {
+    return createImageBitmap(file).then(function (bitmap) {
+      var canvas = document.createElement("canvas");
+      canvas.width = canvas.height = AVATAR_SIZE;
+      var context = canvas.getContext("2d");
+      var scale = Math.max(AVATAR_SIZE / bitmap.width, AVATAR_SIZE / bitmap.height);
+      var w = bitmap.width * scale, h = bitmap.height * scale;
+      function draw(background) {
+        context.clearRect(0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        if (background) { context.fillStyle = background; context.fillRect(0, 0, AVATAR_SIZE, AVATAR_SIZE); }
+        context.drawImage(bitmap, (AVATAR_SIZE - w) / 2, (AVATAR_SIZE - h) / 2, w, h);
+      }
+      draw(null);
+      return encodeSmall(canvas, [["image/webp", 0.9], ["image/webp", 0.75], ["image/webp", 0.6]]).then(function (blob) {
+        if (blob) return blob;
+        draw("#2b2b2b"); // JPEG has no transparency
+        return encodeSmall(canvas, [["image/jpeg", 0.85], ["image/jpeg", 0.7], ["image/jpeg", 0.55]]);
+      });
+    }, function () {
+      throw new Error("That file isn't a picture this browser can read. Try a PNG or JPEG.");
+    }).then(function (blob) {
+      if (!blob) throw new Error("That picture is too detailed to save. Try a simpler one.");
+      return blob;
+    });
+  }
+
+  /** Choose a picture file as your profile picture: prepared in the browser, then saved. Resolves to the new version. */
+  function uploadAvatar(file) {
+    return prepareAvatar(file).then(function (blob) {
+      return readAsBase64(blob).then(function (data) { return setAvatar(blob.type, data); });
+    });
+  }
+
   function removeAvatar() {
     return call("POST", "/avatar/remove", {}).then(function (result) {
       if (user) user.avatar = 0;
@@ -320,6 +377,7 @@
     changePassword: changePassword,
     deleteAccount: deleteAccount,
     setAvatar: setAvatar,
+    uploadAvatar: uploadAvatar,
     removeAvatar: removeAvatar,
     avatarUrl: avatarUrl,
     get user() { return user; },

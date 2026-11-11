@@ -524,12 +524,29 @@ select {
   padding: 14px 16px;
 }
 
+.account-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .account-avatar {
   display: grid;
   place-items: center;
   width: 48px;
   height: 48px;
   flex: none;
+  overflow: hidden;
   border-radius: 50%;
   background: var(--accent);
   color: #fff;
