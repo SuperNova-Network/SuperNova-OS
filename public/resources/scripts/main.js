@@ -410,7 +410,15 @@ function genCog(r) {
 
 // A user-supplied wallpaper address. Only http(s) is accepted, and quotes are
 // escaped so the value cannot break out of the CSS url('...').
+// A plain colour instead of a picture ("solidColor", a #rrggbb colour from the colour wheel). It wins over any picture.
+function solidColorValue() {
+  var c = String(SnStore.get("solidColor") || "");
+  return /^#[0-9a-fA-F]{6}$/.test(c) ? c : "";
+}
+
 function customBackgroundCss() {
+  var solid = solidColorValue();
+  if (solid) return ".backOverride{background-image:none !important; background-color:" + solid + " !important;}";
   var url = SnStore.get("backgroundUrl");
   if (!url) return "";
   var parsed;
@@ -1776,15 +1784,21 @@ window.SnOS = {
       scheme: colId,
       wallpaper: backId,
       customBackground: SnStore.get("backgroundUrl") || "",
+      solidColor: solidColorValue(),
       windowWidth: DEF_WIN_W,
       windowHeight: DEF_WIN_H,
       timezone: currentTimezone()
     };
   },
   setScheme: selCol,
-  setWallpaper: selIco,
+  // Choosing a picture or an address replaces a solid colour.
+  setWallpaper: function (id) { SnStore.remove("solidColor"); selIco(id); },
   setCustomBackground: function (url) {
-    if (url) { SnStore.set("backgroundUrl", url); } else { SnStore.remove("backgroundUrl"); }
+    if (url) { SnStore.set("backgroundUrl", url); SnStore.remove("solidColor"); } else { SnStore.remove("backgroundUrl"); }
+    setCols();
+  },
+  setSolidColor: function (color) {
+    if (/^#[0-9a-fA-F]{6}$/.test(String(color))) { SnStore.set("solidColor", String(color).toLowerCase()); } else { SnStore.remove("solidColor"); }
     setCols();
   },
   setWindowSize: setWindowSize,

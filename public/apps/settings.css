@@ -1274,3 +1274,33 @@ select.field {
 /* Windows 10 never shows the hand cursor: keep the normal arrow everywhere (text boxes keep the I-beam). */
 body, body *, body *::before, body *::after { cursor: default !important; }
 input[type="text"], input[type="search"], input[type="url"], input:not([type]), textarea { cursor: text !important; }
+
+/* Solid colour wallpapers */
+.solids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.solid {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid transparent;
+  outline: 1px solid #666;
+  outline-offset: -3px;
+}
+
+.solid[aria-checked="true"] {
+  border-color: #fff;
+}
+
+.solid-wheel {
+  width: 48px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid #666;
+  background: #1b1b1b;
+}

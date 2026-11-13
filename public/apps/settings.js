@@ -403,6 +403,27 @@
       syncDesktop();
     });
 
+    // Solid colour: ready-made swatches and the browser's own colour wheel
+    const SOLIDS = [["#000000", "Black"], ["#1f1f1f", "Charcoal"], ["#1f2a44", "Navy"], ["#0b5d4b", "Forest"], ["#5b2a86", "Purple"], ["#a3123a", "Crimson"], ["#c2561b", "Burnt orange"], ["#2b6cb0", "Blue"], ["#2f9e8f", "Teal"], ["#e5e5e5", "Light grey"], ["#ffffff", "White"]];
+    const solidBox = $("solid-swatches");
+    const solidButtons = SOLIDS.map(([color, name]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "solid";
+      button.setAttribute("role", "radio");
+      button.setAttribute("aria-checked", "false");
+      button.dataset.color = color;
+      button.title = name;
+      button.setAttribute("aria-label", name);
+      button.style.background = color; // one of the fixed colours above
+      button.addEventListener("click", () => { $("solid-color").value = color; os.setSolidColor(color); syncDesktop(); });
+      solidBox.append(button);
+      return button;
+    });
+    $("solid-color").addEventListener("input", () => { os.setSolidColor($("solid-color").value); syncDesktop(); });
+    $("solid-apply").addEventListener("click", () => { os.setSolidColor($("solid-color").value); syncDesktop(); });
+    $("solid-clear").addEventListener("click", () => { os.setSolidColor(""); syncDesktop(); });
+
     // Window size
     for (const id of ["win-w", "win-h"]) {
       $(id).addEventListener("input", () => {
@@ -423,9 +444,12 @@
     function syncDesktop() {
       const state = os.state();
       schemeButtons.forEach((button, index) => button.setAttribute("aria-checked", String(index === state.scheme)));
-      wallpaperButtons.forEach((button, index) => button.setAttribute("aria-checked", String(index === state.wallpaper && !state.customBackground)));
+      wallpaperButtons.forEach((button, index) => button.setAttribute("aria-checked", String(index === state.wallpaper && !state.customBackground && !state.solidColor)));
+      solidButtons.forEach((button) => button.setAttribute("aria-checked", String(button.dataset.color === state.solidColor)));
+      if (state.solidColor && document.activeElement !== $("solid-color")) $("solid-color").value = state.solidColor;
+      $("solid-clear").disabled = !state.solidColor;
       // Never hide the wallpaper that is in use
-      if (state.wallpaper >= WALLPAPERS_SHOWN && !state.customBackground && showMore.getAttribute("aria-expanded") !== "true") setWallpapersExpanded(true);
+      if (state.wallpaper >= WALLPAPERS_SHOWN && !state.customBackground && !state.solidColor && showMore.getAttribute("aria-expanded") !== "true") setWallpapersExpanded(true);
       if (document.activeElement !== $("wallpaper-url")) $("wallpaper-url").value = state.customBackground;
       $("win-w").value = state.windowWidth;
       $("win-h").value = state.windowHeight;
