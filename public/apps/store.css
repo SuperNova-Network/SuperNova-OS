@@ -262,8 +262,14 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 14px;
-  vertical-align: 1px;
   white-space: nowrap;
+}
+
+/* the name and its role tag sit on one line, centred on each other */
+.app-by,
+.detail-head .dim {
+  display: flex;
+  align-items: center;
 }
 
 .role-tag svg {
