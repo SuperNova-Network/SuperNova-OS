@@ -1045,32 +1045,32 @@ code {
   box-shadow: inset 3px 0 0 var(--accent, #7b4aa8);
 }
 
-/* suggestions while you type @ (rounded, roomy and clickable, like Discord's) */
+/* suggestions while you type @: flat and sized like the rest of the chat, and clickable */
 .mention-pop {
   left: 10px;
   right: 10px;
-  bottom: calc(100% + 4px);
+  bottom: calc(100% - 2px);
   width: auto;
-  max-height: 340px;
+  max-height: 232px;
   overflow-y: auto;
-  padding: 8px;
-  border: 1px solid #1f2024;
-  border-radius: 8px;
-  background: #313338;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
+  padding: 2px 0;
+  border: 1px solid #666;
+  background: var(--panel);
 }
 
 .mention-head {
-  padding: 8px 10px 6px;
-  color: #b5bac1;
-  font-size: 15px;
-  font-weight: 600;
+  padding: 6px 10px 3px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .mention-rule {
   height: 1px;
-  margin: 6px 10px;
-  background: #3f4147;
+  margin: 3px 0;
+  background: var(--line);
 }
 
 .mention-item,
@@ -1081,17 +1081,16 @@ code {
 .mention-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 10px;
-  border-radius: 6px;
-  color: #f2f3f5;
-  font-size: 16px;
+  gap: 8px;
+  padding: 4px 10px;
+  color: var(--text);
+  font-size: 14px;
 }
 
 .mention-item[aria-selected="true"],
 .mention-item:hover {
-  background: rgb(255 255 255 / 8%);
-  box-shadow: none;
+  background: var(--raised);
+  box-shadow: inset 3px 0 0 var(--accent, #7b4aa8);
 }
 
 .mi-pic {
@@ -1101,49 +1100,49 @@ code {
 }
 
 .mi-pic .avatar.small {
-  width: 30px;
-  height: 30px;
-  font-size: 14px;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
 }
 
 .mi-name {
   min-width: 0;
   overflow: hidden;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .mi-name.big {
-  font-size: 17px;
+  font-size: 14px;
 }
 
 .mi-hint {
   flex: none;
   margin-left: auto;
-  color: #b5bac1;
-  font-size: 15px;
+  color: var(--faint);
+  font-size: 12px;
 }
 
 /* the status dot sits on the corner of the picture */
 .mi-pic .presence {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 12px;
-  height: 12px;
-  border: 3px solid #313338;
+  right: -2px;
+  bottom: -2px;
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--panel);
   border-radius: 50%;
-  background: #80848e;
+  background: #6b6b6b;
   box-sizing: content-box;
 }
 
 .mention-item[aria-selected="true"] .mi-pic .presence,
 .mention-item:hover .mi-pic .presence {
-  border-color: #404248;
+  border-color: var(--raised);
 }
 
 .mi-pic .presence.on {
-  background: #23a55a;
+  background: var(--green);
 }
