@@ -23,6 +23,8 @@ import express from "express";
 import { AdminError } from "./accountsdb.js";
 import { HttpError, guardWrites } from "./http.js";
 import { imageInfo } from "./imageinfo.js";
+import * as roles from "./roles.js";
+import { hasMentions, parseMentions } from "./mentions.js";
 import { createLimiter } from "./ratelimit.js";
 import { LIMITS, checkMessage, createSpamTracker, createWordFilter, normalizeText } from "./chatfilter.js";
 import * as store from "./chatdb.js";
@@ -99,9 +101,10 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     const ids = [...new Set([...streams].filter((stream) => !stream.quiet).map((stream) => stream.user.id))];
     if (!ids.length) return [];
     const rows = db.prepare(`SELECT id, username, is_admin, avatar_version FROM users WHERE id IN (${ids.map(() => "?").join(",")})`).all(...ids);
+    const roleMap = roles.rolesOfUsers(db, ids);
     return rows
-      .map((row) => ({ username: row.username, ...(isAdmin(row) ? { admin: true } : {}), avatar: row.avatar_version }))
-      .sort((a, b) => Number(Boolean(b.admin)) - Number(Boolean(a.admin)) || a.username.localeCompare(b.username))
+      .map((row) => ({ username: row.username, ...(isAdmin(row) ? { admin: true } : {}), ...(roleMap.get(row.id)?.[0] ? { role: roles.topRole(roleMap.get(row.id)) } : {}), avatar: row.avatar_version }))
+      .sort((a, b) => (b.role?.position ?? (b.admin ? 0.5 : -1)) - (a.role?.position ?? (a.admin ? 0.5 : -1)) || a.username.localeCompare(b.username))
       .slice(0, 200);
   }
 
@@ -132,11 +135,28 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     return user;
   }
 
-  function requireAdmin(req) {
+  // What people may do comes from their roles (and site admins may do everything): see roles.js.
+  const can = (user, permission) => roles.can(db, user, permission);
+
+  function requirePermission(req, permission, message = "You don't have permission to do that.") {
     const user = requireUser(req);
-    if (!user.admin) throw new HttpError(403, "Only admins can do that.");
+    if (!can(user, permission)) throw new HttpError(403, message);
     return user;
   }
+  const requireMod = (req) => requirePermission(req, "chat.moderate", "Only moderators can do that.");
+  const requireManage = (req) => requirePermission(req, "chat.manage", "Only people who manage the chat can do that.");
+
+  /** Messages as pages get them: with each sender's highest role. */
+  function shapeMessages(rows) {
+    const map = roles.rolesOfUsers(db, [...new Set(rows.map((row) => row.user_id))]);
+    return rows.map((row) => store.publicMessage(row, isAdmin, roles.topRole(map.get(row.user_id))));
+  }
+
+  /** What a page needs to know about the roles: names, colours and who can be pinged. */
+  const publicRoles = () => roles.listRoles(db).map(({ slug, name, color, position, mentionable }) => ({ slug, name, color, position, mentionable }));
+
+  /** About one person's roles: what they can do, and what pings reach them. */
+  const aboutMe = (user) => ({ roles: roles.mentionSlugs(db, user), perms: [...roles.permissionsOf(db, user)], rank: Math.min(roles.rank(db, user), 1e9) });
 
   const userRow = (name) => db.prepare("SELECT id, username, is_admin, created_at FROM users WHERE username = ?").get(String(name ?? ""));
 
@@ -146,6 +166,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     if (!row) throw new HttpError(404, "There's no account with that name.");
     if (row.id === admin.id) throw new HttpError(400, "You can't do that to yourself.");
     if (isAdmin(row)) throw new HttpError(403, "Admins can't be sanctioned. Remove their admin role first.");
+    if (roles.rank(db, { id: row.id, admin: false }) >= roles.rank(db, admin)) throw new HttpError(403, "Their role is as high as yours, so you can't do that.");
     return row;
   }
 
@@ -210,9 +231,10 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
 
     const s = settings();
     write(stream, "ready", {
-      me: { ...user, sanction: store.activeSanction(db, user.id) },
+      me: { ...user, ...aboutMe(user), sanction: store.activeSanction(db, user.id) },
       settings: publicSettings(s),
-      messages: !quiet && (s.enabled || user.admin) ? store.listMessages(db, { limit: 60 }).map((row) => store.publicMessage(row, isAdmin)) : [],
+      roles: publicRoles(),
+      messages: !quiet && (s.enabled || user.admin) ? shapeMessages(store.listMessages(db, { limit: 60 })) : [],
       online: quiet ? [] : presence(),
     });
     if (!quiet) schedulePresence();
@@ -222,7 +244,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     requireUser(req);
     const s = settings();
     const messages = s.enabled ? store.listMessages(db, { before: req.query.before, limit: req.query.limit }) : [];
-    res.json({ messages: messages.map((row) => store.publicMessage(row, isAdmin)) });
+    res.json({ messages: shapeMessages(messages) });
   }));
 
   // Send a message. { text?, gif?: { giphy: id } | { data: base64 } }. GIF uploads need a bigger
@@ -241,8 +263,9 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     if (!s.enabled) throw new HttpError(403, "The chat is turned off.");
     const sanction = store.activeSanction(db, user.id);
     if (sanction) throw new HttpError(403, `${wait(sanction)}${sanction.reason ? ` Reason: ${sanction.reason}` : ""}`, { sanction });
-    if (s.locked && !user.admin) throw new HttpError(403, "The chat is locked: only admins can post right now.");
-    if (!user.admin && s.minAccountMinutes) {
+    const bypass = can(user, "chat.bypass_limits"); // admins, and roles allowed to skip the chat's limits
+    if (s.locked && !bypass) throw new HttpError(403, "The chat is locked: only admins can post right now.");
+    if (!bypass && s.minAccountMinutes) {
       const age = Date.now() - db.prepare("SELECT created_at FROM users WHERE id = ?").get(user.id).created_at;
       if (age < s.minAccountMinutes * 60_000) throw new HttpError(403, `New accounts can post ${s.minAccountMinutes} minutes after they are made.`);
     }
@@ -256,7 +279,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     // The text. A GIF can go without any.
     let text = "";
     if (normalizeText(rawText) || !gif) {
-      const verdict = checkMessage(rawText, { admin: user.admin, allowLinks: s.links === "allowed", matchWord: wordFilter(s.words) });
+      const verdict = checkMessage(rawText, { admin: bypass, allowLinks: s.links === "allowed", matchWord: wordFilter(s.words) });
       if (!verdict.ok) {
         const timedOut = verdict.strike ? strike(user) : null;
         throw new HttpError(400, timedOut ? `${verdict.reason} ${wait(timedOut)}` : verdict.reason, timedOut ? { sanction: timedOut } : {});
@@ -277,7 +300,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
         fingerprint = `${text}\u0000upload:${typeof gif.data === "string" ? gif.data.length : 0}:${typeof gif.data === "string" ? gif.data.slice(-64) : ""}`;
       }
     }
-    if (!user.admin) {
+    if (!bypass) {
       const blocked = spam.check(user.id, fingerprint, { slowMs: s.slowSeconds * 1000 });
       if (blocked) {
         const timedOut = blocked.strike ? strike(user) : null;
@@ -289,9 +312,16 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
       media = { upload: readUpload(gif.data) };
     }
 
-    const row = store.insertMessage(db, { userId: user.id, text, media });
-    if (!user.admin) spam.record(user.id, fingerprint);
-    const message = store.publicMessage(row, isAdmin);
+    // Who was pinged: only people and roles that exist, and only what this person may ping.
+    const mentions = text ? parseMentions(text, {
+      person: (name) => db.prepare("SELECT username FROM users WHERE username = ? AND banned_at IS NULL").get(name)?.username ?? null,
+      role: (slug) => db.prepare("SELECT slug, mentionable FROM roles WHERE slug = ?").get(slug) ?? null,
+      everyone: can(user, "chat.mention_everyone"),
+      anyRole: can(user, "chat.mention_roles"),
+    }) : null;
+    const row = store.insertMessage(db, { userId: user.id, text, media, mentions: hasMentions(mentions) ? mentions : null });
+    if (!bypass) spam.record(user.id, fingerprint);
+    const message = shapeMessages([row])[0];
     broadcast("message", message);
     res.status(201).json({ message });
   }));
@@ -399,12 +429,12 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   router.use("/admin", express.json({ limit: "20kb" }));
 
   router.get("/admin/settings", handle((req, res) => {
-    requireAdmin(req);
+    requireManage(req);
     res.json({ settings: settings() });
   }));
 
   router.post("/admin/settings", handle((req, res) => {
-    const admin = requireAdmin(req);
+    const admin = requireManage(req);
     const before = settings();
     const next = store.setChatSettings(db, req.body, admin.username);
     const changed = Object.keys(req.body).filter((key) => JSON.stringify(before[key]) !== JSON.stringify(next[key]));
@@ -415,7 +445,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   }));
 
   router.post("/admin/messages/:id/delete", handle((req, res) => {
-    const admin = requireAdmin(req);
+    const admin = requireMod(req);
     const row = store.getMessage(db, req.params.id);
     if (!row || !store.deleteMessage(db, row.id, admin.username)) throw new HttpError(404, "That message is already gone.");
     store.addLog(db, admin.username, "delete message", row.username, row.body.slice(0, 80) || (row.media_kind ? "[GIF]" : ""));
@@ -424,7 +454,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   }));
 
   router.post("/admin/clear", handle((req, res) => {
-    const admin = requireAdmin(req);
+    const admin = requireManage(req);
     const removed = store.clearMessages(db, admin.username);
     store.addLog(db, admin.username, "clear chat", null, `${removed} messages`);
     broadcast("clear", {});
@@ -433,7 +463,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
 
   function sanction(kind) {
     return handle((req, res) => {
-      const admin = requireAdmin(req);
+      const admin = requireMod(req);
       const target = moderationTarget(req, admin);
       const minutes = kind === "timeout" ? Number(req.body?.minutes) : null;
       const result = store.addSanction(db, { userId: target.id, kind, minutes, reason: req.body?.reason, by: admin.username });
@@ -449,7 +479,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   router.post("/admin/users/:username/ban", sanction("ban"));
 
   router.post("/admin/users/:username/lift", handle((req, res) => {
-    const admin = requireAdmin(req);
+    const admin = requireMod(req);
     const row = userRow(req.params.username);
     if (!row) throw new HttpError(404, "There's no account with that name.");
     if (!store.liftSanctions(db, row.id, admin.username)) throw new HttpError(404, "They have no timeout or chat ban.");
@@ -459,13 +489,36 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   }));
 
   router.get("/admin/sanctions", handle((req, res) => {
-    requireAdmin(req);
+    requireMod(req);
     res.json({ sanctions: store.listActiveSanctions(db) });
   }));
 
   router.get("/admin/log", handle((req, res) => {
-    requireAdmin(req);
+    requireMod(req);
     res.json({ log: store.listLog(db, req.query.limit) });
+  }));
+
+  // --- @mention suggestions: people and roles to complete "@al" with -----------------------------
+  const online = () => new Set([...streams].filter((stream) => !stream.quiet).map((stream) => stream.user.id));
+
+  router.get("/mention-search", handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.search, String(user.id));
+    const q = String(req.query.q ?? "").replace(/[^A-Za-z0-9._-]/g, "").slice(0, 32).toLowerCase();
+    const like = `${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const here = online();
+    const people = db.prepare("SELECT id, username, is_admin, avatar_version FROM users WHERE username LIKE ? ESCAPE '\\' AND banned_at IS NULL ORDER BY username COLLATE NOCASE LIMIT 40").all(like);
+    const map = roles.rolesOfUsers(db, people.map((p) => p.id));
+    const users = people
+      .map((p) => ({ username: p.username, avatar: p.avatar_version, online: here.has(p.id), ...(isAdmin(p) ? { admin: true } : {}), ...(map.get(p.id)?.[0] ? { role: roles.topRole(map.get(p.id)) } : {}) }))
+      .sort((a, b) => Number(b.online) - Number(a.online))
+      .slice(0, 6);
+    const anyRole = can(user, "chat.mention_roles");
+    const pingable = roles.listRoles(db)
+      .filter((r) => (r.mentionable || anyRole) && (r.slug.startsWith(q) || r.name.toLowerCase().startsWith(q)))
+      .slice(0, 5).map(({ slug, name, color }) => ({ slug, name, color }));
+    const special = can(user, "chat.mention_everyone") ? ["everyone", "here"].filter((s) => s.startsWith(q)) : [];
+    res.json({ users, roles: pingable, special });
   }));
 
   router.use((_req, res) => res.status(404).json({ error: "Not found." }));
@@ -485,6 +538,12 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
 
   return {
     router,
+    /** An admin changed the roles: every open chat learns the new names, colours and permissions. */
+    rolesChanged() {
+      broadcast("roles", publicRoles());
+      for (const stream of streams) write(stream, "me", aboutMe(stream.user));
+      schedulePresence();
+    },
     /** How many people are in the chat (counting each once) and how many quiet notification streams are open. */
     stats() {
       const loud = [...streams].filter((stream) => !stream.quiet);
@@ -502,5 +561,5 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
 export function disabledChat() {
   const router = express.Router();
   router.use((_req, res) => res.status(404).json({ error: "Chat needs accounts, which aren't available on this site." }));
-  return { router, close() {} };
+  return { router, rolesChanged() {}, close() {} };
 }

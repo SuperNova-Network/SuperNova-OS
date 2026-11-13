@@ -116,25 +116,28 @@ export function setChatSettings(db, patch, by = null) {
 
 const MESSAGE_SELECT = `
   SELECT chat_messages.id, chat_messages.user_id, chat_messages.body, chat_messages.media_kind, chat_messages.media_ref,
-         chat_messages.created_at, users.username, users.is_admin, users.avatar_version
+         chat_messages.created_at, chat_messages.mentions, users.username, users.is_admin, users.avatar_version
   FROM chat_messages JOIN users ON users.id = chat_messages.user_id`;
 
 /**
  * A message as the page gets it. `isAdmin(row)` decides the admin badge from the
  * account as it is now, so removing someone's admin role removes it from their old messages too.
  */
-export function publicMessage(row, isAdmin) {
+export function publicMessage(row, isAdmin, role = null) {
+  let mentions = null;
+  try { mentions = row.mentions ? JSON.parse(row.mentions) : null; } catch { /* an old or damaged value: no mentions */ }
   return {
     id: row.id,
     at: row.created_at,
-    user: { username: row.username, ...(isAdmin(row) ? { admin: true } : {}), avatar: row.avatar_version ?? 0 },
+    user: { username: row.username, ...(isAdmin(row) ? { admin: true } : {}), ...(role ? { role } : {}), avatar: row.avatar_version ?? 0 },
     text: row.body,
     media: row.media_kind ? { kind: row.media_kind, id: row.media_ref } : null,
+    ...(mentions ? { mentions } : {}),
   };
 }
 
 /** Add a message, keep the history to HISTORY_LIMIT, and return its row. */
-export function insertMessage(db, { userId, text = "", media = null }) {
+export function insertMessage(db, { userId, text = "", media = null, mentions = null }) {
   return transaction(db, () => {
     const now = Date.now();
     let mediaRef = media?.ref ?? null;
@@ -142,8 +145,8 @@ export function insertMessage(db, { userId, text = "", media = null }) {
       mediaRef = randomBytes(12).toString("hex");
       db.prepare("INSERT INTO chat_media (id, user_id, mime, data, created_at) VALUES (?, ?, ?, ?, ?)").run(mediaRef, userId, media.upload.mime, media.upload.data, now);
     }
-    const { lastInsertRowid } = db.prepare("INSERT INTO chat_messages (user_id, body, media_kind, media_ref, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(userId, text, media ? (media.upload ? "upload" : media.kind) : null, mediaRef, now);
+    const { lastInsertRowid } = db.prepare("INSERT INTO chat_messages (user_id, body, media_kind, media_ref, created_at, mentions) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(userId, text, media ? (media.upload ? "upload" : media.kind) : null, mediaRef, now, mentions ? JSON.stringify(mentions) : null);
     const id = Number(lastInsertRowid);
     db.prepare("DELETE FROM chat_messages WHERE id <= ?").run(id - HISTORY_LIMIT);
     db.prepare(ORPHANED_MEDIA).run();

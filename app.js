@@ -22,6 +22,7 @@ import { createAdmin, disabledAdmin } from "./src/admin.js";
 import { createStore, disabledStore } from "./src/store.js";
 import { createFriends, disabledFriends } from "./src/friends.js";
 import { createLive } from "./src/live.js";
+import * as roles from "./src/roles.js";
 import { createSuggest, cleanQuery } from "./src/suggest.js";
 import { createLimiter } from "./src/ratelimit.js";
 
@@ -59,6 +60,7 @@ const admin = accounts.database
     onChange: (key, value) => {
       live.broadcast(key, key === "maintenance" ? { on: value.on, message: value.message } : key === "terms" ? { enabled: value.enabled } : value);
       if (key === "maintenance" && value.on) endProxySocketsOfNonAdmins();
+      if (key === "roles") chat.rolesChanged();
     },
     db: accounts.database,
     dataDir: config.accounts.dataDir,
@@ -78,7 +80,7 @@ const admin = accounts.database
 
 // The App Store checks every submission against the live policy (admins can change it any time).
 const store = accounts.database
-  ? createStore({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy })
+  ? createStore({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy, can: (user, permission) => roles.can(accounts.database, user, permission) })
   : disabledStore();
 
 const friends = accounts.database

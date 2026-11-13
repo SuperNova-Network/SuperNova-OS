@@ -24,7 +24,7 @@ const ICON_MIMES = new Set(["image/png", "image/jpeg", "image/webp"]);
 /**
  * options: db, site(), userFor, policy() -> the live content policy (checkHost, checkQuery).
  */
-export function createStore({ db, site, userFor, policy }) {
+export function createStore({ db, site, userFor, policy, can = () => false }) {
   const limits = {
     publish: createLimiter({ limit: 12, windowMs: 60 * 60_000 }),
     install: createLimiter({ limit: 120, windowMs: 60_000 }),
@@ -136,7 +136,7 @@ export function createStore({ db, site, userFor, policy }) {
     }
     if (apps.urlTaken(db, fields.key)) throw new HttpError(409, "That app is already in the store, or waiting for approval.");
     const icon = iconFrom(req.body);
-    const live = user.admin || current.approval === "auto";
+    const live = user.admin || current.approval === "auto" || can(user, "store.instant_publish");
     const id = apps.insertApp(db, { ownerId: user.id, ...fields, status: live ? "approved" : "pending", by: user.admin ? user.username : "automatic", icon });
     if (user.admin) logAdmin(db, user.username, "published a store app", fields.name);
     res.status(201).json({ app: apps.publicApp(apps.getApp(db, id), { forOwner: true }), live });
@@ -152,8 +152,8 @@ export function createStore({ db, site, userFor, policy }) {
     const icon = iconFrom(req.body, { existing: row.icon_version > 0 });
     // Anything that changes what people install goes back to an admin when approval is manual.
     const changed = fields.name !== row.name || fields.description !== row.description || fields.key !== row.url_key || fields.category !== row.category || icon !== undefined;
-    const needsReview = !user.admin && settings().approval === "manual" && changed;
-    const next = row.status === "rejected" ? (user.admin || settings().approval === "auto" ? "approved" : "pending") : needsReview ? "pending" : row.status;
+    const needsReview = !user.admin && !can(user, "store.instant_publish") && settings().approval === "manual" && changed;
+    const next = row.status === "rejected" ? (user.admin || can(user, "store.instant_publish") || settings().approval === "auto" ? "approved" : "pending") : needsReview ? "pending" : row.status;
     apps.updateApp(db, row.id, { ...fields, status: next, icon });
     res.json({ app: apps.publicApp(apps.getApp(db, row.id), { forOwner: true }) });
   }));

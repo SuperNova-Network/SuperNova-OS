@@ -15,6 +15,7 @@ import {
   revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, saveTerms, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
 } from "./admindb.js";
 import * as apps from "./storedb.js";
+import * as roles from "./roles.js";
 import { HttpError, guardWrites } from "./http.js";
 import { hashPassword } from "./passwords.js";
 
@@ -195,6 +196,67 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     onChange("maintenance", saved);
     logAdmin(db, admin.username, saved.on ? "turned maintenance mode on" : "turned maintenance mode off");
     res.json(saved);
+  }));
+
+  // --- roles: names, colours, permissions, order and who has them ----------------------------------------------
+
+  const roleOf = (req) => {
+    const role = roles.getRole(db, req.params.id);
+    if (!role) throw new HttpError(404, "There's no such role.");
+    return role;
+  };
+
+  router.get("/roles", handle((req, res) => {
+    requireAdmin(req);
+    res.json({ roles: roles.listRoles(db), permissions: roles.PERMISSIONS, limits: roles.LIMITS });
+  }));
+
+  router.post("/roles", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const role = roles.createRole(db, req.body);
+    onChange("roles", role);
+    logAdmin(db, admin.username, "created a role", role.name);
+    res.status(201).json({ role, roles: roles.listRoles(db) });
+  }));
+
+  router.post("/roles/:id/delete", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const role = roles.deleteRole(db, roleOf(req).id);
+    onChange("roles", role);
+    logAdmin(db, admin.username, "deleted a role", role.name, `${role.members} member${role.members === 1 ? "" : "s"}`);
+    res.json({ roles: roles.listRoles(db) });
+  }));
+
+  router.post("/roles/:id/move", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const role = roleOf(req);
+    roles.moveRole(db, role.id, Number(req.body?.direction) < 0 ? -1 : 1);
+    onChange("roles", role);
+    logAdmin(db, admin.username, "moved a role", role.name);
+    res.json({ roles: roles.listRoles(db) });
+  }));
+
+  router.get("/roles/:id/members", handle((req, res) => {
+    requireAdmin(req);
+    res.json({ members: roles.membersOf(db, roleOf(req).id) });
+  }));
+
+  router.post("/roles/:id/members", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const role = roleOf(req);
+    const on = req.body?.add !== false;
+    const user = roles.setMember(db, role.id, req.body?.username, on);
+    onChange("roles", role);
+    logAdmin(db, admin.username, on ? "gave a role" : "took a role away", role.name, user.username);
+    res.json({ members: roles.membersOf(db, role.id), roles: roles.listRoles(db) });
+  }));
+
+  router.post("/roles/:id", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const role = roles.updateRole(db, roleOf(req).id, req.body);
+    onChange("roles", role);
+    logAdmin(db, admin.username, "changed a role", role.name);
+    res.json({ role, roles: roles.listRoles(db) });
   }));
 
   router.get("/terms", handle((req, res) => { requireAdmin(req); res.json(getAdminSetting(db, "terms")); }));

@@ -237,6 +237,38 @@ const MIGRATIONS = [
       mode TEXT NOT NULL CHECK (mode IN ('online', 'away', 'invisible'))
     );
   `),
+  // 9: roles (Owner, Admin, Moderator, Supporter by default, and any others admins make), who has them, and
+  // the people each chat message pinged.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS roles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        color TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        permissions TEXT NOT NULL DEFAULT '[]',
+        mentionable INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS user_roles (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+        PRIMARY KEY (user_id, role_id)
+      );
+      CREATE INDEX IF NOT EXISTS user_roles_role ON user_roles(role_id);
+    `);
+    if (!db.prepare("PRAGMA table_info(chat_messages)").all().some((c) => c.name === "mentions")) db.exec("ALTER TABLE chat_messages ADD COLUMN mentions TEXT");
+    const all = JSON.stringify(["chat.moderate", "chat.manage", "chat.bypass_limits", "chat.mention_everyone", "chat.mention_roles", "store.instant_publish"]);
+    const now = Date.now();
+    const add = db.prepare("INSERT OR IGNORE INTO roles (name, slug, color, position, permissions, mentionable, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)");
+    add.run("Owner", "owner", "#e5484d", 4, all, now);
+    add.run("Admin", "admin", "#ff6b78", 3, all, now);
+    add.run("Moderator", "moderator", "#3fb950", 2, JSON.stringify(["chat.moderate", "chat.bypass_limits", "chat.mention_roles"]), now);
+    add.run("Supporter", "supporter", "#a78bfa", 1, JSON.stringify(["store.instant_publish"]), now);
+    // The admins you already have hold the Admin role.
+    db.exec("INSERT OR IGNORE INTO user_roles (user_id, role_id) SELECT users.id, roles.id FROM users, roles WHERE users.is_admin = 1 AND roles.slug = 'admin'");
+  },
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */
@@ -389,6 +421,12 @@ export function setAdmin(db, username, admin, { serverAdmins = new Set() } = {})
   if (!admin && serverAdmins.has(user.username.toLowerCase())) throw new AdminError(403, "They're an admin through ADMINS on the server; remove them there.");
   if (!admin && user.is_admin && adminCount(db) <= 1 && !serverAdminExists(db, serverAdmins)) throw new AdminError(400, "They're the only admin. Make someone else an admin first.");
   db.prepare("UPDATE users SET is_admin = ? WHERE id = ?").run(admin ? 1 : 0, user.id);
+  // Being an admin and holding the Admin role go together (so @admin reaches every admin).
+  const role = db.prepare("SELECT id FROM roles WHERE slug = 'admin'").get();
+  if (role) {
+    if (admin) db.prepare("INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)").run(user.id, role.id);
+    else db.prepare("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?").run(user.id, role.id);
+  }
   return user.id;
 }
 
