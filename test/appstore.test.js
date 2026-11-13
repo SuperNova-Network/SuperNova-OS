@@ -260,25 +260,3 @@ test("five reports send an app back to the approval queue", options, async () =>
   assert.equal((await maker.get("/api/store/mine")).data.apps.find((x) => x.id === id).status, "pending");
   assert.equal((await boss.post(`/api/admin/store/apps/${id}/approve`)).status, 200);
 });
-
-test("admins and verified accounts get a verified badge on their apps and in the chat; admins can grant and remove it", options, async () => {
-  await setApproval("auto");
-  const plain = await person(), friend = await person();
-  const shown = async (who, id) => (await who.get("/api/store/apps?limit=100")).data.apps.find((a) => a.id === id);
-  const a = (await plain.post("/api/store/apps", submission())).data.app.id;
-  const b = (await friend.post("/api/store/apps", submission())).data.app.id;
-  const c = (await boss.post("/api/store/apps", submission())).data.app.id;
-  const viewer = await person();
-  assert.equal((await shown(viewer, a)).ownerVerified, undefined, "an ordinary account isn't");
-  assert.equal((await shown(viewer, c)).ownerVerified, true, "an admin is, automatically");
-  assert.equal((await friend.post(`/api/admin/users/${friend.username}/verify`)).status, 403, "you can't verify yourself");
-  assert.equal((await boss.post(`/api/admin/users/${friend.username}/verify`, { verified: true })).status, 200);
-  assert.equal((await shown(viewer, b)).ownerVerified, true, "a verified account is");
-  assert.equal((await boss.get(`/api/admin/users/${friend.username}`)).data.verified, true);
-  await boss.post("/api/chat/admin/settings", { slowSeconds: 0 });
-  const said = (await friend.post("/api/chat/messages", { text: "verified hello" })).data.message;
-  assert.equal(said.user.verified, true, "and in the chat");
-  assert.equal((await boss.post(`/api/admin/users/${friend.username}/verify`, { verified: false })).status, 200);
-  assert.equal((await shown(viewer, b)).ownerVerified, undefined, "taking it away removes it");
-  assert.equal((await boss.post("/api/admin/users/nobody-here/verify")).status, 404);
-});

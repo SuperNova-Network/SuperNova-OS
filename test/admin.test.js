@@ -197,7 +197,7 @@ test("a database from before invite codes and bans is upgraded in place", option
     old.close();
 
     const db = await openDatabase(dir);
-    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 10);
+    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 9);
     const columns = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
     for (const name of ["banned_at", "ban_reason", "last_seen_at", "invite_id", "is_admin", "avatar_version"]) assert.ok(columns.includes(name), name);
     for (const table of ["invites", "site_settings", "avatars", "chat_messages", "chat_media", "chat_sanctions", "chat_settings", "chat_log", "admin_log", "admin_settings", "store_apps", "store_icons", "store_installs", "store_reports", "friendships", "user_status", "roles", "user_roles"]) assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = ?").get(table), table);

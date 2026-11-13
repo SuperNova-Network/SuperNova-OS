@@ -88,13 +88,11 @@ export function checkSubmission(input) {
 // --- reading ---------------------------------------------------------------------------------
 
 const COLUMNS = `a.id, a.name, a.description, a.url, a.url_key, a.category, a.status, a.reason, a.created_at, a.updated_at,
-  a.reviewed_by, a.reviewed_at, a.icon_version, u.username AS owner, u.is_admin AS owner_is_admin, u.verified_at AS owner_verified_at,
+  a.reviewed_by, a.reviewed_at, a.icon_version, u.username AS owner, u.is_admin AS owner_is_admin,
   (SELECT COUNT(*) FROM store_installs i WHERE i.app_id = a.id) AS installs,
   (SELECT COUNT(*) FROM store_reports r WHERE r.app_id = a.id) AS reports`;
 
-/** isAdmin({ username, is_admin }) is for admins that exist only through ADMINS on the server. */
-export function publicApp(row, { forOwner = false, isAdmin = null } = {}) {
-  const verified = Boolean(row.owner_verified_at || row.owner_is_admin || isAdmin?.({ username: row.owner, is_admin: row.owner_is_admin }));
+export function publicApp(row, { forOwner = false } = {}) {
   return {
     id: row.id,
     name: row.name,
@@ -102,7 +100,6 @@ export function publicApp(row, { forOwner = false, isAdmin = null } = {}) {
     url: row.url,
     category: row.category,
     owner: row.owner,
-    ...(verified ? { ownerVerified: true } : {}),
     installs: row.installs,
     icon: row.icon_version || 0,
     created: row.created_at,

@@ -232,7 +232,7 @@ function publicRow(row, serverAdmins) {
 /** Everything about one account, for the details window. Returns null if there is no such account. */
 export function userDetail(db, username, serverAdmins = new Set(), now = Date.now()) {
   const row = db.prepare(`
-    SELECT users.id, users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin, users.verified_at, users.avatar_version, users.revision,
+    SELECT users.id, users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin, users.avatar_version, users.revision,
            length(users.settings) AS settings_bytes, invites.label AS invite_label, invites.hint AS invite_hint,
            (SELECT COUNT(*) FROM chat_messages WHERE chat_messages.user_id = users.id AND chat_messages.deleted_at IS NULL) AS messages,
            (SELECT COUNT(*) FROM sessions WHERE sessions.user_id = users.id AND sessions.expires_at > ?) AS sessions
@@ -250,7 +250,6 @@ export function userDetail(db, username, serverAdmins = new Set(), now = Date.no
       .map((s) => ({ kind: s.kind, reason: s.reason, by: s.created_by, at: s.created_at, until: s.expires_at, liftedAt: s.lifted_at, liftedBy: s.lifted_by })),
     audit: listAudit(db, { q: row.username, limit: 15 }),
     roles: rolesOf(db, row.id).map((r) => ({ id: r.id, name: r.name, color: r.color })),
-    verified: Boolean(row.verified_at),
   };
 }
 
@@ -368,12 +367,4 @@ export function toCsv(columns, rows) {
     return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
   return [columns.map((c) => c.label).map(cell).join(","), ...rows.map((row) => columns.map((c) => cell(typeof c.value === "function" ? c.value(row) : row[c.value])).join(","))].join("\r\n") + "\r\n";
-}
-
-/** Give or take away the verified check mark (admins always have it). */
-export function setVerified(db, username, verified) {
-  const user = db.prepare("SELECT id, username FROM users WHERE username = ?").get(String(username ?? ""));
-  if (!user) throw new AdminError(404, "There's no account with that name.");
-  db.prepare("UPDATE users SET verified_at = ? WHERE id = ?").run(verified ? Date.now() : null, user.id);
-  return user;
 }

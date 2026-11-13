@@ -100,10 +100,10 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   function presence() {
     const ids = [...new Set([...streams].filter((stream) => !stream.quiet).map((stream) => stream.user.id))];
     if (!ids.length) return [];
-    const rows = db.prepare(`SELECT id, username, is_admin, verified_at, avatar_version FROM users WHERE id IN (${ids.map(() => "?").join(",")})`).all(...ids);
+    const rows = db.prepare(`SELECT id, username, is_admin, avatar_version FROM users WHERE id IN (${ids.map(() => "?").join(",")})`).all(...ids);
     const roleMap = roles.rolesOfUsers(db, ids);
     return rows
-      .map((row) => ({ username: row.username, ...(isAdmin(row) ? { admin: true } : {}), ...(isAdmin(row) || row.verified_at ? { verified: true } : {}), ...(roleMap.get(row.id)?.[0] ? { role: roles.topRole(roleMap.get(row.id)) } : {}), avatar: row.avatar_version }))
+      .map((row) => ({ username: row.username, ...(isAdmin(row) ? { admin: true } : {}), ...(roleMap.get(row.id)?.[0] ? { role: roles.topRole(roleMap.get(row.id)) } : {}), avatar: row.avatar_version }))
       .sort((a, b) => (b.role?.position ?? (b.admin ? 0.5 : -1)) - (a.role?.position ?? (a.admin ? 0.5 : -1)) || a.username.localeCompare(b.username))
       .slice(0, 200);
   }

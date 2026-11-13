@@ -81,7 +81,7 @@ const admin = accounts.database
 
 // The App Store checks every submission against the live policy (admins can change it any time).
 const store = accounts.database
-  ? createStore({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy, can: (user, permission) => roles.can(accounts.database, user, permission), isAdmin: accounts.isAdmin })
+  ? createStore({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy, can: (user, permission) => roles.can(accounts.database, user, permission) })
   : disabledStore();
 
 const friends = accounts.database

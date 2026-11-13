@@ -24,9 +24,7 @@ const ICON_MIMES = new Set(["image/png", "image/jpeg", "image/webp"]);
 /**
  * options: db, site(), userFor, policy() -> the live content policy (checkHost, checkQuery).
  */
-export function createStore({ db, site, userFor, policy, can = () => false, isAdmin = null }) {
-  /** An app as pages get it, with whether its maker is verified (verified accounts and admins). */
-  const pub = (row, options = {}) => apps.publicApp(row, { ...options, isAdmin });
+export function createStore({ db, site, userFor, policy, can = () => false }) {
   const limits = {
     publish: createLimiter({ limit: 12, windowMs: 60 * 60_000 }),
     install: createLimiter({ limit: 120, windowMs: 60_000 }),
@@ -99,13 +97,13 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     const installed = apps.installedIds(db, user.id);
     res.json({
       ...status(),
-      apps: rows.map((row) => ({ ...pub(row), installed: installed.has(row.id) })),
+      apps: rows.map((row) => ({ ...apps.publicApp(row), installed: installed.has(row.id) })),
     });
   }));
 
   router.get("/mine", handle((req, res) => {
     const user = requireUser(req);
-    res.json({ ...status(), apps: apps.listMine(db, user.id).map((row) => pub(row, { forOwner: true })) });
+    res.json({ ...status(), apps: apps.listMine(db, user.id).map((row) => apps.publicApp(row, { forOwner: true })) });
   }));
 
   router.get("/icon/:id", handle((req, res) => {
@@ -141,7 +139,7 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     const live = user.admin || current.approval === "auto" || can(user, "store.instant_publish");
     const id = apps.insertApp(db, { ownerId: user.id, ...fields, status: live ? "approved" : "pending", by: user.admin ? user.username : "automatic", icon });
     if (user.admin) logAdmin(db, user.username, "published a store app", fields.name);
-    res.status(201).json({ app: pub(apps.getApp(db, id), { forOwner: true }), live });
+    res.status(201).json({ app: apps.publicApp(apps.getApp(db, id), { forOwner: true }), live });
   }));
 
   router.post("/apps/:id", handle((req, res) => {
@@ -157,7 +155,7 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     const needsReview = !user.admin && !can(user, "store.instant_publish") && settings().approval === "manual" && changed;
     const next = row.status === "rejected" ? (user.admin || can(user, "store.instant_publish") || settings().approval === "auto" ? "approved" : "pending") : needsReview ? "pending" : row.status;
     apps.updateApp(db, row.id, { ...fields, status: next, icon });
-    res.json({ app: pub(apps.getApp(db, row.id), { forOwner: true }) });
+    res.json({ app: apps.publicApp(apps.getApp(db, row.id), { forOwner: true }) });
   }));
 
   router.post("/apps/:id/delete", handle((req, res) => {
@@ -173,7 +171,7 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     const row = apps.getApp(db, req.params.id);
     if (!row || row.status !== "approved") throw new HttpError(404, "That app isn't in the store.");
     apps.addInstall(db, row.id, user.id);
-    res.json({ app: { ...pub(apps.getApp(db, row.id)), installed: true } });
+    res.json({ app: { ...apps.publicApp(apps.getApp(db, row.id)), installed: true } });
   }));
 
   router.post("/apps/:id/report", handle((req, res) => {
