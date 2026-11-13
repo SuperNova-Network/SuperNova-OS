@@ -116,7 +116,7 @@ export function setChatSettings(db, patch, by = null) {
 
 const MESSAGE_SELECT = `
   SELECT chat_messages.id, chat_messages.user_id, chat_messages.body, chat_messages.media_kind, chat_messages.media_ref,
-         chat_messages.created_at, chat_messages.mentions, users.username, users.is_admin, users.avatar_version
+         chat_messages.created_at, chat_messages.mentions, users.username, users.is_admin, users.verified_at, users.avatar_version
   FROM chat_messages JOIN users ON users.id = chat_messages.user_id`;
 
 /**
@@ -129,7 +129,7 @@ export function publicMessage(row, isAdmin, role = null) {
   return {
     id: row.id,
     at: row.created_at,
-    user: { username: row.username, ...(isAdmin(row) ? { admin: true } : {}), ...(role ? { role } : {}), avatar: row.avatar_version ?? 0 },
+    user: { username: row.username, ...(isAdmin(row) ? { admin: true } : {}), ...(isAdmin(row) || row.verified_at ? { verified: true } : {}), ...(role ? { role } : {}), avatar: row.avatar_version ?? 0 },
     text: row.body,
     media: row.media_kind ? { kind: row.media_kind, id: row.media_ref } : null,
     ...(mentions ? { mentions } : {}),

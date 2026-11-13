@@ -1161,3 +1161,12 @@ a.url {
 a.url:hover {
   text-decoration: underline;
 }
+
+/* the verified check mark after a name */
+.verified {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-left: 4px;
+  align-self: center;
+}

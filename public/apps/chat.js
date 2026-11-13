@@ -133,6 +133,30 @@
     return badge;
   }
 
+  /** The verified check mark: a blue seal with a tick, set after a name. */
+  function verifiedBadge() {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("class", "verified");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Verified");
+    const title = document.createElementNS(NS, "title");
+    title.textContent = "Verified";
+    const seal = document.createElementNS(NS, "path");
+    seal.setAttribute("d", "M12 1.8l2.6 1.9 3.2-.1 1 3 2.6 1.9-1 3 1 3-2.6 1.9-1 3-3.2-.1L12 22.2l-2.6-1.9-3.2.1-1-3-2.6-1.9 1-3-1-3 2.6-1.9 1-3 3.2.1z");
+    seal.setAttribute("fill", "#1d9bf0");
+    const tick = document.createElementNS(NS, "path");
+    tick.setAttribute("d", "M7.6 12.3l3 3 5.8-6.2");
+    tick.setAttribute("fill", "none");
+    tick.setAttribute("stroke", "#fff");
+    tick.setAttribute("stroke-width", "2.4");
+    tick.setAttribute("stroke-linecap", "round");
+    tick.setAttribute("stroke-linejoin", "round");
+    svg.append(title, seal, tick);
+    return svg;
+  }
+
   // --- roles and what people may do ---------------------------------------------------------------------
 
   const can = (permission) => Boolean(state.me?.perms?.includes(permission));
@@ -397,6 +421,7 @@
       const name = el("span", "name", message.user.username);
       styleName(name, message.user);
       head.append(name);
+      if (message.user.verified) head.append(verifiedBadge());
       const tag = tagFor(message.user);
       if (tag) head.append(tag);
       head.append(el("span", "time", clock(message.at)));
@@ -486,6 +511,7 @@
       const who = el("span", "who", person.username);
       styleName(who, person);
       row.append(avatar(person, "small"), who);
+      if (person.verified) row.append(verifiedBadge());
       const tag = tagFor(person);
       if (tag) row.append(tag);
       if (state.me && canModeratePerson(person)) {

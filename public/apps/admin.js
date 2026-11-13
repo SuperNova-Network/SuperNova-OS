@@ -390,6 +390,7 @@
     const btn = (label, onClick, kind = "", disabled = false) => h("button", { class: `btn small ${kind}`.trim(), type: "button", text: label, disabled, onclick: (e) => onClick(e.target) });
 
     const actions = h("div", { class: "row" },
+      btn(detail.verified ? "Remove verification" : "Verify", (b) => act(b, async () => { await A("POST", `/users/${u}/verify`, { verified: !detail.verified }); await refresh(); }, detail.verified ? "Verification removed." : "Verified."), "", detail.admin),
       btn(detail.admin ? "Remove admin" : "Make admin", (b) => act(b, async () => { await api("POST", `/api/account/admin/users/${u}/${detail.admin ? "unadmin" : "admin"}`, {}); await refresh(); }, detail.admin ? "Admin role removed." : "Now an admin."), "", detail.serverAdmin || self),
       detail.banned
         ? btn("Unban", (b) => act(b, async () => { await api("POST", `/api/account/admin/users/${u}/unban`, {}); await refresh(); }, "Unbanned."))
@@ -431,7 +432,7 @@
     pick("Browsers");
 
     const body = h("div", { class: "stack" },
-      h("div", { class: "row" }, avatar(detail.username, detail.avatar, true), h("div", {}, h("strong", { text: detail.username }), detail.admin && chip(detail.serverAdmin ? "ADMIN (ADMINS)" : "ADMIN", "admin"), detail.banned && chip("BANNED", "red"),
+      h("div", { class: "row" }, avatar(detail.username, detail.avatar, true), h("div", {}, h("strong", { text: detail.username }), detail.admin && chip(detail.serverAdmin ? "ADMIN (ADMINS)" : "ADMIN", "admin"), detail.verified && chip("VERIFIED", "green"), detail.banned && chip("BANNED", "red"),
         h("div", { class: "dim small", text: detail.banned ? `Banned${detail.banReason ? `: ${detail.banReason}` : ""}` : `Last seen ${ago(detail.lastSeenAt)}` }))),
       h("dl", { class: "kv" },
         h("dt", { text: "Joined" }), h("dd", { text: dateTime(detail.createdAt) }),

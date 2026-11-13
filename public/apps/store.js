@@ -97,6 +97,30 @@
     return box;
   }
 
+  /** The verified check mark: a blue seal with a tick, set after a name. */
+  function verifiedBadge() {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("class", "verified");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Verified");
+    const title = document.createElementNS(NS, "title");
+    title.textContent = "Verified";
+    const seal = document.createElementNS(NS, "path");
+    seal.setAttribute("d", "M12 1.8l2.6 1.9 3.2-.1 1 3 2.6 1.9-1 3 1 3-2.6 1.9-1 3-3.2-.1L12 22.2l-2.6-1.9-3.2.1-1-3-2.6-1.9 1-3-1-3 2.6-1.9 1-3 3.2.1z");
+    seal.setAttribute("fill", "#1d9bf0");
+    const tick = document.createElementNS(NS, "path");
+    tick.setAttribute("d", "M7.6 12.3l3 3 5.8-6.2");
+    tick.setAttribute("fill", "none");
+    tick.setAttribute("stroke", "#fff");
+    tick.setAttribute("stroke-width", "2.4");
+    tick.setAttribute("stroke-linecap", "round");
+    tick.setAttribute("stroke-linejoin", "round");
+    svg.append(title, seal, tick);
+    return svg;
+  }
+
   const chip = (text, tone = "") => h("span", { class: `chip ${tone}`.trim(), text });
 
   // ---------------------------------------------------------------------------------------
@@ -243,7 +267,7 @@
     });
     return h("div", { class: "app-card" },
       h("button", { class: "hit", type: "button", "aria-label": `Details of ${app.name}`, onclick: () => details(app, reload) }),
-      h("div", { class: "app-top" }, icon(app), h("div", { class: "app-text" }, h("div", { class: "app-name", text: app.name }), h("div", { class: "app-by", text: `by ${app.owner}` }))),
+      h("div", { class: "app-top" }, icon(app), h("div", { class: "app-text" }, h("div", { class: "app-name", text: app.name }), h("div", { class: "app-by" }, `by ${app.owner}`, app.ownerVerified && verifiedBadge()))),
       h("p", { class: "app-desc", text: app.description }),
       h("div", { class: "app-foot" }, h("span", { text: `${number(app.installs)} ${app.installs === 1 ? "install" : "installs"}` }), button));
   }
@@ -281,7 +305,7 @@
   function details(app, reload) {
     const id = () => desktopId(app);
     const body = h("div", {},
-      h("div", { class: "detail-head" }, icon(app, "big"), h("div", {}, h("h2", { text: app.name }), h("div", { class: "dim", text: `by ${app.owner}` }),
+      h("div", { class: "detail-head" }, icon(app, "big"), h("div", {}, h("h2", { text: app.name }), h("div", { class: "dim" }, `by ${app.owner}`, app.ownerVerified && verifiedBadge()),
         h("div", { style: "margin-top:6px" }, chip(meta.categories.find((c) => c.id === app.category)?.label ?? app.category), chip(`${number(app.installs)} ${app.installs === 1 ? "install" : "installs"}`)))),
       h("p", { class: "detail-text", text: app.description }),
       h("dl", { class: "kv" }, h("dt", { text: "Opens" }), h("dd", { text: hostOf(app.url) }), h("dt", { text: "Added" }), h("dd", { text: ago(app.created) })),

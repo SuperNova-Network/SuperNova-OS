@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { AdminError, createInvite, setBanned } from "./accountsdb.js";
 import {
   backupTo, databaseInfo, deleteUser, getAdminSetting, listAudit, listSessions, listUsersPage, logAdmin, overview, prune,
-  revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, saveTerms, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
+  revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, saveTerms, setVerified, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
 } from "./admindb.js";
 import * as apps from "./storedb.js";
 import * as roles from "./roles.js";
@@ -205,6 +205,14 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     if (!role) throw new HttpError(404, "There's no such role.");
     return role;
   };
+
+  router.post("/users/:username/verify", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const on = req.body?.verified !== false;
+    const user = setVerified(db, req.params.username, on);
+    logAdmin(db, admin.username, on ? "verified an account" : "removed verification from an account", user.username);
+    res.json({ verified: on });
+  }));
 
   router.get("/roles", handle((req, res) => {
     requireAdmin(req);

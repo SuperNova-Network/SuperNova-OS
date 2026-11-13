@@ -269,6 +269,10 @@ const MIGRATIONS = [
     // The admins you already have hold the Admin role.
     db.exec("INSERT OR IGNORE INTO user_roles (user_id, role_id) SELECT users.id, roles.id FROM users, roles WHERE users.is_admin = 1 AND roles.slug = 'admin'");
   },
+  // 10: verified accounts (a check mark beside the name, given by admins; admins have it automatically).
+  (db) => {
+    if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === "verified_at")) db.exec("ALTER TABLE users ADD COLUMN verified_at INTEGER");
+  },
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */

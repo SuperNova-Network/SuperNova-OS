@@ -248,3 +248,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* the verified check mark after a name */
+.verified {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  margin-left: 4px;
+  vertical-align: -3px;
+}
