@@ -141,9 +141,14 @@ export function publicMessage(row, isAdmin, role = null) {
  * Someone who has never read it starts at "everything so far is read", not with the whole history unread.
  */
 export function unreadCount(db, userId) {
-  const row = db.prepare("SELECT last_id FROM chat_reads WHERE user_id = ?").get(userId);
-  if (!row) { markRead(db, userId); return 0; }
-  return db.prepare("SELECT COUNT(*) AS n FROM chat_messages WHERE id > ? AND user_id <> ? AND deleted_at IS NULL").get(row.last_id, userId).n;
+  try {
+    const row = db.prepare("SELECT last_id FROM chat_reads WHERE user_id = ?").get(userId);
+    if (!row) { markRead(db, userId); return 0; }
+    return db.prepare("SELECT COUNT(*) AS n FROM chat_messages WHERE id > ? AND user_id <> ? AND deleted_at IS NULL").get(row.last_id, userId).n;
+  } catch (error) {
+    console.error("Chat: could not count unread messages:", error.message); // never stop the chat from opening
+    return 0;
+  }
 }
 
 /** This person has now read everything in the chat. */
