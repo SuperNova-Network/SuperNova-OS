@@ -206,10 +206,10 @@
     }
   }
 
-  /** Did this message ping you (by name, by a role of yours, or @everyone / @here)? */
+  /** Did this message ping you (by name, by a role of yours, or @everyone / @here)? Then it is highlighted. */
   function pingsMe(message) {
     const m = message.mentions;
-    if (!m || !state.me || message.user.username === state.me.username) return false;
+    if (!m || !state.me) return false; // a message of your own that pings you counts too, as in Discord
     const me = state.me.username.toLowerCase();
     return Boolean(m.everyone || m.here || (m.users ?? []).some((name) => name.toLowerCase() === me) || (m.roles ?? []).some((slug) => state.me.roles?.includes(slug)));
   }

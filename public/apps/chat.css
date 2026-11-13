@@ -1039,10 +1039,14 @@ code {
   color: #fff;
 }
 
-/* a message that pinged you */
+/* a message that pinged you: a warm highlight with a bar down its left edge, like Discord's */
 .msg.pinged {
-  background: color-mix(in srgb, var(--accent, #7b4aa8) 13%, transparent);
-  box-shadow: inset 3px 0 0 var(--accent, #7b4aa8);
+  background: rgb(240 178 50 / 11%);
+  box-shadow: inset 3px 0 0 #f0b232;
+}
+
+.msg.pinged:hover {
+  background: rgb(240 178 50 / 15%);
 }
 
 /* suggestions while you type @: flat and sized like the rest of the chat, and clickable */
