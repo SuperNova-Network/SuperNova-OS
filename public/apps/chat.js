@@ -624,10 +624,15 @@
       try {
         const data = await api("GET", `/mention-search?q=${encodeURIComponent(ctx.query)}`);
         if (mine !== mention.seq) return; // a newer keystroke is already asking
+        // Never a scrolling list: at most eight rows, people first, then roles, then @everyone / @here.
+        const users = data.users.slice(0, 5);
+        const roomForRoles = 8 - users.length - Math.min(data.special.length, 1);
+        const picked = data.roles.slice(0, Math.max(0, roomForRoles));
+        const specials = data.special.slice(0, Math.min(2, 8 - users.length - picked.length));
         mention.items = [
-          ...data.users.map((u) => ({ kind: "user", value: u.username, user: u })),
-          ...data.roles.map((r) => ({ kind: "role", value: r.slug, role: r })),
-          ...data.special.map((name) => ({ kind: "special", value: name })),
+          ...users.map((u) => ({ kind: "user", value: u.username, user: u })),
+          ...picked.map((r) => ({ kind: "role", value: r.slug, role: r })),
+          ...specials.map((name) => ({ kind: "special", value: name })),
         ];
         mention.active = 0;
         renderMention();
