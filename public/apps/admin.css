@@ -969,3 +969,67 @@ th.num {
 /* Windows 10 never shows the hand cursor: keep the normal arrow everywhere (text boxes keep the I-beam). */
 body, body *, body *::before, body *::after { cursor: default !important; }
 input[type="text"], input[type="search"], input[type="url"], input[type="password"], input[type="number"], input:not([type]), textarea { cursor: text !important; }
+
+/* Roles */
+.role-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  vertical-align: -2px;
+}
+
+.role-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.role-swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid transparent;
+  outline: 1px solid #666;
+  outline-offset: -3px;
+}
+
+.role-swatch[aria-pressed="true"] {
+  border-color: #fff;
+}
+
+.role-wheel {
+  width: 44px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #666;
+  background: #1b1b1b;
+}
+
+.role-members {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-members .chip {
+  margin: 0;
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.chip-x {
+  margin-left: 6px;
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.chip-x:hover {
+  opacity: 1;
+}

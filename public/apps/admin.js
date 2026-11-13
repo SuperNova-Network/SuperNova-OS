@@ -365,6 +365,21 @@
     await load();
   };
 
+  /** The roles someone has (click one's x to take it away), and a list to give another. */
+  function rolesBox(detail, u, refresh) {
+    const box = h("div", { class: "role-members" });
+    for (const r of detail.roles) {
+      box.append(h("span", { class: "chip", style: `border:1px solid ${r.color};color:${r.color};background:transparent` }, r.name, h("button", { class: "chip-x", type: "button", title: `Take ${r.name} away`, text: "x", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${r.id}/members`, { username: detail.username, add: false }); await refresh(); }) })));
+    }
+    const pick = h("select", { class: "field", style: "width:auto", "aria-label": "Give a role" }, h("option", { value: "", text: "Give a role…" }));
+    A("GET", "/roles").then(({ roles }) => {
+      for (const r of roles) if (!detail.roles.some((x) => x.id === r.id)) pick.append(h("option", { value: r.id, text: r.name }));
+    }).catch(() => {});
+    pick.addEventListener("change", () => { if (pick.value) act(pick, async () => { await A("POST", `/roles/${pick.value}/members`, { username: detail.username }); await refresh(); }); });
+    box.append(pick);
+    return box;
+  }
+
   /** Everything about one account, with every action you can take on it. */
   async function openUser(name) {
     let detail;
@@ -421,6 +436,7 @@
       h("dl", { class: "kv" },
         h("dt", { text: "Joined" }), h("dd", { text: dateTime(detail.createdAt) }),
         h("dt", { text: "Invite" }), h("dd", { text: detail.invite ?? "none" }),
+        h("dt", { text: "Roles" }), h("dd", {}, rolesBox(detail, u, refresh)),
         h("dt", { text: "Chat messages" }), h("dd", { text: number(detail.messages) }),
         h("dt", { text: "Saved settings" }), h("dd", { text: `${bytes(detail.settingsBytes)} (revision ${detail.settingsRevision})` })),
       actions, tabs, pane);
@@ -763,6 +779,104 @@
     };
     await draw();
   };
+
+
+  // ---------------------------------------------------------------------------------------
+  // Roles: names, colours, permissions, order and who has them
+  // ---------------------------------------------------------------------------------------
+
+  const ROLE_COLORS = ["#e5484d", "#ff6b78", "#f5803e", "#3fb950", "#2dd4bf", "#4aa3ff", "#a78bfa", "#f472b6", "#99aab5"];
+
+  views.roles = async () => {
+    const data = await A("GET", "/roles");
+    if (current !== "roles") return;
+    const reload = () => show("roles");
+    const dot = (color) => h("span", { class: "role-dot", style: `background:${color}` });
+
+    const rows = data.roles.map((role, i) => h("tr", {},
+      h("td", {}, dot(role.color), h("strong", { text: role.name, style: `color:${role.color};margin-left:8px` })),
+      h("td", { text: `@${role.slug}` }),
+      h("td", { class: "num", text: number(role.members) }),
+      h("td", { class: "wrap dim", text: role.permissions.length ? role.permissions.map((p) => data.permissions.find((x) => x.id === p)?.label ?? p).join(", ") : "no special permissions" }),
+      h("td", {}, role.mentionable ? chip("PINGABLE", "green") : ""),
+      h("td", {}, h("div", { class: "row end" },
+        h("button", { class: "btn small", type: "button", text: "Up", disabled: i === 0, title: "More important", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${role.id}/move`, { direction: -1 }); await reload(); }) }),
+        h("button", { class: "btn small", type: "button", text: "Down", disabled: i === data.roles.length - 1, title: "Less important", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${role.id}/move`, { direction: 1 }); await reload(); }) }),
+        h("button", { class: "btn small primary", type: "button", text: "Edit", onclick: () => roleDialog(role, data, reload) }),
+        h("button", { class: "btn small danger", type: "button", text: "Delete", onclick: async (e) => {
+          if (!(await confirmBox(`Delete ${role.name}?`, `${role.members ? `${role.members} ${role.members === 1 ? "person has" : "people have"} it and will lose it. ` : ""}Pings of @${role.slug} stop working.`, { confirm: "Delete", danger: true }))) return;
+          act(e.target, async () => { await A("POST", `/roles/${role.id}/delete`, {}); await reload(); }, `${role.name} was deleted.`);
+        } })))));
+
+    main.replaceChildren(
+      head("Roles", h("button", { class: "btn primary", type: "button", text: "Create a role", onclick: () => roleDialog(null, data, reload) })),
+      h("p", { class: "dim section", text: "Roles give people a colour, a tag in the chat and permissions. Someone with several roles gets all of their permissions and the colour of the highest one. People are moderated by rank: nobody can moderate someone whose highest role is as high as theirs. Site admins always have every permission. A role doesn't make anyone a site admin: that stays in Accounts." }),
+      table(["Role", "Ping it with", "People", "Permissions", "", ""], rows, "There are no roles yet."));
+  };
+
+  /** Create a role (role = null) or change one: name, colour, who can ping it, permissions, and its members. */
+  async function roleDialog(role, data, reload) {
+    const picked = new Set(role?.permissions ?? []);
+    const name = h("input", { class: "field", maxlength: String(data.limits.name), value: role?.name ?? "", autocomplete: "off", spellcheck: "false" });
+    let color = role?.color ?? ROLE_COLORS[5];
+    const wheel = h("input", { type: "color", value: color, class: "role-wheel", "aria-label": "Colour wheel" });
+    const swatches = h("div", { class: "role-swatches" });
+    const paintColors = () => {
+      swatches.replaceChildren(...ROLE_COLORS.map((c) => h("button", { class: "role-swatch", type: "button", style: `background:${c}`, title: c, "aria-pressed": String(c === color), onclick: () => { color = c; wheel.value = c; paintColors(); preview(); } })));
+    };
+    wheel.addEventListener("input", () => { color = wheel.value; paintColors(); preview(); });
+    const mentionable = h("input", { type: "checkbox", checked: role?.mentionable ?? true });
+    const sample = h("strong");
+    const preview = () => { sample.textContent = name.value.trim() || "Role name"; sample.style.color = color; };
+    name.addEventListener("input", preview);
+    paintColors(); preview();
+
+    const checks = data.permissions.map((p) => {
+      const box = h("input", { type: "checkbox", checked: picked.has(p.id) });
+      box.addEventListener("change", () => { if (box.checked) picked.add(p.id); else picked.delete(p.id); });
+      return h("label", { class: "check" }, box, h("span", {}, h("strong", { text: p.label }), h("br"), h("small", { class: "dim", text: p.hint })));
+    });
+
+    // members (changing a role that exists)
+    const members = h("div");
+    const paintMembers = (list) => {
+      members.replaceChildren(
+        list.length ? h("div", { class: "role-members" }, list.map((m) => h("span", { class: "chip" }, m.username, h("button", { class: "chip-x", type: "button", title: `Remove ${m.username}`, text: "x", onclick: async (e) => {
+          const res = await act(e.target, () => A("POST", `/roles/${role.id}/members`, { username: m.username, add: false }));
+          if (res) paintMembers(res.members);
+        } })))) : h("p", { class: "faint small", text: "Nobody has this role yet." }));
+    };
+    const add = h("input", { class: "field", placeholder: "Add someone by username", maxlength: "32", autocomplete: "off", spellcheck: "false" });
+    const addGo = async () => {
+      const who = add.value.trim();
+      if (!who) return;
+      const res = await act(null, () => A("POST", `/roles/${role.id}/members`, { username: who }));
+      if (res) { add.value = ""; paintMembers(res.members); }
+    };
+    add.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addGo(); } });
+    if (role) A("GET", `/roles/${role.id}/members`).then((r) => paintMembers(r.members)).catch(() => {});
+
+    const note = h("p", { class: "status" });
+    const body = h("div", { class: "stack" },
+      h("label", { class: "labeled" }, h("span", { text: "Name" }), name),
+      h("div", {}, h("span", { text: "Colour" }), h("div", { class: "row", style: "margin-top:6px" }, swatches, wheel, h("span", { class: "dim small", text: "Preview:" }), sample)),
+      h("label", { class: "check" }, mentionable, h("span", { text: "Anyone can ping this role with @name (otherwise only people allowed to ping any role can)" })),
+      h("div", {}, h("h3", { text: "Permissions", style: "margin:4px 0 6px" }), h("div", { class: "stack" }, checks)),
+      role && h("div", {}, h("h3", { text: "People with this role", style: "margin:10px 0 6px" }), members, h("div", { class: "row", style: "margin-top:8px" }, add, h("button", { class: "btn", type: "button", text: "Add", onclick: addGo }))),
+      note);
+    showDialog({
+      title: role ? `Edit ${role.name}` : "Create a role", body, wide: true,
+      actions: [
+        { label: "Cancel", onClick: () => reload() },
+        { label: role ? "Save" : "Create", kind: "primary", onClick: async () => {
+          const payload = { name: name.value, color, mentionable: mentionable.checked, permissions: [...picked] };
+          try { await A("POST", role ? `/roles/${role.id}` : "/roles", payload); toast(role ? "Saved." : "Role created.", "ok"); reload(); }
+          catch (err) { note.textContent = err.message; note.dataset.state = "error"; return false; }
+        } },
+      ],
+    });
+    name.focus();
+  }
 
   // ---------------------------------------------------------------------------------------
   // App Store: the approval queue, every app, and how new apps get in

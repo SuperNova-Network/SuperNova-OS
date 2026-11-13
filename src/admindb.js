@@ -6,6 +6,7 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { AdminError, transaction } from "./accountsdb.js";
+import { rolesOf } from "./roles.js";
 
 const DAY = 24 * 60 * 60 * 1000;
 export const LOG_KEEP = 5000;
@@ -248,6 +249,7 @@ export function userDetail(db, username, serverAdmins = new Set(), now = Date.no
     sanctions: db.prepare("SELECT kind, reason, created_by, created_at, expires_at, lifted_at, lifted_by FROM chat_sanctions WHERE user_id = ? ORDER BY created_at DESC LIMIT 10").all(row.id)
       .map((s) => ({ kind: s.kind, reason: s.reason, by: s.created_by, at: s.created_at, until: s.expires_at, liftedAt: s.lifted_at, liftedBy: s.lifted_by })),
     audit: listAudit(db, { q: row.username, limit: 15 }),
+    roles: rolesOf(db, row.id).map((r) => ({ id: r.id, name: r.name, color: r.color })),
   };
 }
 
