@@ -89,10 +89,18 @@ export function checkSubmission(input) {
 
 const COLUMNS = `a.id, a.name, a.description, a.url, a.url_key, a.category, a.status, a.reason, a.created_at, a.updated_at,
   a.reviewed_by, a.reviewed_at, a.icon_version, u.username AS owner, u.is_admin AS owner_is_admin,
+  (SELECT r.name FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = a.owner_id ORDER BY r.position DESC LIMIT 1) AS owner_role,
+  (SELECT r.color FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = a.owner_id ORDER BY r.position DESC LIMIT 1) AS owner_role_color,
   (SELECT COUNT(*) FROM store_installs i WHERE i.app_id = a.id) AS installs,
   (SELECT COUNT(*) FROM store_reports r WHERE r.app_id = a.id) AS reports`;
 
-export function publicApp(row, { forOwner = false } = {}) {
+/**
+ * An app as pages get it. `ownerRole` is the maker's highest role (an admin with no role is shown as Admin);
+ * isAdmin({ username, is_admin }) is for admins that exist only through ADMINS on the server.
+ */
+export function publicApp(row, { forOwner = false, isAdmin = null } = {}) {
+  const adminWithoutRole = !row.owner_role && (row.owner_is_admin || isAdmin?.({ username: row.owner, is_admin: row.owner_is_admin }));
+  const ownerRole = row.owner_role ? { name: row.owner_role, color: row.owner_role_color } : adminWithoutRole ? { name: "Admin", color: "#ff6b78" } : null;
   return {
     id: row.id,
     name: row.name,
@@ -100,6 +108,7 @@ export function publicApp(row, { forOwner = false } = {}) {
     url: row.url,
     category: row.category,
     owner: row.owner,
+    ...(ownerRole ? { ownerRole } : {}),
     installs: row.installs,
     icon: row.icon_version || 0,
     created: row.created_at,

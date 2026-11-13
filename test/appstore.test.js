@@ -260,3 +260,18 @@ test("five reports send an app back to the approval queue", options, async () =>
   assert.equal((await maker.get("/api/store/mine")).data.apps.find((x) => x.id === id).status, "pending");
   assert.equal((await boss.post(`/api/admin/store/apps/${id}/approve`)).status, 200);
 });
+
+test("an app shows its maker's highest role, and an admin with no role shows as Admin", options, async () => {
+  await setApproval("auto");
+  const plain = await person(), sup = await person(), both = await person();
+  const roles = (await boss.get("/api/admin/roles")).data.roles;
+  const supporter = roles.find((r) => r.name === "Supporter"), moderator = roles.find((r) => r.name === "Moderator");
+  for (const [role, who] of [[supporter, sup], [supporter, both], [moderator, both]]) await boss.post(`/api/admin/roles/${role.id}/members`, { username: who.username });
+  const shown = async (id) => (await plain.get("/api/store/apps?limit=100")).data.apps.find((a) => a.id === id);
+  const ids = [];
+  for (const who of [plain, sup, both, boss]) ids.push((await who.post("/api/store/apps", submission())).data.app.id);
+  assert.equal((await shown(ids[0])).ownerRole, undefined, "no role, no tag");
+  assert.deepEqual((await shown(ids[1])).ownerRole, { name: "Supporter", color: supporter.color });
+  assert.equal((await shown(ids[2])).ownerRole.name, "Moderator", "the highest of several");
+  assert.equal((await shown(ids[3])).ownerRole.name, "Admin", "a site admin through ADMINS, with no role, shows as Admin");
+});

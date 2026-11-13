@@ -248,3 +248,30 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* the maker's highest role, beside their name */
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 7px;
+  padding: 0 6px 0 4px;
+  border: 1px solid var(--tag);
+  color: var(--tag);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 14px;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.role-tag svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

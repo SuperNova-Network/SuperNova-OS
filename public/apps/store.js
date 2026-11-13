@@ -97,6 +97,22 @@
     return box;
   }
 
+  /** A maker's highest role, as a small outlined tag in the role's colour (like the chat's). */
+  function roleTag(role) {
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    for (const d of ["M12 2 3.5 5.5v6c0 5 3.6 9 8.5 10.5 4.9-1.5 8.5-5.5 8.5-10.5v-6z", "m8.6 12.2 2.4 2.4 4.6-4.9"]) {
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", d);
+      svg.append(path);
+    }
+    const tag = h("span", { class: "role-tag", title: role.name }, svg, h("span", { text: role.name }));
+    tag.style.setProperty("--tag", /^#[0-9a-fA-F]{6}$/.test(role.color) ? role.color : "#99aab5");
+    return tag;
+  }
+
   const chip = (text, tone = "") => h("span", { class: `chip ${tone}`.trim(), text });
 
   // ---------------------------------------------------------------------------------------
@@ -243,7 +259,7 @@
     });
     return h("div", { class: "app-card" },
       h("button", { class: "hit", type: "button", "aria-label": `Details of ${app.name}`, onclick: () => details(app, reload) }),
-      h("div", { class: "app-top" }, icon(app), h("div", { class: "app-text" }, h("div", { class: "app-name", text: app.name }), h("div", { class: "app-by", text: `by ${app.owner}` }))),
+      h("div", { class: "app-top" }, icon(app), h("div", { class: "app-text" }, h("div", { class: "app-name", text: app.name }), h("div", { class: "app-by" }, `by ${app.owner}`, app.ownerRole && roleTag(app.ownerRole)))),
       h("p", { class: "app-desc", text: app.description }),
       h("div", { class: "app-foot" }, h("span", { text: `${number(app.installs)} ${app.installs === 1 ? "install" : "installs"}` }), button));
   }
@@ -281,7 +297,7 @@
   function details(app, reload) {
     const id = () => desktopId(app);
     const body = h("div", {},
-      h("div", { class: "detail-head" }, icon(app, "big"), h("div", {}, h("h2", { text: app.name }), h("div", { class: "dim", text: `by ${app.owner}` }),
+      h("div", { class: "detail-head" }, icon(app, "big"), h("div", {}, h("h2", { text: app.name }), h("div", { class: "dim" }, `by ${app.owner}`, app.ownerRole && roleTag(app.ownerRole)),
         h("div", { style: "margin-top:6px" }, chip(meta.categories.find((c) => c.id === app.category)?.label ?? app.category), chip(`${number(app.installs)} ${app.installs === 1 ? "install" : "installs"}`)))),
       h("p", { class: "detail-text", text: app.description }),
       h("dl", { class: "kv" }, h("dt", { text: "Opens" }), h("dd", { text: hostOf(app.url) }), h("dt", { text: "Added" }), h("dd", { text: ago(app.created) })),
