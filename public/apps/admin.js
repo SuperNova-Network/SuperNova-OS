@@ -659,17 +659,17 @@
     const mOn = h("input", { type: "checkbox", checked: maintenance.on });
     const mMsg = h("textarea", { class: "field", rows: "2", maxlength: "300", value: maintenance.message });
     const mSave = h("button", { class: "btn primary", type: "button", text: "Save", onclick: async () => {
-      if (mOn.checked && !maintenance.on && !(await confirmBox("Turn on maintenance mode", "Everyone except admins is locked out right now, and the proxy closes to them.", { confirm: "Turn it on", danger: true }))) { mOn.checked = false; return; }
+      if (mOn.checked && !maintenance.on && !(await confirmBox("Turn on maintenance mode", "Everyone except admins is taken to the \"back soon\" page right away, wherever they are, and the proxy closes to them.", { confirm: "Turn it on", danger: true }))) { mOn.checked = false; return; }
       act(mSave, async () => { const saved = await A("POST", "/maintenance", { on: mOn.checked, message: mMsg.value }); maintenance.on = saved.on; }, mOn.checked ? "Maintenance mode is on. Only admins can use the site." : "Maintenance mode is off.");
     } });
 
     const aText = h("textarea", { class: "field", rows: "3", maxlength: "300", placeholder: "For example: The server restarts at 3pm.", value: announcement.text });
-    const aLevel = h("select", { class: "field", style: "width:180px" }, [["info", "Information"], ["warning", "Warning"], ["danger", "Important"]].map(([v, t]) => h("option", { value: v, text: t })));
+    const aLevel = h("select", { class: "field", style: "width:180px" }, [["info", "Information (notification)"], ["warning", "Warning (notification)"], ["danger", "Important (window to close)"]].map(([v, t]) => h("option", { value: v, text: t })));
     aLevel.value = announcement.level;
     const preview = h("div", { class: "announce", "data-level": announcement.level }, h("strong", { text: "Announcement" }), h("div", { class: "dim" }));
     const draw = () => { preview.dataset.level = aLevel.value; preview.lastChild.textContent = aText.value.trim() || "(nothing yet)"; };
     aText.addEventListener("input", draw); aLevel.addEventListener("change", draw); draw();
-    const post = h("button", { class: "btn primary", type: "button", text: announcement.active ? "Update announcement" : "Post announcement", onclick: () => act(post, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: true }); views.site(); }, "Posted. People see it as a notification.") });
+    const post = h("button", { class: "btn primary", type: "button", text: announcement.active ? "Update announcement" : "Post announcement", onclick: () => act(post, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: true }); views.site(); }, "Posted. Everyone sees it now: Important as a window to close, the rest as a notification at the bottom left.") });
     const clear = h("button", { class: "btn", type: "button", text: "Take it down", disabled: !announcement.active, onclick: () => act(clear, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: false }); views.site(); }, "Taken down.") });
 
     main.replaceChildren(head("Site"),

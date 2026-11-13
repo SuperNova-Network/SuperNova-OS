@@ -1,7 +1,7 @@
 /*
- * What the admins tell the desktop: their announcement (shown as a notification, once per
- * announcement), a note when the site goes into maintenance mode, and the Admin item in the
- * start menu for people who are admins.
+ * What the admins tell the desktop, as it happens (the live channel, src/live.js): their announcement (an
+ * Important one is a window to close, any other a notification at the bottom left, each shown once), maintenance
+ * mode (everyone but admins goes to the "back soon" page at once), and the Admin item in the start menu for admins.
  *
  * Needs notify.js and account.js. Plain script.
  */
@@ -10,28 +10,101 @@
 
   var SEEN = "announceSeen";
   var LEVELS = { info: "Announcement", warning: "Warning", danger: "Important" };
-  var told = "";      // the maintenance message already shown, so it isn't repeated every check
+  var CORNER = "bottom-left";   // where announcements and maintenance notes appear, whatever corner is set for other notifications
+  var who = global.SnAccount
+    ? global.SnAccount.status().then(function (state) { return Boolean(state && state.user && state.user.admin); }, function () { return false; })
+    : Promise.resolve(false);
 
+  // An Important announcement is a window in the middle of the screen that has to be closed.
+  function closePopup() {
+    var old = document.getElementById("announcepop");
+    if (old) old.parentNode.removeChild(old);
+  }
+
+  function popup(a) {
+    closePopup();
+    var overlay = document.createElement("div");
+    overlay.id = "announcepop";
+    overlay.setAttribute("role", "alertdialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("data-id", String(a.id));
+    var box = document.createElement("div");
+    box.className = "ap-box";
+    var bar = document.createElement("div");
+    bar.className = "ap-bar";
+    var title = document.createElement("span");
+    title.textContent = LEVELS[a.level] || "Announcement";
+    var x = document.createElement("span");
+    x.className = "ap-x";
+    x.textContent = "\u2715";
+    x.title = "Close";
+    bar.appendChild(title); bar.appendChild(x);
+    var body = document.createElement("div");
+    body.className = "ap-body";
+    body.textContent = a.text;
+    var foot = document.createElement("div");
+    foot.className = "ap-foot";
+    var ok = document.createElement("button");
+    ok.type = "button";
+    ok.textContent = "OK";
+    foot.appendChild(ok);
+    box.appendChild(bar); box.appendChild(body); box.appendChild(foot);
+    overlay.appendChild(box);
+    var done = function () { closePopup(); document.removeEventListener("keydown", onKey); };
+    var onKey = function (event) { if (event.key === "Escape" || event.key === "Enter") done(); };
+    x.addEventListener("click", done);
+    ok.addEventListener("click", done);
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    ok.focus();
+  }
+
+  // An announcement, from the live channel or from the slower check. Each one is shown once per person.
+  function showAnnouncement(a) {
+    if (!a || !a.id) return;
+    // Taken down (there is only ever one announcement): a window still open for it closes.
+    if (!a.active || !a.text) { closePopup(); return; }
+    if (String(a.id) === global.SnStore.get(SEEN)) return;
+    if (a.level === "danger") {
+      popup(a);
+      global.SnStore.set(SEEN, String(a.id));
+      return;
+    }
+    // Only counts as seen once it was really shown (notifications may be off, or on Do not disturb).
+    if (global.SnNotify.show({ app: "SuperNova OS", icon: "bell", title: LEVELS[a.level] || "Announcement", text: a.text, position: CORNER })) {
+      global.SnStore.set(SEEN, String(a.id));
+    }
+  }
+
+  // Maintenance mode. Everyone but admins is taken to the "back soon" page at once (the server sends it);
+  // admins keep working and are told.
+  function maintenanceChanged(m, announce) {
+    who.then(function (isAdmin) {
+      if (m.on && !isAdmin) { global.location.reload(); return; }
+      if (isAdmin && announce) {
+        global.SnNotify.show({ app: "SuperNova OS", icon: "bell", title: m.on ? "Maintenance mode is on" : "Maintenance mode is off", text: m.on ? "Everyone but admins is on the \"back soon\" page." : "The site is open to everyone again.", position: CORNER });
+      }
+    });
+  }
+
+  // The live channel: the server pushes what admins change. It reconnects by itself, and each connection starts
+  // with "hello", so a change made while it was down is caught up.
+  function listen() {
+    if (!global.EventSource) return;
+    var source = new global.EventSource("/api/live");
+    function on(name, handler) { source.addEventListener(name, function (event) { try { handler(JSON.parse(event.data)); } catch (e) { /* ignore a bad message */ } }); }
+    on("hello", function (data) { showAnnouncement(data.announcement); if (data.maintenance) maintenanceChanged(data.maintenance, false); });
+    on("announcement", showAnnouncement);
+    on("maintenance", function (m) { maintenanceChanged(m, true); });
+  }
+
+  // The slower check: a fallback if the live channel can't connect (some networks cut long connections).
   function check() {
     if (document.hidden) return;
     fetch("/api/announcement", { credentials: "same-origin", cache: "no-store" }).then(function (res) {
-      if (res.status === 503) {
-        return res.json().then(function (data) {
-          if (data && data.maintenance && told !== data.error) {
-            told = data.error;
-            global.SnNotify.show({ app: "SuperNova OS", icon: "bell", title: "Down for maintenance", text: data.error });
-          }
-        });
-      }
+      if (res.status === 503) return res.json().then(function (data) { if (data && data.maintenance) maintenanceChanged({ on: true }, false); });
       if (!res.ok) return null;
-      return res.json().then(function (data) {
-        var a = data && data.announcement;
-        if (!a || String(a.id) === global.SnStore.get(SEEN)) return;
-        // Only counts as seen once it was really shown (notifications may be off, or on Do not disturb).
-        if (global.SnNotify.show({ app: "SuperNova OS", icon: "bell", title: LEVELS[a.level] || "Announcement", text: a.text })) {
-          global.SnStore.set(SEEN, String(a.id));
-        }
-      });
+      return res.json().then(function (data) { showAnnouncement(data && data.announcement); });
     }).catch(function () { /* offline: try again later */ });
   }
 
@@ -123,6 +196,7 @@
     }
   }
 
-  setTimeout(check, 4000);        // after the desktop has settled
+  whenLoaded(function () { setTimeout(listen, 1500); });   // after the desktop has settled
+  setTimeout(check, 6000);
   setInterval(check, 90000);
 })(self);

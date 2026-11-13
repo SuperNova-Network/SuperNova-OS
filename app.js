@@ -21,6 +21,7 @@ import { createChat, disabledChat } from "./src/chat.js";
 import { createAdmin, disabledAdmin } from "./src/admin.js";
 import { createStore, disabledStore } from "./src/store.js";
 import { createFriends, disabledFriends } from "./src/friends.js";
+import { createLive } from "./src/live.js";
 import { createSuggest, cleanQuery } from "./src/suggest.js";
 import { createLimiter } from "./src/ratelimit.js";
 
@@ -50,8 +51,15 @@ const chat = accounts.database
   })
   : disabledChat();
 
+// What admins change on the site (an announcement, maintenance mode) reaches every open page at once.
+const live = createLive({ state: () => ({ announcement: admin.announcement(), maintenance: admin.maintenance() }) });
+
 const admin = accounts.database
   ? createAdmin({
+    onChange: (key, value) => {
+      live.broadcast(key, key === "maintenance" ? { on: value.on, message: value.message } : value);
+      if (key === "maintenance" && value.on) endProxySocketsOfNonAdmins();
+    },
     db: accounts.database,
     dataDir: config.accounts.dataDir,
     userFor: accounts.userFor,
@@ -154,7 +162,7 @@ app.use("/api/account", accounts.router);
 // Maintenance mode (Admin Panel > Site): everyone but admins gets a "back soon" page, and the
 // proxy is closed to them too. Only what sign-in and the health check need stays reachable.
 {
-  const stillOpen = /^\/(?:signin|setup)$|^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$|healthz$|api\/info$)/;
+  const stillOpen = /^\/(?:signin|setup)$|^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$|healthz$|api\/(?:info|live)$)/;
   app.use((req, res, next) => {
     const maintenance = admin.maintenance();
     if (!maintenance.on || stillOpen.test(req.path) || accounts.userFor(req)?.admin) return next();
@@ -163,9 +171,11 @@ app.use("/api/account", accounts.router);
     const navigation = req.method === "GET" && (dest ? ["document", "iframe", "frame"].includes(dest) : (req.get("accept") ?? "").includes("text/html"));
     if (!navigation) return res.status(503).json({ error: maintenance.message, maintenance: true });
     const text = maintenance.message.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-    res.status(503).type("html").send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Back soon</title><style>*{box-sizing:border-box}html,body{height:100%;margin:0;overflow:hidden;background:#0b0b14;color:#fff;font:16px "Segoe UI",system-ui,sans-serif}body{display:grid;place-items:center;text-align:center;padding:24px}img{display:block;width:96px;height:96px;margin:0 auto 22px}h1{font-weight:300;font-size:34px;margin:0 0 10px}p{margin:0;color:#b8b8c8;max-width:420px;line-height:1.5}a{color:#fff;display:inline-block;margin-top:22px}</style></head><body><main><img src="/resources/media/app_icons/SuperNova.png" alt="SuperNova OS" width="96" height="96"><h1>We'll be right back</h1><p>${text}</p><a href="/signin">Admin sign-in</a></main></body></html>`);
+    res.status(503).type("html").send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Back soon</title><style>*{box-sizing:border-box}html,body{height:100%;margin:0;overflow:hidden;background:#0b0b14;color:#fff;font:16px "Segoe UI",system-ui,sans-serif}body{display:grid;place-items:center;text-align:center;padding:24px}img{display:block;width:96px;height:96px;margin:0 auto 22px}h1{font-weight:300;font-size:34px;margin:0 0 10px}p{margin:0;color:#b8b8c8;max-width:420px;line-height:1.5}a{color:#fff;display:inline-block;margin-top:22px}</style></head><body><main><img src="/resources/media/app_icons/SuperNova.png" alt="SuperNova OS" width="96" height="96"><h1>We'll be right back</h1><p>${text}</p><a href="/signin">Admin sign-in</a></main><script>try{var m=document.querySelector("p"),e=new EventSource("/api/live");e.addEventListener("maintenance",function(v){var d=JSON.parse(v.data);if(!d.on)location.reload();else m.textContent=d.message});e.addEventListener("hello",function(v){if(!JSON.parse(v.data).maintenance.on)location.reload()})}catch(x){}</script></body></html>`);
   });
 }
+
+app.get("/api/live", live.handler);
 
 app.use("/api/admin", admin.router);
 app.use("/api/chat", chat.router);
@@ -407,6 +417,15 @@ function trafficFor(key) {
   return total;
 }
 
+/** Maintenance mode begins: everyone but admins loses their proxy connections now, not at their next one. */
+function endProxySocketsOfNonAdmins() {
+  const row = accounts.database?.prepare("SELECT username, is_admin FROM users WHERE id = ?");
+  for (const [socket, owner] of proxySockets) {
+    const user = owner.userId && row ? row.get(owner.userId) : null;
+    if (!user || !accounts.isAdmin(user)) socket.destroy();
+  }
+}
+
 function closeUnauthorizedSockets() {
   if (!accountsRequired()) return;
   for (const [socket, owner] of proxySockets) if (!accounts.sessionActive(owner.sessionHash)) socket.destroy();
@@ -472,6 +491,7 @@ function shutdown(signal) {
 
   chat.close(); // ends the live streams, or server.close() would wait for them
   friends.close();
+  live.close();
   server.close(() => { accounts.close(); process.exit(0); });
   server.closeAllConnections?.();
 }

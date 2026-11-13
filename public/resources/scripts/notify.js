@@ -20,7 +20,7 @@
   var FADE_MS = 300;
   var NS = "http://www.w3.org/2000/svg";
 
-  var container = null;
+  var containers = {}; // one stack per corner: the one the person chose, and any corner an announcement asks for
   var toasts = []; // oldest first: { el, timer, leaving }
 
   var ICONS = {
@@ -82,23 +82,26 @@
     return (taskbar ? taskbar.offsetHeight : 40) + 8;
   }
 
-  /** Put the container at the chosen corner, above the taskbar when at the bottom. */
-  function place(settings) {
+  /** The stack for a corner (made when first needed), above the taskbar when at the bottom. */
+  function place(position, settings) {
+    var container = containers[position];
     if (!container) {
       container = node("div");
-      container.id = "sn-toasts";
+      container.className = "sn-toasts";
       container.setAttribute("role", "region");
       container.setAttribute("aria-label", "Notifications");
       container.addEventListener("mousedown", function (event) { event.stopPropagation(); });
       document.body.appendChild(container);
+      containers[position] = container;
     }
-    var bottom = settings.position.indexOf("bottom") === 0;
-    container.dataset.pos = settings.position;
+    var bottom = position.indexOf("bottom") === 0;
+    container.dataset.pos = position;
     container.dataset.size = settings.size;
     container.style.top = bottom ? "auto" : "8px";
     container.style.bottom = bottom ? taskbarOffset() + "px" : "auto";
-    container.style.left = settings.position.indexOf("left") !== -1 ? "8px" : "auto";
-    container.style.right = settings.position.indexOf("right") !== -1 ? "8px" : "auto";
+    container.style.left = position.indexOf("left") !== -1 ? "8px" : "auto";
+    container.style.right = position.indexOf("right") !== -1 ? "8px" : "auto";
+    return container;
   }
 
   function leave(toast) {
@@ -115,13 +118,16 @@
     setTimeout(done, FADE_MS);
   }
 
-  /** Fade away the oldest notifications until the stack is no taller than allowed. */
+  /** Fade away the oldest notifications in each stack until it is no taller than allowed. */
   function trim() {
-    var live = toasts.filter(function (toast) { return !toast.leaving; });
-    var offset = container.dataset.pos.indexOf("bottom") === 0 ? taskbarOffset() : 8;
-    var room = Math.max(60, core.stackLimit(global.innerHeight) - offset);
-    var drop = core.overflow(live.map(function (toast) { return toast.el.offsetHeight; }), GAP, room);
-    live.slice(0, drop).forEach(leave);
+    Object.keys(containers).forEach(function (position) {
+      var box = containers[position];
+      var live = toasts.filter(function (toast) { return !toast.leaving && toast.box === box; });
+      var offset = position.indexOf("bottom") === 0 ? taskbarOffset() : 8;
+      var room = Math.max(60, core.stackLimit(global.innerHeight) - offset);
+      var drop = core.overflow(live.map(function (toast) { return toast.el.offsetHeight; }), GAP, room);
+      live.slice(0, drop).forEach(leave);
+    });
   }
 
   function picture(options, settings) {
@@ -172,7 +178,8 @@
   /**
    * Show a notification (unless notifications are off or Do not disturb is on). Returns
    * { dismiss() }, or null when nothing was shown.
-   * options: { app, icon: "chat"|"bell", title, text, picture: { url, letter, color }, onClick }
+   * options: { app, icon: "chat"|"bell", title, text, picture: { url, letter, color }, onClick,
+   *   position: a corner to use instead of the person's own choice ("bottom-left") }
    */
   function show(options) {
     var settings = core.settings();
@@ -180,12 +187,13 @@
     if (settings.sound) ding();
     if (!settings.banners) return null;
 
-    place(settings);
+    var position = core.POSITIONS.indexOf(options.position) !== -1 ? options.position : settings.position;
+    var container = place(position, settings);
     var built = build(options, settings);
-    var toast = { el: built.el, timer: null, leaving: false };
+    var toast = { el: built.el, box: container, timer: null, leaving: false };
     toasts.push(toast);
     // Newest nearest the corner: at the bottom corners that is the end of the list, at the top the start.
-    if (settings.position.indexOf("top") === 0 && container.firstChild) container.insertBefore(toast.el, container.firstChild);
+    if (position.indexOf("top") === 0 && container.firstChild) container.insertBefore(toast.el, container.firstChild);
     else container.appendChild(toast.el);
 
     built.close.addEventListener("click", function (event) { event.stopPropagation(); leave(toast); });

@@ -144,6 +144,10 @@ The **App Store** is a taskbar app, pinned by default after Chat, where people p
 - **Rules.** The content filter's blocked sites and search words apply to what people publish. Limits: 5 apps in the store per person (changeable), 12 publish or edit requests an hour, pictures are PNG, JPEG or WebP up to 120 KB (the app shrinks them to 256 px).
 - **Installs** are counted once per person and shown on each app. They are kept in the same `accounts.db` (tables `store_apps`, `store_icons`, `store_installs`).
 
+## The live channel
+
+`GET /api/live` is a Server-Sent Events stream that every open desktop and the "back soon" page listen to. It sends `hello` on every (re)connection with the current announcement and maintenance state, then `announcement` and `maintenance` events the moment an admin changes them. It carries only what is already public, so it needs no sign-in and stays reachable during maintenance. In the desktop an Important announcement (the "Important" kind in Admin > Site) is a window to close and the other kinds are notifications at the bottom left, each shown once per person; maintenance mode sends everyone but admins to the "back soon" page and closes their proxy connections. Like the chat's connections, an open stream keeps a machine that stops itself when idle (Fly.io's `auto_stop_machines`) running. A slower check every 90 seconds remains as a fallback where a network cuts long connections.
+
 ## Search suggestions
 
 Typing in the taskbar's Web search shows suggestions from `GET /api/suggest?q=...&engine=...`. The server asks the engine (Brave, DuckDuckGo or Google; every other engine uses DuckDuckGo, and if the chosen one can't answer the others are tried), so the engine sees the server and not the visitor. Only those fixed addresses are ever contacted, a search the content filter blocks is never sent, suggestions the filter would block are dropped, answers are kept for five minutes, and each address can ask 60 times a minute. If the server can't reach any engine there are simply no suggestions.

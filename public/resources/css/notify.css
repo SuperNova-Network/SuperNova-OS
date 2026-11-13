@@ -6,7 +6,7 @@
  * who ask their system for less motion.
  */
 
-#sn-toasts {
+.sn-toasts {
   position: fixed;
   z-index: 2147483000;
   display: flex;
@@ -15,7 +15,7 @@
   pointer-events: none;
 }
 
-#sn-toasts[data-pos^="bottom"] {
+.sn-toasts[data-pos^="bottom"] {
   justify-content: flex-end;
 }
 
@@ -37,7 +37,7 @@
   animation: sn-toast-in 180ms ease-out;
 }
 
-#sn-toasts[data-size="standard"] .sn-toast {
+.sn-toasts[data-size="standard"] .sn-toast {
   width: 364px;
   padding: 11px 13px 12px;
   font-size: 14px;
@@ -71,7 +71,7 @@
   font-size: 11px;
 }
 
-#sn-toasts[data-size="standard"] .sn-toast-head {
+.sn-toasts[data-size="standard"] .sn-toast-head {
   font-size: 12px;
 }
 
@@ -117,7 +117,7 @@
   font-weight: 600;
 }
 
-#sn-toasts[data-size="standard"] .sn-toast-pic {
+.sn-toasts[data-size="standard"] .sn-toast-pic {
   width: 44px;
   height: 44px;
   font-size: 18px;
@@ -168,7 +168,7 @@
   }
 }
 
-#sn-toasts[data-pos$="left"] .sn-toast {
+.sn-toasts[data-pos$="left"] .sn-toast {
   --sn-from: -28px;
 }
 

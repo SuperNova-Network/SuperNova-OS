@@ -24,10 +24,11 @@ const INVITES_BULK_MAX = 50;
 /**
  * options: db, dataDir, userFor, isAdmin(row), serverAdmins (a Set of lowercase names),
  *   kick(userId), runtime() -> { chat, wisp, filter, config } for the dashboard,
- *   applyBlocklist(custom) to make a change to the blocked sites live.
+ *   applyBlocklist(custom) to make a change to the blocked sites live, onChange(key, value) after an announcement or
+ *   maintenance change (the live channel tells every open page).
  * Returns { router, announcement(), maintenance(), blocklist() }: the settings are cached for a few seconds.
  */
-export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick, runtime, applyBlocklist }) {
+export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick, runtime, applyBlocklist, onChange = () => {} }) {
   const cache = {};
   function cached(key) {
     const hit = cache[key];
@@ -181,6 +182,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     const admin = requireAdmin(req);
     const saved = saveAnnouncement(db, req.body, admin.username);
     forget("announcement");
+    onChange("announcement", saved);
     logAdmin(db, admin.username, saved.active ? "posted announcement" : "cleared announcement", null, saved.active ? saved.text.slice(0, 100) : null);
     res.json(saved);
   }));
@@ -190,6 +192,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     const admin = requireAdmin(req);
     const saved = saveMaintenance(db, req.body, admin.username);
     forget("maintenance");
+    onChange("maintenance", saved);
     logAdmin(db, admin.username, saved.on ? "turned maintenance mode on" : "turned maintenance mode off");
     res.json(saved);
   }));
