@@ -12,7 +12,7 @@
 
 ![SuperNova OS desktop](docs/img/desktop.webp)
 
-SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has a tabbed browser, games on the desktop, tab cloaking and a server side content filter. On top of that it has accounts, a live chat, desktop notifications and a full Admin Panel, all from one Node.js app.
+SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has a tabbed browser, games on the desktop, tab cloaking and a server side content filter. On top of that it has accounts, a live chat with @mentions and roles, an App Store, friends, desktop notifications and a full Admin Panel, all from one Node.js app.
 
 ## Features
 
@@ -27,25 +27,35 @@ SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has 
 ### The desktop
 
 - A Windows 10 style desktop with draggable and resizable windows, a launcher, a terminal and a file explorer.
-- A taskbar that starts with SuperNova, Settings, Chat and (for admins) the Admin Panel, a thin divider, then the apps you pin. Right click any of them to pin or unpin, and the choice follows your account.
-- A start menu with your profile at the top. Click it for a Windows 10 style menu with Change account settings, Lock and Sign out.
+- A taskbar that starts with SuperNova, Settings, Chat, the App Store and (for admins) the Admin Panel, a thin divider, then the apps you pin. Right click any of them to pin or unpin, and the choice follows your account. The Chat icon shows a small red number for messages you haven't read, and it follows your account to any computer.
+- A speedometer and a live graph in the taskbar that show whether the site and the proxy really work and how fast data is moving, plus the version and commit in faint text.
+- A taskbar search box that flips between Apps and Web with a card flip animation. In Web mode it suggests searches as you type, from the engine you picked.
+- A start menu with your profile at the top. Click it for a Windows 10 style menu with Change account settings, Lock and Sign out. Search it for any app, including the App Store and Friends.
 - A Windows 10 lock screen for signing in: a different wallpaper each visit, a big clock, a frosted sign-in screen and a Welcome screen with Windows' spinning dots. It has Sleep, Restart and Reduce motion controls, and it runs at 60 fps.
 - A Settings app in the Windows 10 style, with a tile home page, setting search, toggles and the Fluent Reveal hover effect.
-- Notifications: small Windows 10 style pop-ups that stack and fade, with a Settings page for theme, size, corner, sound, how long they stay and Do not disturb.
-- 21 wallpapers (space and gaming). Click "Show more" in Settings > Appearance to see all of them.
+- Notifications: small Windows 10 style pop-ups that stack and fade, with a Settings page for theme, size, corner, sound, how long they stay and Do not disturb. A mention in the chat gets a faint dotted ring that turns around its edge.
+- 21 wallpapers (space and gaming), or a plain colour from ready-made swatches or any colour on the colour wheel. Click "Show more" in Settings > Appearance to see all of them.
 
 ### Accounts and community
 
 - Accounts (optional or required) that carry your apps, wallpaper, bookmarks, pinned apps and preferences to any browser. There is no email: a recovery code shown once at sign-up resets a forgotten password.
 - Invite codes, so you decide who can join, and profile pictures that follow you everywhere.
-- A live chat room for everyone signed in, with emoji, GIFs (upload one, or search GIPHY when the server has a key), who is online, spam filters, slow mode and automatic timeouts. Admins get a gold name and an ADMIN badge.
+- A live chat room for everyone signed in, with emoji, GIFs (upload one, or search GIPHY when the server has a key), clickable links, who is online, spam filters, slow mode and automatic timeouts.
+- @mentions like Discord's: type @ for suggestions of people and roles, mentions become pills, and a message that pings you is highlighted. You can ping a person, a role (like @admin) or, with permission, @everyone and @here, and a ping shows a desktop notification even when chat notifications are off.
+- Roles: Owner, Admin, Moderator and Supporter by default, and admins can make as many more as they like, each with a colour and permissions (moderate or manage the chat, skip its limits, ping everyone or any role, publish apps without review). Names take the colour of their highest role and show it as a tag, and people are moderated by rank. Admins can restyle their tag in the chat's moderation panel.
+- An App Store where people publish apps for each other (a name, address, category, description and picture). Others add them to their desktop with one click, a maker's highest role shows beside their name, and anyone can report an app. Admins choose whether new apps wait for approval or go live at once.
+- Friends: add people by username, accept, decline or block requests, and see who is online, away or offline. You can show as online, away or invisible.
 - Optional chat notifications that show the sender's picture and message, off until you turn them on.
 - Back up and restore your settings as a file.
 
 ### For admins
 
 - An Admin Panel in the same style as Settings, with a dashboard, an account manager (search, sort, bulk actions, per account sessions, chat history, set a password, ban, delete), sessions, invite codes, chat moderation, a content filter you can edit live, announcements, maintenance mode, an audit log, server health and a database backup.
-- Chat moderation from the Chat window: delete messages, time out or ban people, lock or clear the chat, and tune the blocked words, links and slow mode.
+- Roles: create, edit, reorder and delete roles with colours and permissions, and give them from a role's page or from an account.
+- An approval queue for App Store apps (approve, reject with a reason, take down, delete), a Reported tab, and a switch between approving each app and approving automatically.
+- Announcements and maintenance mode that reach every open page at once. An Important announcement opens as a window to close, and maintenance mode sends everyone but admins to a "back soon" page straight away.
+- An optional bright red acceptable use screen, like a terms of service, that people who aren't signed in must agree to once. It says the site is for education and open source learning only and must not be used during school or to get past school filters.
+- Chat moderation from the Chat window: delete messages, time out or ban people, lock or clear the chat, and tune the blocked words, links and slow mode. What each person can do comes from their roles.
 - The first admin is created from a setup link the server prints on its first start.
 
 ### Privacy and safety
@@ -89,31 +99,35 @@ npm start
 
 Then open http://localhost:3000.
 
-To manage the site, use the setup link the server prints on its first start (open it, enter the code, choose a username and password). It creates the first admin, who gets the Admin Panel and Settings > Admin. Accounts, the chat and the Admin Panel keep their data in one SQLite file under `DATA_DIR`.
+To manage the site, use the setup link the server prints on its first start (open it, enter the code, choose a username and password). It creates the first admin, who gets the Admin Panel and Settings > Admin. Accounts, the chat, roles, the App Store, friends and the Admin Panel keep their data in one SQLite file under `DATA_DIR`.
 
 Other scripts:
 
 - `npm run dev` restarts the server when files change
 - `npm test` runs the tests
+- `npm run admin -- <command>` manages the site from the command line (accounts, invite codes, bans, `terms on|off` for the acceptable use screen)
+- `npm run build-info` writes the version and commit shown in the taskbar. Run it before a deploy, because the Docker image has no `.git`
 
 ## Usage
 
 - Browse: open SuperNova on the desktop, or switch the taskbar search to Web and type a URL or search.
 - Games: double click the icon on the desktop.
 - Your own apps: right click the desktop > Add an app…, or open the browser menu > Add to desktop. Right click an app you added to rename or remove it.
-- Pin and unpin: right click a taskbar icon. SuperNova, Settings, Chat and the Admin Panel stay grouped first, left of the divider.
+- Pin and unpin: right click a taskbar icon. SuperNova, Settings, Chat, the App Store and the Admin Panel stay grouped first, left of the divider.
+- Search the web from the taskbar: click Apps to flip the box to Web, then type. Suggestions appear above it, and Up, Down and Enter pick one.
 - Switch engine: Settings > Proxy > Engine, or click the engine badge in the browser's address bar.
 - Change transport: Settings > Proxy > Connection. You can also set a custom Wisp server there.
 - Test the connection: Settings > Proxy > Troubleshooting > Run test.
 - Cloaking: Settings > Cloaking for the tab disguise, panic key (e.g. `Ctrl+Alt+P`) and open in about:blank.
-- Wallpaper and colors: Settings > Appearance, or right click the desktop.
+- Wallpaper and colors: Settings > Appearance, or right click the desktop. The Solid colour row there uses a plain colour instead of a picture, with a colour wheel.
 - Accounts (when the site has them on): Settings > Account to create one or sign in, and to set your profile picture. When the site requires accounts you sign in on the lock screen instead. Click your profile in the start menu to sign out or lock.
-- Chat (needs accounts): the Chat icon on the taskbar opens a live room for everyone signed in, with emoji and GIFs. Admins have a tag beside their name, which admins can restyle in the Chat's moderation panel.
+- Chat (needs accounts): the Chat icon on the taskbar opens a live room for everyone signed in, with emoji, GIFs and clickable links. Type @ to mention someone, or a role like @moderator. The number on the icon is messages you haven't read.
 - App Store (needs accounts): the bag icon on the taskbar, after Chat. Browse apps other people published, add one to your desktop with Get, publish your own from Your apps, and report apps that are broken or not appropriate. Depending on the admin's setting, a new app waits for an admin's approval or goes live at once.
 - Friends (needs accounts): Search for Friends in the start menu. Once its window is open, right click its taskbar icon and choose Pin to keep it there. Add people by username, accept or decline requests, block anyone, and see which friends are online. You can show as online, away or invisible.
+- Roles (admins): Admin Panel > Roles. Each role has a colour, permissions and whether anyone can ping it. Holding a role doesn't make someone a site admin: that stays in Accounts.
 - Site health: the speedometer in the taskbar shows whether the site and the proxy really work, and the small graph beside it shows how fast data is moving through the proxy. Click either for the details, or to run the full proxy test.
-- Notifications: Settings > Notifications. You can restyle them, silence them, or turn on Do not disturb. Chat notifications are off until you turn them on, in Settings or in the Chat's own settings.
-- Admin Panel (admins): the Admin icon on the taskbar, or Admin in the start menu, or search for "admin". It covers accounts, sessions, invites, chat moderation, App Store approvals and reports, the content filter, announcements, maintenance mode, the audit log, and server tools such as a database backup.
+- Notifications: Settings > Notifications. You can restyle them, silence them, or turn on Do not disturb. Chat notifications are off until you turn them on, but mentions notify by default (Settings > Notifications > Mentions).
+- Admin Panel (admins): the Admin icon on the taskbar, or Admin in the start menu, or search for "admin". It covers accounts, roles, sessions, invites, chat moderation, App Store approvals and reports, the content filter, announcements, maintenance mode, the acceptable use screen, the audit log, and server tools such as a database backup.
 - Back up or move your setup: Settings > System > Backup exports your apps, bookmarks and preferences to a file and imports it again, on any SuperNova site.
 
 <details>
