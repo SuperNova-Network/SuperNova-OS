@@ -28,41 +28,45 @@
     ["7. Your agreement", "By ticking the box and pressing “I AGREE”, you confirm that you have read and understood this notice, that you will not use the Website in any way described in Section 2, and that you accept these terms. If you do not agree, you must leave the Website now. Your agreement is saved on this device so that you are not asked again."],
   ];
 
+  // Everything is sized in one unit, --u, so the screen looks the same on any window shape and always fits it:
+  // about 100u tall on a wide screen. Nothing scrolls on the page; the text is shrunk (see fit) until it fits.
   function css() {
     return '\
-#sn-terms{position:fixed;inset:0;z-index:2147483000;overflow:auto;display:flex;flex-direction:column;align-items:center;background:radial-gradient(ellipse at 50% 30%,#ff3b30 0%,#e10d0d 45%,#9d0000 100%);color:#111;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;-webkit-font-smoothing:antialiased}\
+#sn-terms{--u:min(1vh,.6vw);position:fixed;inset:0;z-index:2147483000;overflow:hidden;display:flex;flex-direction:column;align-items:center;background:radial-gradient(ellipse at 50% 30%,#ff3b30 0%,#e10d0d 45%,#9d0000 100%);color:#111;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;-webkit-font-smoothing:antialiased}\
+@media (max-aspect-ratio:1/1){#sn-terms{--u:min(1vh,1.7vw)}}\
 #sn-terms *{box-sizing:border-box;cursor:default}\
-#sn-terms .st-tape{flex:none;width:100%;height:30px;background:repeating-linear-gradient(-45deg,#111 0 22px,#ffd500 22px 44px);background-size:62.2px 62.2px;animation:st-tape 1.6s linear infinite}\
-#sn-terms .st-tape.bottom{margin-top:auto}\
-@keyframes st-tape{to{background-position:62.2px 0}}\
-#sn-terms .st-wrap{width:min(920px,92vw);padding:3vh 0 2vh;text-align:center;color:#fff;animation:st-rise 600ms cubic-bezier(.2,.9,.3,1) both}\
-@keyframes st-rise{from{opacity:0;transform:translateY(24px)}}\
-#sn-terms .st-logo{width:92px;height:92px;display:block;margin:0 auto 10px;filter:drop-shadow(0 6px 18px rgba(0,0,0,.55))}\
-#sn-terms .st-kicker{display:inline-block;padding:4px 14px;background:#111;color:#ffd500;font-weight:800;letter-spacing:.28em;font-size:13px}\
-#sn-terms h1{margin:12px 0 4px;font-size:clamp(28px,5.2vw,54px);line-height:1.05;font-weight:900;letter-spacing:.02em;text-transform:uppercase;text-shadow:0 3px 0 rgba(0,0,0,.35)}\
-#sn-terms .st-sub{margin:0 auto;max-width:780px;font-size:clamp(15px,2vw,20px);font-weight:700;line-height:1.35}\
-#sn-terms .st-paper{position:relative;margin:20px auto 0;text-align:left;background:#fffdf8;border:3px double #7a0000;box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 0 6px #fffdf8,inset 0 0 0 7px #d9c9a8;font-family:Georgia,"Times New Roman",serif}\
-#sn-terms .st-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 26px 10px;border-bottom:2px solid #111;font:700 11.5px/1.4 "Consolas","Courier New",monospace;letter-spacing:.08em;text-transform:uppercase;color:#444}\
-#sn-terms .st-body{max-height:min(38vh,380px);overflow:auto;padding:16px 26px 8px;font-size:15.5px;line-height:1.6;color:#1b1b1b}\
-#sn-terms .st-lead{margin:0 0 14px;padding:12px 14px;background:#ffe9e7;border-left:6px solid #d10a0a;font-family:"Segoe UI",system-ui,sans-serif;font-weight:800;font-size:16.5px;line-height:1.4;color:#8a0000;text-transform:uppercase}\
-#sn-terms h2{margin:16px 0 4px;font:800 13px/1.3 "Segoe UI",system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#7a0000}\
-#sn-terms p{margin:0 0 8px;text-align:justify;hyphens:auto}\
-#sn-terms .st-seal{position:absolute;right:20px;bottom:96px;width:92px;height:92px;opacity:.12;pointer-events:none}\
-#sn-terms .st-foot{padding:14px 26px 18px;border-top:2px solid #111;background:#f4efe3;font-family:"Segoe UI",system-ui,sans-serif}\
-#sn-terms label{display:flex;gap:12px;align-items:flex-start;font-weight:700;font-size:15px;line-height:1.4;color:#111;cursor:pointer!important}\
+#sn-terms .st-tape{flex:none;width:100%;height:calc(var(--u)*3);background:repeating-linear-gradient(-45deg,#111 0 calc(var(--u)*2.2),#ffd500 calc(var(--u)*2.2) calc(var(--u)*4.4));background-size:calc(var(--u)*6.22) calc(var(--u)*6.22);animation:st-tape 1.6s linear infinite}\
+@keyframes st-tape{to{background-position:calc(var(--u)*6.22) 0}}\
+#sn-terms .st-wrap{flex:1;min-height:0;width:min(94vw,calc(var(--u)*150));display:flex;flex-direction:column;padding:calc(var(--u)*1.2) 0;text-align:center;color:#fff;animation:st-rise 600ms cubic-bezier(.2,.9,.3,1) both}\
+@keyframes st-rise{from{opacity:0;transform:translateY(calc(var(--u)*2))}}\
+#sn-terms .st-top{flex:none}\
+#sn-terms .st-logo{width:calc(var(--u)*8.5);height:calc(var(--u)*8.5);display:block;margin:0 auto calc(var(--u)*.8);filter:drop-shadow(0 calc(var(--u)*.5) calc(var(--u)*1.6) rgba(0,0,0,.55))}\
+#sn-terms .st-kicker{display:inline-block;padding:calc(var(--u)*.35) calc(var(--u)*1.4);background:#111;color:#ffd500;font-weight:800;letter-spacing:.28em;font-size:calc(var(--u)*1.25)}\
+#sn-terms h1{margin:calc(var(--u)*.9) 0 calc(var(--u)*.3);font-size:calc(var(--u)*5);line-height:1.05;font-weight:900;letter-spacing:.02em;text-transform:uppercase;text-shadow:0 calc(var(--u)*.3) 0 rgba(0,0,0,.35)}\
+#sn-terms .st-sub{margin:0 auto;max-width:calc(var(--u)*90);font-size:calc(var(--u)*1.9);font-weight:700;line-height:1.3}\
+#sn-terms .st-paper{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;margin:calc(var(--u)*1.6) 0 0;text-align:left;background:#fffdf8;border:calc(var(--u)*.35) double #7a0000;box-shadow:0 calc(var(--u)*2) calc(var(--u)*6) rgba(0,0,0,.5),inset 0 0 0 calc(var(--u)*.6) #fffdf8,inset 0 0 0 calc(var(--u)*.7) #d9c9a8;font-family:Georgia,"Times New Roman",serif}\
+#sn-terms .st-head{flex:none;display:flex;justify-content:space-between;gap:calc(var(--u)*1.2);padding:calc(var(--u)*1) calc(var(--u)*2.6) calc(var(--u)*.8);border-bottom:calc(var(--u)*.2) solid #111;font:700 calc(var(--u)*1.1)/1.4 "Consolas","Courier New",monospace;letter-spacing:.08em;text-transform:uppercase;color:#444}\
+#sn-terms .st-body{flex:1;min-height:0;overflow:hidden;padding:calc(var(--u)*1.4) calc(var(--u)*2.6) calc(var(--u)*.6);font-size:calc(var(--u)*1.6);line-height:1.5;color:#1b1b1b;column-count:2;column-gap:calc(var(--u)*3.2);column-rule:1px solid #d9c9a8;column-fill:auto}\
+@media (max-aspect-ratio:1/1){#sn-terms .st-body{column-count:auto;column-rule:none;column-fill:balance}}\
+#sn-terms .st-lead{column-span:all;margin:0 0 calc(var(--u)*1.2);padding:calc(var(--u)*1) calc(var(--u)*1.4);background:#ffe9e7;border-left:calc(var(--u)*.6) solid #d10a0a;font-family:"Segoe UI",system-ui,sans-serif;font-weight:800;font-size:1.04em;line-height:1.35;color:#8a0000;text-transform:uppercase}\
+#sn-terms h2{margin:calc(var(--u)*1.1) 0 calc(var(--u)*.2);font:800 .82em/1.3 "Segoe UI",system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#7a0000;break-after:avoid}\
+#sn-terms h2:first-of-type{margin-top:0}\
+#sn-terms p{margin:0 0 calc(var(--u)*.6);text-align:justify;hyphens:auto;break-inside:avoid}\
+#sn-terms .st-seal{position:absolute;right:calc(var(--u)*3);top:calc(var(--u)*6);width:calc(var(--u)*9);height:calc(var(--u)*9);opacity:.1;pointer-events:none}\
+#sn-terms .st-foot{flex:none;padding:calc(var(--u)*1.1) calc(var(--u)*2.6) calc(var(--u)*1.2);border-top:calc(var(--u)*.2) solid #111;background:#f4efe3;font-family:"Segoe UI",system-ui,sans-serif}\
+#sn-terms label{display:flex;gap:calc(var(--u)*1.2);align-items:flex-start;font-weight:700;font-size:calc(var(--u)*1.5);line-height:1.35;color:#111;cursor:pointer!important}\
 #sn-terms label *{cursor:pointer!important}\
-#sn-terms input[type=checkbox]{flex:none;width:22px;height:22px;margin:1px 0 0;accent-color:#d10a0a}\
-#sn-terms .st-buttons{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}\
-#sn-terms button{font:800 15px "Segoe UI",system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:13px 26px;border:3px solid #111;background:#fff;color:#111;transition:transform 120ms,background-color 120ms,box-shadow 120ms}\
-#sn-terms button.agree{flex:1;min-width:240px;background:#d10a0a;border-color:#7a0000;color:#fff}\
-#sn-terms button.agree:not(:disabled):hover{background:#f01212;transform:translateY(-2px);box-shadow:0 6px 0 #7a0000}\
-#sn-terms button.agree:not(:disabled):active{transform:translateY(1px);box-shadow:none}\
+#sn-terms input[type=checkbox]{flex:none;width:calc(var(--u)*2.2);height:calc(var(--u)*2.2);margin:0;accent-color:#d10a0a}\
+#sn-terms .st-buttons{display:flex;gap:calc(var(--u)*1.2);margin-top:calc(var(--u)*1.1)}\
+#sn-terms button{font:800 calc(var(--u)*1.5) "Segoe UI",system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:calc(var(--u)*1.1) calc(var(--u)*2.6);border:calc(var(--u)*.3) solid #111;background:#fff;color:#111;transition:transform 120ms,background-color 120ms,box-shadow 120ms}\
+#sn-terms button.agree{flex:1;background:#d10a0a;border-color:#7a0000;color:#fff}\
+#sn-terms button.agree:not(:disabled):hover{background:#f01212;transform:translateY(calc(var(--u)*-.2));box-shadow:0 calc(var(--u)*.6) 0 #7a0000}\
+#sn-terms button.agree:not(:disabled):active{transform:translateY(calc(var(--u)*.1));box-shadow:none}\
 #sn-terms button:disabled{opacity:.4;border-style:dashed}\
 #sn-terms button.leave:hover{background:#eee}\
-#sn-terms .st-fine{margin:10px 0 0;font-size:11.5px;color:#666;line-height:1.4}\
-#sn-terms .st-preview{position:absolute;top:36px;left:50%;transform:translateX(-50%);padding:4px 12px;background:#111;color:#ffd500;font:800 12px "Segoe UI",sans-serif;letter-spacing:.14em}\
-@media (prefers-reduced-motion:reduce){#sn-terms .st-tape,#sn-terms .st-wrap{animation:none}#sn-terms button{transition:none}}\
-@media (max-width:560px){#sn-terms .st-body,#sn-terms .st-head,#sn-terms .st-foot{padding-left:16px;padding-right:16px}#sn-terms .st-seal{display:none}}';
+#sn-terms .st-fine{margin:calc(var(--u)*.8) 0 0;font-size:calc(var(--u)*1.1);color:#666;line-height:1.3;text-align:left}\
+#sn-terms .st-preview{position:absolute;top:calc(var(--u)*3.6);left:50%;transform:translateX(-50%);padding:calc(var(--u)*.4) calc(var(--u)*1.2);background:#111;color:#ffd500;font:800 calc(var(--u)*1.2) "Segoe UI",sans-serif;letter-spacing:.14em;z-index:2}\
+@media (prefers-reduced-motion:reduce){#sn-terms .st-tape,#sn-terms .st-wrap{animation:none}#sn-terms button{transition:none}}';
   }
 
   function el(tag, cls, text) {
@@ -80,6 +84,26 @@
     svg.innerHTML = '<circle cx="50" cy="50" r="46" fill="none" stroke="#7a0000" stroke-width="3"/><circle cx="50" cy="50" r="38" fill="none" stroke="#7a0000" stroke-width="1.5"/><path d="M50 18l8 20 22 2-17 14 6 21-19-12-19 12 6-21-17-14 22-2z" fill="#7a0000"/>'; // fixed markup, nothing from outside
     return svg;
   }
+
+  // The page never scrolls: shrink the text until all of it fits its box. (If a window is so small that it can't
+  // fit even at a small size, the text box scrolls on its own so nothing is lost.)
+  function fit() {
+    var body = current && current.querySelector(".st-body");
+    if (!body) return;
+    body.style.fontSize = "";
+    body.style.overflowY = "hidden";
+    var size = parseFloat(global.getComputedStyle(body).fontSize);
+    var guard = 0;
+    // Too much text either runs past the bottom, or (in two columns) spills into an extra column to the right.
+    var over = function () { return body.scrollHeight > body.clientHeight + 1 || body.scrollWidth > body.clientWidth + 1; };
+    while (over() && size > 9 && guard++ < 80) {
+      size *= 0.97;
+      body.style.fontSize = size + "px";
+    }
+    if (over()) { body.style.columnCount = "auto"; body.style.overflowY = "auto"; body.style.overflowX = "hidden"; }
+  }
+  var resizeTimer = 0;
+  global.addEventListener("resize", function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(fit, 80); });
 
   function hide() {
     if (current) { current.remove(); current = null; }
@@ -101,12 +125,14 @@
     if (preview) root.appendChild(el("div", "st-preview", "PREVIEW: NOTHING IS SAVED"));
 
     var wrap = el("div", "st-wrap");
+    var top = el("div", "st-top");
     var logo = el("img", "st-logo");
     logo.src = LOGO; logo.alt = "SuperNova OS"; logo.width = 92; logo.height = 92;
-    wrap.appendChild(logo);
-    wrap.appendChild(el("div", "st-kicker", "LEGAL NOTICE"));
-    wrap.appendChild(el("h1", "", "Read before you continue"));
-    wrap.appendChild(el("p", "st-sub", "This website must NOT be used during school or to get past school filters."));
+    top.appendChild(logo);
+    top.appendChild(el("div", "st-kicker", "LEGAL NOTICE"));
+    top.appendChild(el("h1", "", "Read before you continue"));
+    top.appendChild(el("p", "st-sub", "This website must NOT be used during school or to get past school filters."));
+    wrap.appendChild(top);
 
     var paper = el("div", "st-paper");
     var head = el("div", "st-head");
@@ -140,6 +166,8 @@
     root.appendChild(el("div", "st-tape bottom"));
     document.body.appendChild(root);
     current = root;
+    fit();
+    if (global.document.fonts && global.document.fonts.ready) global.document.fonts.ready.then(fit);
 
     box.addEventListener("change", function () { agree.disabled = !box.checked; });
     agree.addEventListener("click", function () { if (!preview) remember(); hide(); });
