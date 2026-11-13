@@ -639,29 +639,32 @@
     mentionPop.textContent = "";
     if (!mention.items.length) { mentionPop.hidden = true; return; }
     let lastKind = "";
-    const heading = { user: "Members", role: "Roles", special: "Notify everyone" };
     mention.items.forEach((item, index) => {
-      if (item.kind !== lastKind) { mentionPop.append(el("div", "mention-head", heading[item.kind])); lastKind = item.kind; }
+      // "Members" gets a heading; the roles and @everyone that follow are set off by a line, like Discord.
+      if (item.kind !== lastKind) {
+        if (item.kind === "user") mentionPop.append(el("div", "mention-head", "Members"));
+        else if (lastKind) mentionPop.append(el("div", "mention-rule"));
+        lastKind = item.kind;
+      }
       const row = el("div", "mention-item");
       row.setAttribute("role", "option");
       row.setAttribute("aria-selected", String(index === mention.active));
       if (item.kind === "user") {
+        const pic = el("span", "mi-pic");
         const dot = el("span", `presence${item.user.online ? " on" : ""}`);
         dot.title = item.user.online ? "In the chat" : "Not in the chat";
+        pic.append(avatar(item.user, "small"), dot);
         const name = el("span", "mi-name", item.user.username);
         styleName(name, item.user);
-        row.append(avatar(item.user, "small"), name);
-        const tag = tagFor(item.user);
-        if (tag) row.append(tag);
-        row.append(dot);
+        row.append(pic, name);
+        const role = liveRole(item.user.role);
+        row.append(el("span", "mi-hint", role ? role.name : item.user.admin ? "Admin" : ""));
       } else if (item.kind === "role") {
-        const badge = el("span", "mi-at", "@");
-        badge.style.setProperty("--mc", item.role.color);
-        const name = el("span", "mi-name role", item.role.name);
+        const name = el("span", "mi-name role big", `@${item.role.name}`);
         name.style.setProperty("--role", item.role.color);
-        row.append(badge, name, el("span", "mi-hint", "Role"));
+        row.append(name, el("span", "mi-hint", "Mention a role"));
       } else {
-        row.append(el("span", "mi-at", "@"), el("span", "mi-name", item.value), el("span", "mi-hint", item.value === "everyone" ? "Notify everyone" : "Notify everyone in the chat now"));
+        row.append(el("span", "mi-name big", `@${item.value}`), el("span", "mi-hint", item.value === "everyone" ? "Notify everyone in this chat" : "Notify everyone who is here now"));
       }
       row.addEventListener("mousedown", (event) => { event.preventDefault(); chooseMention(index); });
       row.addEventListener("mousemove", () => { if (mention.active !== index) { mention.active = index; markMention(); } });
