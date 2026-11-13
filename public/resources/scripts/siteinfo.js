@@ -1,6 +1,6 @@
 /*
  * What the admins tell the desktop, as it happens (the live channel, src/live.js): their announcement (an
- * Important one is a window to close, any other a notification at the bottom left, each shown once), maintenance
+ * Important one is a window to close, any other a notification in the usual corner, bottom right unless changed in Settings, each shown once), maintenance
  * mode (everyone but admins goes to the "back soon" page at once), and the Admin item in the start menu for admins.
  *
  * Needs notify.js and account.js. Plain script.
@@ -10,7 +10,6 @@
 
   var SEEN = "announceSeen";
   var LEVELS = { info: "Announcement", warning: "Warning", danger: "Important" };
-  var CORNER = "bottom-left";   // where announcements and maintenance notes appear, whatever corner is set for other notifications
   var who = global.SnAccount
     ? global.SnAccount.status().then(function (state) { return Boolean(state && state.user && state.user.admin); }, function () { return false; })
     : Promise.resolve(false);
@@ -71,7 +70,7 @@
       return;
     }
     // Only counts as seen once it was really shown (notifications may be off, or on Do not disturb).
-    if (global.SnNotify.show({ app: "SuperNova OS", icon: "bell", title: LEVELS[a.level] || "Announcement", text: a.text, position: CORNER })) {
+    if (global.SnNotify.show({ app: "SuperNova OS", icon: "bell", title: LEVELS[a.level] || "Announcement", text: a.text })) {
       global.SnStore.set(SEEN, String(a.id));
     }
   }
@@ -82,7 +81,7 @@
     who.then(function (isAdmin) {
       if (m.on && !isAdmin) { global.location.reload(); return; }
       if (isAdmin && announce) {
-        global.SnNotify.show({ app: "SuperNova OS", icon: "bell", title: m.on ? "Maintenance mode is on" : "Maintenance mode is off", text: m.on ? "Everyone but admins is on the \"back soon\" page." : "The site is open to everyone again.", position: CORNER });
+        global.SnNotify.show({ app: "SuperNova OS", icon: "bell", title: m.on ? "Maintenance mode is on" : "Maintenance mode is off", text: m.on ? "Everyone but admins is on the \"back soon\" page." : "The site is open to everyone again." });
       }
     });
   }

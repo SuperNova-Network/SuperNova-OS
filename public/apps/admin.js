@@ -669,7 +669,7 @@
     const preview = h("div", { class: "announce", "data-level": announcement.level }, h("strong", { text: "Announcement" }), h("div", { class: "dim" }));
     const draw = () => { preview.dataset.level = aLevel.value; preview.lastChild.textContent = aText.value.trim() || "(nothing yet)"; };
     aText.addEventListener("input", draw); aLevel.addEventListener("change", draw); draw();
-    const post = h("button", { class: "btn primary", type: "button", text: announcement.active ? "Update announcement" : "Post announcement", onclick: () => act(post, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: true }); views.site(); }, "Posted. Everyone sees it now: Important as a window to close, the rest as a notification at the bottom left.") });
+    const post = h("button", { class: "btn primary", type: "button", text: announcement.active ? "Update announcement" : "Post announcement", onclick: () => act(post, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: true }); views.site(); }, "Posted. Everyone sees it now: Important as a window to close, the rest as a notification at the bottom right.") });
     const clear = h("button", { class: "btn", type: "button", text: "Take it down", disabled: !announcement.active, onclick: () => act(clear, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: false }); views.site(); }, "Taken down.") });
 
     main.replaceChildren(head("Site"),
