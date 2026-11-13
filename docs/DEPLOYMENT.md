@@ -33,6 +33,8 @@ fly secrets set AUTH_PASS=change-me      # optional
 fly deploy
 ```
 
+The taskbar shows the version and commit in faint text. The image has no `.git`, so write that file first when you deploy: `npm run build-info && fly deploy` (without it the taskbar just shows the package version).
+
 With `auto_stop_machines` the machine sleeps when idle and wakes on the next request, which adds a few seconds to the first load.
 
 For [accounts](CONFIGURATION.md#accounts), create a volume and uncomment the `[mounts]` section in `fly.toml`:

@@ -22,6 +22,7 @@ import { createAdmin, disabledAdmin } from "./src/admin.js";
 import { createStore, disabledStore } from "./src/store.js";
 import { createFriends, disabledFriends } from "./src/friends.js";
 import { createLive } from "./src/live.js";
+import { readBuildInfo } from "./src/buildinfo.js";
 import * as roles from "./src/roles.js";
 import { createSuggest, cleanQuery } from "./src/suggest.js";
 import { createLimiter } from "./src/ratelimit.js";
@@ -107,6 +108,7 @@ const packageJson = JSON.parse(readFileSync(new URL("./package.json", import.met
 const info = {
   name: "SuperNova OS",
   version: packageJson.version ?? null,
+  build: readBuildInfo(fileURLToPath(new URL("./", import.meta.url)), packageJson.version),
   // AGPL-3.0 section 13: people using a modified version over a network must be offered its source.
   source: (packageJson.repository?.url ?? "").replace(/^git\+/, "").replace(/\.git$/, "") || null,
   node: process.version,

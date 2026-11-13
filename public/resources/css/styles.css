@@ -2155,3 +2155,19 @@ div[data-title]:hover:before {
 @media (prefers-reduced-motion: reduce) {
   #announcepop, #announcepop .ap-box { animation: none; }
 }
+
+/* Which version this is, in faint text beside the network graph (buildinfo.js). */
+#buildinfo {
+  position: relative;
+  float: left;
+  margin-top: 0.62vw;
+  margin-right: 0.9em;
+  color: #fff;
+  opacity: 0.32;
+  font-size: 0.62vw;
+  line-height: 1.35;
+  text-align: right;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}

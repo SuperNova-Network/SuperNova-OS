@@ -12,3 +12,6 @@ node_modules
 .env
 .env.*
 !.env.example
+
+# Written by `npm run build-info` before a deploy
+build-info.json

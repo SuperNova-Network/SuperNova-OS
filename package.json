@@ -12,7 +12,8 @@
     "start": "node app.js",
     "dev": "node --watch app.js",
     "test": "node --test",
-    "admin": "node scripts/admin.js"
+    "admin": "node scripts/admin.js",
+    "build-info": "node scripts/build-info.js"
   },
   "repository": {
     "type": "git",
