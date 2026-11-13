@@ -6,6 +6,7 @@
  *   hello         what is true right now: { announcement, maintenance }, sent on every (re)connection
  *   announcement  an admin posted, changed or took down the announcement
  *   maintenance   an admin turned maintenance mode on or off (or changed its message)
+ *   terms         an admin turned the acceptable use screen on or off
  *
  * It carries only what is already public (the announcement and the maintenance message), so it needs no
  * sign-in: it must keep working on the "back soon" page. A page that loses it reconnects by itself and gets
@@ -15,7 +16,7 @@
 const HEARTBEAT_MS = 25_000;
 const MAX_PER_ADDRESS = 30; // streams from one address (a school or a household has many tabs)
 
-/** state() -> { announcement, maintenance }, the current public values. */
+/** state() -> { announcement, maintenance, terms }, the current public values. */
 export function createLive({ state }) {
   const streams = new Set(); // { res, address, heartbeat }
 
@@ -24,8 +25,8 @@ export function createLive({ state }) {
   }
 
   function snapshot() {
-    const { announcement, maintenance } = state();
-    return { announcement, maintenance: { on: maintenance.on, message: maintenance.message } };
+    const { announcement, maintenance, terms } = state();
+    return { announcement, maintenance: { on: maintenance.on, message: maintenance.message }, terms: { enabled: terms.enabled } };
   }
 
   function handler(req, res) {

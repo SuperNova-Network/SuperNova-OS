@@ -52,12 +52,12 @@ const chat = accounts.database
   : disabledChat();
 
 // What admins change on the site (an announcement, maintenance mode) reaches every open page at once.
-const live = createLive({ state: () => ({ announcement: admin.announcement(), maintenance: admin.maintenance() }) });
+const live = createLive({ state: () => ({ announcement: admin.announcement(), maintenance: admin.maintenance(), terms: admin.terms() }) });
 
 const admin = accounts.database
   ? createAdmin({
     onChange: (key, value) => {
-      live.broadcast(key, key === "maintenance" ? { on: value.on, message: value.message } : value);
+      live.broadcast(key, key === "maintenance" ? { on: value.on, message: value.message } : key === "terms" ? { enabled: value.enabled } : value);
       if (key === "maintenance" && value.on) endProxySocketsOfNonAdmins();
     },
     db: accounts.database,
@@ -162,7 +162,7 @@ app.use("/api/account", accounts.router);
 // Maintenance mode (Admin Panel > Site): everyone but admins gets a "back soon" page, and the
 // proxy is closed to them too. Only what sign-in and the health check need stays reachable.
 {
-  const stillOpen = /^\/(?:signin|setup)$|^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$|healthz$|api\/(?:info|live)$)/;
+  const stillOpen = /^\/(?:signin|setup)$|^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$|healthz$|api\/(?:info|live|terms)$)/;
   app.use((req, res, next) => {
     const maintenance = admin.maintenance();
     if (!maintenance.on || stillOpen.test(req.path) || accounts.userFor(req)?.admin) return next();
@@ -223,7 +223,7 @@ app.get("/setup", (_req, res) => {
   // When sign-in is required: open without an account are the sign-in screen and the
   // static files it uses (none of them private). Everything else, the proxy's
   // WebSocket included (see the upgrade handler), needs a signed-in session.
-  const open = /^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$)/;
+  const open = /^\/(?:resources\/|signin\.(?:css|js)$|proxy\/(?:store|backup|account)\.js$|manifest\.webmanifest$|robots\.txt$|api\/terms$)/;
   app.use((req, res, next) => {
     if (!accountsRequired() || open.test(req.path) || accounts.userFor(req)) return next();
     const dest = req.get("sec-fetch-dest");
@@ -239,6 +239,11 @@ app.get("/setup", (_req, res) => {
 app.get("/api/announcement", (_req, res) => {
   const { id, text, level, active } = admin.announcement();
   res.set("Cache-Control", "no-store").json({ announcement: active ? { id, text, level } : null });
+});
+
+// Whether the red acceptable use screen is on (Admin Panel > Site). Public: signed-out visitors see it too.
+app.get("/api/terms", (_req, res) => {
+  res.set("Cache-Control", "no-store").json({ enabled: admin.terms().enabled });
 });
 
 // Lets the client explain *why* something is blocked before it navigates. The

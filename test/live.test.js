@@ -128,3 +128,18 @@ test("only admins can change what the live channel says", options, async () => {
   assert.equal((await stranger.post("/api/admin/announcement", { text: "gotcha", level: "danger", active: true })).status, 401);
   assert.equal((await stranger.post("/api/admin/maintenance", { on: true })).status, 401);
 });
+
+test("the acceptable use screen setting is public to read, admin-only to change, and pushed live", options, async () => {
+  const anyone = browser();
+  assert.equal((await anyone.get("/api/terms")).data.enabled, false, "off by default, readable without signing in");
+  assert.equal((await anyone.post("/api/admin/terms", { enabled: true })).status, 401);
+  const page = await listen("198.19.1.7");
+  assert.equal((await page.until("hello")).terms.enabled, false);
+  assert.equal((await boss.post("/api/admin/terms", { enabled: true })).status, 200);
+  assert.deepEqual(await page.until("terms"), { enabled: true });
+  assert.equal((await anyone.get("/api/terms")).data.enabled, true);
+  assert.equal((await boss.get("/api/admin/audit")).data.entries.some((e) => e.action === "turned the acceptable use screen on"), true);
+  await boss.post("/api/admin/terms", { enabled: false });
+  assert.equal((await page.until("terms")).enabled, false);
+  page.close();
+});

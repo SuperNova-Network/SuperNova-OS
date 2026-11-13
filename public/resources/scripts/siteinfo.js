@@ -92,7 +92,12 @@
     if (!global.EventSource) return;
     var source = new global.EventSource("/api/live");
     function on(name, handler) { source.addEventListener(name, function (event) { try { handler(JSON.parse(event.data)); } catch (e) { /* ignore a bad message */ } }); }
-    on("hello", function (data) { showAnnouncement(data.announcement); if (data.maintenance) maintenanceChanged(data.maintenance, false); });
+    on("hello", function (data) {
+      showAnnouncement(data.announcement);
+      if (data.maintenance) maintenanceChanged(data.maintenance, false);
+      if (data.terms && global.SnTerms) global.SnTerms.apply(data.terms.enabled);
+    });
+    on("terms", function (t) { if (global.SnTerms) global.SnTerms.apply(t.enabled); });
     on("announcement", showAnnouncement);
     on("maintenance", function (m) { maintenanceChanged(m, true); });
   }

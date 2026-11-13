@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { AdminError, createInvite, setBanned } from "./accountsdb.js";
 import {
   backupTo, databaseInfo, deleteUser, getAdminSetting, listAudit, listSessions, listUsersPage, logAdmin, overview, prune,
-  revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
+  revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, saveTerms, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
 } from "./admindb.js";
 import * as apps from "./storedb.js";
 import { HttpError, guardWrites } from "./http.js";
@@ -197,6 +197,16 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     res.json(saved);
   }));
 
+  router.get("/terms", handle((req, res) => { requireAdmin(req); res.json(getAdminSetting(db, "terms")); }));
+  router.post("/terms", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const saved = saveTerms(db, req.body, admin.username);
+    forget("terms");
+    onChange("terms", saved);
+    logAdmin(db, admin.username, saved.enabled ? "turned the acceptable use screen on" : "turned the acceptable use screen off");
+    res.json(saved);
+  }));
+
   router.get("/blocklist", handle((req, res) => {
     requireAdmin(req);
     res.json({ custom: getAdminSetting(db, "blocklist"), builtin: runtime().filter });
@@ -377,6 +387,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     announcement: () => cached("announcement"),
     maintenance: () => cached("maintenance"),
     blocklist: () => cached("blocklist"),
+    terms: () => cached("terms"),
   };
 }
 
@@ -385,5 +396,5 @@ export function disabledAdmin() {
   const router = express.Router();
   router.use((_req, res) => res.status(404).json({ error: "The admin panel needs accounts, which aren't available on this site." }));
   const off = { on: false, message: "" };
-  return { router, announcement: () => ({ id: 0, text: "", level: "info", active: false }), maintenance: () => off, blocklist: () => ({ hosts: [], keywords: [], queryWords: [] }) };
+  return { router, announcement: () => ({ id: 0, text: "", level: "info", active: false }), maintenance: () => off, blocklist: () => ({ hosts: [], keywords: [], queryWords: [] }), terms: () => ({ enabled: false }) };
 }

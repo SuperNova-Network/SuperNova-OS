@@ -46,6 +46,8 @@ export const ADMIN_DEFAULTS = {
   announcement: { id: 0, text: "", level: "info", active: false },
   maintenance: { on: false, message: "SuperNova OS is being updated. Please check back in a few minutes." },
   blocklist: { hosts: [], keywords: [], queryWords: [] },
+  // The red "Acceptable use" screen everyone who isn't signed in must agree to once (off by default).
+  terms: { enabled: false },
   // The App Store: do new apps wait for an admin ("manual") or go live at once ("auto")?
   store: { approval: "manual", publishing: true, maxPerUser: 5 },
 };
@@ -72,6 +74,10 @@ export function saveAnnouncement(db, input, by) {
   const active = Boolean(input?.active) && text.length > 0;
   if (input?.active && !text) throw new AdminError(400, "Write the announcement first.");
   return setAdminSetting(db, "announcement", { id: Date.now(), text, level, active }, by);
+}
+
+export function saveTerms(db, input, by) {
+  return setAdminSetting(db, "terms", { enabled: Boolean(input?.enabled) }, by);
 }
 
 export function saveMaintenance(db, input, by) {

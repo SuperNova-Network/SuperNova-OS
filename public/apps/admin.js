@@ -644,7 +644,7 @@
   // ---------------------------------------------------------------------------------------
 
   views.site = async () => {
-    const [site, maintenance, announcement] = await Promise.all([api("GET", "/api/account/admin/site"), A("GET", "/maintenance"), A("GET", "/announcement")]);
+    const [site, maintenance, announcement, terms] = await Promise.all([api("GET", "/api/account/admin/site"), A("GET", "/maintenance"), A("GET", "/announcement"), A("GET", "/terms")]);
     const radios = (key, options) => {
       const wrap = h("div", { class: "radios", role: "radiogroup" });
       for (const [value, text] of options) {
@@ -672,6 +672,14 @@
     const post = h("button", { class: "btn primary", type: "button", text: announcement.active ? "Update announcement" : "Post announcement", onclick: () => act(post, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: true }); views.site(); }, "Posted. Everyone sees it now: Important as a window to close, the rest as a notification at the bottom right.") });
     const clear = h("button", { class: "btn", type: "button", text: "Take it down", disabled: !announcement.active, onclick: () => act(clear, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: false }); views.site(); }, "Taken down.") });
 
+    const tOn = h("input", { type: "checkbox", checked: terms.enabled });
+    const tSave = h("button", { class: "btn primary", type: "button", text: "Save", onclick: () => act(tSave, async () => { const saved = await A("POST", "/terms", { enabled: tOn.checked }); terms.enabled = saved.enabled; }, tOn.checked ? "On. Everyone who isn't signed in sees it now, and must agree once." : "Off.") });
+    const tPreview = h("button", { class: "btn", type: "button", text: "Preview the screen", onclick: () => {
+      const t = desktop?.SnTerms;
+      if (!t) return toast("Open the Admin Panel inside SuperNova OS to preview it.", "error");
+      t.show({ preview: true });
+    } });
+
     main.replaceChildren(head("Site"),
       h("div", { class: "card section stack" }, h("h3", { text: "Accounts" }),
         h("div", {}, h("p", { class: "dim small", text: "Whether the site has accounts, and whether the whole site needs one." }), radios("mode", [["off", "Off"], ["optional", "Optional"], ["required", "Required (sign-in screen)"]]), lockedNote("mode", "ACCOUNTS")),
@@ -680,8 +688,12 @@
         h("p", { class: "dim small", text: "Locks everyone but admins out with a \"back soon\" page, and closes the proxy to them. Sign-in stays open so admins can still get in." }),
         h("label", { class: "check" }, mOn, h("span", { text: "Maintenance mode is on" })),
         h("label", { class: "labeled" }, h("span", { text: "What people see" }), mMsg), h("div", { class: "row" }, mSave)),
+      h("div", { class: "card section stack" }, h("h3", { text: "Acceptable use screen" }),
+        h("p", { class: "dim small", text: "A big bright red notice, like a terms of service, saying this site is only for education and open source learning and must not be used during school or to get past school filters. Everyone who is not signed in has to tick the box and press I agree once; it is remembered on their device, even after they close the site. People who are signed in never see it. It appears and disappears on open pages the moment you save." }),
+        h("label", { class: "check" }, tOn, h("span", { text: "Show the acceptable use screen" })),
+        h("div", { class: "row" }, tSave, tPreview)),
       h("div", { class: "card section stack" }, h("h3", { text: "Announcement" }),
-        h("p", { class: "dim small", text: "Shown to everyone who is signed in as a notification on their desktop, once each time you change it." }),
+        h("p", { class: "dim small", text: "Shown to everyone on their desktop the moment you post it, once each time you change it: Important ones as a window to close, the others as a notification." }),
         h("label", { class: "labeled" }, h("span", { text: "Message" }), aText), h("label", { class: "labeled" }, h("span", { text: "Kind" }), aLevel),
         preview, h("div", { class: "row" }, post, clear)));
   };
