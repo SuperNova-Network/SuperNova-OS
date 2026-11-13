@@ -269,6 +269,14 @@ const MIGRATIONS = [
     // The admins you already have hold the Admin role.
     db.exec("INSERT OR IGNORE INTO user_roles (user_id, role_id) SELECT users.id, roles.id FROM users, roles WHERE users.is_admin = 1 AND roles.slug = 'admin'");
   },
+  // 10: how far each person has read the chat, so the unread count follows them to any computer.
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_reads (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      last_id INTEGER NOT NULL DEFAULT 0,
+      at INTEGER NOT NULL
+    );
+  `),
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */

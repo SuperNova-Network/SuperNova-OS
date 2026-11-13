@@ -136,6 +136,22 @@ export function publicMessage(row, isAdmin, role = null) {
   };
 }
 
+/**
+ * How many messages from other people came since this person last read the chat (the number on the Chat icon).
+ * Someone who has never read it starts at "everything so far is read", not with the whole history unread.
+ */
+export function unreadCount(db, userId) {
+  const row = db.prepare("SELECT last_id FROM chat_reads WHERE user_id = ?").get(userId);
+  if (!row) { markRead(db, userId); return 0; }
+  return db.prepare("SELECT COUNT(*) AS n FROM chat_messages WHERE id > ? AND user_id <> ? AND deleted_at IS NULL").get(row.last_id, userId).n;
+}
+
+/** This person has now read everything in the chat. */
+export function markRead(db, userId) {
+  const latest = db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM chat_messages").get().id;
+  db.prepare("INSERT INTO chat_reads (user_id, last_id, at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET last_id = excluded.last_id, at = excluded.at").run(userId, latest, Date.now());
+}
+
 /** Add a message, keep the history to HISTORY_LIMIT, and return its row. */
 export function insertMessage(db, { userId, text = "", media = null, mentions = null }) {
   return transaction(db, () => {

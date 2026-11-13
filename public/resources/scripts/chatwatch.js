@@ -9,6 +9,10 @@
  * while the Chat window is in front and you are looking at it, and the connection is
  * closed whenever notifications are off, Do not disturb is on, or you are signed out.
  *
+ * It also keeps the number on the Chat icon in the taskbar: how many messages from other people have come since
+ * you last read the chat. The server remembers where you got to (per account), so signing in on another computer
+ * shows what came while you were away, and reading on one computer clears it on all of them.
+ *
  * Needs notify-core.js, notify.js and account.js. Plain script.
  */
 (function (global) {
@@ -22,10 +26,31 @@
   var failures = 0;
   var retryTimer = null;
   var signedIn = null; // null: not asked yet
+  var unread = 0;
 
+  // The connection is kept whenever someone is signed in (the badge needs it); the notification settings only
+  // decide whether a pop-up is shown.
   function wanted() {
-    var settings = core.settings();
-    return (settings.chat || settings.mentions) && settings.enabled && !settings.dnd && signedIn === true;
+    return signedIn === true;
+  }
+
+  /** The red number on the Chat icon (a CSS variable and an attribute: the icon can be rebuilt at any time). */
+  function showBadge() {
+    var root = document.documentElement;
+    if (!document.getElementById("chat-badge-style") && typeof global.chatID === "number") {
+      var style = document.createElement("style");
+      style.id = "chat-badge-style";
+      style.textContent = ".taskbaricon[type='" + global.chatID + "']::after{content:var(--chat-unread,'');display:none;position:absolute;top:0.3vw;right:0.55vw;min-width:1.15vw;height:1.15vw;padding:0 0.25vw;box-sizing:border-box;border-radius:0.6vw;background:#e5484d;color:#fff;font:700 0.72vw/1.15vw 'Segoe UI',system-ui,sans-serif;text-align:center;pointer-events:none}" +
+        "html:not([data-chat-unread='0'])[data-chat-unread] .taskbaricon[type='" + global.chatID + "']::after{display:block}";
+      document.head.appendChild(style);
+    }
+    root.style.setProperty("--chat-unread", "'" + (unread > 99 ? "99+" : String(unread)) + "'");
+    root.setAttribute("data-chat-unread", String(unread));
+  }
+
+  function setUnread(count) {
+    unread = Math.max(0, Number(count) || 0);
+    showBadge();
   }
 
   /** Whether the Chat window is open, not minimised, at the front, and this page has focus. */
@@ -46,7 +71,8 @@
 
   function onMessage(message) {
     if (!message || !message.user || !me || message.user.username === me.username) return;
-    if (chatInFront()) return;
+    if (chatInFront()) return; // you are looking at it: nothing to count or show
+    setUnread(unread + 1);
     var settings = core.settings();
     var ping = pingKind(message);
     if (!settings.chat && !(settings.mentions && ping)) return;
@@ -69,6 +95,7 @@
     clearTimeout(retryTimer);
     if (source) { source.close(); source = null; }
     me = null;
+    setUnread(0);
   }
 
   function connect() {
@@ -77,8 +104,14 @@
     source = stream;
     stream.addEventListener("ready", function (event) {
       failures = 0;
-      try { var data = JSON.parse(event.data).me; me = { username: data.username, roles: data.roles || [] }; } catch (e) { /* keep listening */ }
+      try {
+        var ready = JSON.parse(event.data);
+        me = { username: ready.me.username, roles: ready.me.roles || [] };
+        setUnread(ready.unread);
+      } catch (e) { /* keep listening */ }
     });
+    // You read the chat (here or on another computer).
+    stream.addEventListener("read", function () { setUnread(0); });
     // Your roles changed (an admin gave or took one): pings for them follow.
     stream.addEventListener("me", function (event) {
       try { var about = JSON.parse(event.data); if (me) me.roles = about.roles || []; } catch (e) { /* keep the old ones */ }
@@ -119,12 +152,12 @@
     });
   }
 
+  // The Chat window asks this to know whether it is being looked at (see apps/chat.js).
+  global.SnChatWatch = { inFront: chatInFront };
+
   global.SnStore.onChange(function (key) {
-    if (key === "notifyChat" || key === "notifyMentions" || key === "notifyEnabled" || key === "notifyDnd" || key === "*") {
-      if (signedIn === null) check(); else sync();
-    }
+    if (key === "*") { if (signedIn === null) check(); else sync(); }
   });
 
-  // Only ask the server when there is something to listen for.
-  if (core.settings().chat || core.settings().mentions) check();
+  check();
 })(self);

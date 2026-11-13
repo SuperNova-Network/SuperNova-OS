@@ -28,6 +28,19 @@
     roles: [],           // [{ slug, name, color, position, mentionable }]: the roles as they are now
   };
 
+  /** Tell the server this person has read the chat: the number on the Chat icon goes away everywhere. */
+  let readTimer = 0;
+  function markRead() {
+    clearTimeout(readTimer);
+    readTimer = setTimeout(() => { api("POST", "/read", {}).catch(() => {}); }, 300);
+  }
+  window.addEventListener("focus", markRead);
+  /** Is the chat being looked at? Its page has focus, or (inside the desktop) its window is the one in front. */
+  const beingRead = () => {
+    if (document.hasFocus()) return true;
+    try { return Boolean(window.parent !== window && window.parent.SnChatWatch?.inFront()); } catch { return false; }
+  };
+
   /** The desktop's functions, when this page runs inside a desktop window. */
   const desktop = (() => { try { return window.parent !== window ? window.parent : null; } catch { return null; } })();
 
@@ -344,6 +357,9 @@
       autosize(); // now that the chat is showing, so it can be measured
       applyPermissions();
       scrollToEnd();
+      // Opening the chat is reading it. (A reconnect while it is behind another window is not.)
+      if (!state.seen || beingRead()) markRead();
+      state.seen = true;
     });
     // An admin changed the roles: new names and colours show at once, and so do new permissions.
     on("roles", (list) => { state.roles = list; renderAll(); renderOnline(); renderMe(); });
@@ -458,6 +474,7 @@
 
   function addMessage(message) {
     if (state.messages.some((existing) => existing.id === message.id)) return;
+    if (state.me && message.user.username !== state.me.username && beingRead()) markRead(); // you are looking at it
     const previous = state.messages.at(-1) ?? null;
     state.messages.push(message);
     if (state.messages.length > KEEP && state.atBottom) { state.messages.shift(); state.hasOlder = true; return renderAll(); }

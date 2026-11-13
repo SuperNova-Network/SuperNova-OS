@@ -56,6 +56,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     upload: createLimiter({ limit: 6, windowMs: 10 * 60_000 }), // GIFs a person may upload
     connect: createLimiter({ limit: 40, windowMs: 60_000 }),
     search: createLimiter({ limit: 30, windowMs: 60_000 }),
+    read: createLimiter({ limit: 120, windowMs: 60_000 }),
   };
   const limit = (limiter, key, message = "Slow down a little.") => {
     const wait = limiter.hit(key);
@@ -234,6 +235,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
       me: { ...user, ...aboutMe(user), sanction: store.activeSanction(db, user.id) },
       settings: publicSettings(s),
       roles: publicRoles(),
+      unread: store.unreadCount(db, user.id),
       messages: !quiet && (s.enabled || user.admin) ? shapeMessages(store.listMessages(db, { limit: 60 })) : [],
       online: quiet ? [] : presence(),
     });
@@ -324,6 +326,15 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     const message = shapeMessages([row])[0];
     broadcast("message", message);
     res.status(201).json({ message });
+  }));
+
+  // "I've read the chat": the number on the Chat icon goes to zero on every computer this person is on.
+  router.post("/read", handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.read, String(user.id));
+    store.markRead(db, user.id);
+    sendToUser(user.id, "read", {});
+    res.json({ ok: true });
   }));
 
   // An uploaded GIF.
