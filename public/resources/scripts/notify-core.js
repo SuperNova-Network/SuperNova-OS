@@ -7,6 +7,7 @@
  *   notifyEnabled   "Get notifications from apps and other senders"          1
  *   notifyDnd       Do not disturb: no banners, no sounds                     0
  *   notifyChat      notifications from the Messaging app (the Chat)           0 (off until turned on)
+ *   notifyMentions  notifications when someone @mentions you in the Chat      1 (on)
  *   notifyBanners   show the pop-up                                           1
  *   notifySound     play a sound when one arrives                             1
  *   notifyPreview   show what the message says                                1
@@ -22,7 +23,7 @@
   "use strict";
 
   var DEFAULTS = {
-    notifyEnabled: "1", notifyDnd: "0", notifyChat: "0", notifyBanners: "1", notifySound: "1",
+    notifyEnabled: "1", notifyDnd: "0", notifyChat: "0", notifyMentions: "1", notifyBanners: "1", notifySound: "1",
     notifyPreview: "1", notifyPictures: "1", notifyDuration: "5", notifyTheme: "dark",
     notifySize: "small", notifyPosition: "bottom-right",
   };
@@ -47,6 +48,7 @@
       enabled: flag("notifyEnabled"),
       dnd: flag("notifyDnd"),
       chat: flag("notifyChat"),
+      mentions: flag("notifyMentions"),
       banners: flag("notifyBanners"),
       sound: flag("notifySound"),
       preview: flag("notifyPreview"),

@@ -165,6 +165,19 @@
     head.appendChild(close);
     el.appendChild(head);
 
+    // Something important (a mention) gets a dotted ring turning around its edge, so it stands out.
+    if (options.important) {
+      el.classList.add("sn-toast-important");
+      var ring = document.createElementNS(NS, "svg");
+      ring.setAttribute("class", "sn-ring");
+      ring.setAttribute("aria-hidden", "true");
+      var rect = document.createElementNS(NS, "rect");
+      rect.setAttribute("x", "0"); rect.setAttribute("y", "0");
+      rect.setAttribute("width", "100%"); rect.setAttribute("height", "100%");
+      ring.appendChild(rect);
+      el.appendChild(ring);
+    }
+
     var body = node("div", "sn-toast-body");
     if (settings.pictures && options.picture) body.appendChild(picture(options, settings));
     var text = node("div", "sn-toast-text");
@@ -179,6 +192,7 @@
    * Show a notification (unless notifications are off or Do not disturb is on). Returns
    * { dismiss() }, or null when nothing was shown.
    * options: { app, icon: "chat"|"bell", title, text, picture: { url, letter, color }, onClick,
+   *   important: true gives it the dotted turning ring (used for mentions),
    *   position: a corner to use instead of the person's own choice ("bottom-left") }
    */
   function show(options) {

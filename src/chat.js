@@ -156,7 +156,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
   const publicRoles = () => roles.listRoles(db).map(({ slug, name, color, position, mentionable }) => ({ slug, name, color, position, mentionable }));
 
   /** About one person's roles: what they can do, and what pings reach them. */
-  const aboutMe = (user) => ({ roles: roles.mentionSlugs(db, user), perms: [...roles.permissionsOf(db, user)], rank: Math.min(roles.rank(db, user), 1e9) });
+  const aboutMe = (user) => ({ role: roles.topRole(roles.rolesOf(db, user.id)), roles: roles.mentionSlugs(db, user), perms: [...roles.permissionsOf(db, user)], rank: Math.min(roles.rank(db, user), 1e9) });
 
   const userRow = (name) => db.prepare("SELECT id, username, is_admin, created_at FROM users WHERE username = ?").get(String(name ?? ""));
 

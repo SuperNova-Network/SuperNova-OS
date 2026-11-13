@@ -180,3 +180,34 @@
     transition: none;
   }
 }
+
+/* An important notification (a mention): a faint white dotted ring turns around its edge. */
+.sn-toast-important {
+  position: relative;
+}
+
+.sn-ring {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.sn-ring rect {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.42);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 8;
+  animation: sn-ring 1.1s linear infinite;
+}
+
+@keyframes sn-ring {
+  to { stroke-dashoffset: -8.1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-ring rect { animation: none; }
+}

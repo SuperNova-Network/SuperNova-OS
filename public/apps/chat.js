@@ -25,6 +25,7 @@
     hasOlder: false,
     atBottom: true,
     moderating: null,    // the person the Moderate dialog is about
+    roles: [],           // [{ slug, name, color, position, mentionable }]: the roles as they are now
   };
 
   /** The desktop's functions, when this page runs inside a desktop window. */
@@ -132,6 +133,87 @@
     return badge;
   }
 
+  // --- roles and what people may do ---------------------------------------------------------------------
+
+  const can = (permission) => Boolean(state.me?.perms?.includes(permission));
+  const canModerate = () => can("chat.moderate");
+  const roleBySlug = (slug) => state.roles.find((r) => r.slug === slug) ?? null;
+  /** A role as it is now (its name and colour can change while the chat is open). */
+  const liveRole = (role) => (role ? roleBySlug(role.slug) ?? role : null);
+
+  /** Colour a name with its highest role's colour; admins without a role keep the admin look. */
+  function styleName(node, user) {
+    const role = liveRole(user.role);
+    if (role) { node.classList.add("role"); node.style.setProperty("--role", role.color); }
+    else if (user.admin) node.classList.add("admin");
+  }
+
+  /** The tag beside a name: their highest role, or the admin tag for an admin who has no role. */
+  function tagFor(user) {
+    const role = liveRole(user.role);
+    if (!role) return user.admin ? adminBadge() : null;
+    const badge = adminBadge({ tag: role.name });
+    badge.title = `${role.name}`;
+    badge.style.setProperty("--admin", role.color);
+    return badge;
+  }
+
+  /** Whether you may moderate this person: they need a lower role than yours (admins are above every role). */
+  const canModeratePerson = (user) => canModerate() && !user.admin && user.username !== state.me.username && (liveRole(user.role)?.position ?? 0) < (state.me.rank ?? 0);
+
+  // --- @mentions -------------------------------------------------------------------------------------
+
+  const MENTION = /(^|[^A-Za-z0-9_@.\/-])@([A-Za-z0-9][A-Za-z0-9._-]{0,31})/g;
+
+  /** A message's text as pieces: plain text, and the mentions the server accepted (pills). */
+  function mentionParts(text, mentions) {
+    if (!mentions) return [{ text }];
+    const users = new Map((mentions.users ?? []).map((name) => [name.toLowerCase(), name]));
+    const parts = [];
+    let from = 0;
+    for (const match of text.matchAll(MENTION)) {
+      let token = match[2];
+      let found = null;
+      while (token && !found) {
+        const lower = token.toLowerCase();
+        if ((lower === "everyone" && mentions.everyone) || (lower === "here" && mentions.here)) found = { kind: "special", label: lower };
+        else if ((mentions.roles ?? []).includes(lower)) found = { kind: "role", slug: lower, label: roleBySlug(lower)?.name ?? lower };
+        else if (users.has(lower)) found = { kind: "user", label: users.get(lower) };
+        if (!found) { if (!/[._-]$/.test(token)) break; token = token.slice(0, -1); }
+      }
+      if (!found) continue;
+      const at = match.index + match[1].length;
+      if (at > from) parts.push({ text: text.slice(from, at) });
+      parts.push({ pill: found });
+      from = at + 1 + token.length;
+    }
+    if (from < text.length) parts.push({ text: text.slice(from) });
+    return parts;
+  }
+
+  /** Fill a message's text element: plain text, with each mention as a pill. */
+  function fillText(box, message) {
+    for (const part of mentionParts(message.text, message.mentions)) {
+      if (part.text !== undefined) { box.append(part.text); continue; }
+      const { kind, label, slug } = part.pill;
+      const pill = el("span", "mention", `@${label}`);
+      if (kind === "role") {
+        pill.classList.add("role");
+        pill.style.setProperty("--mc", roleBySlug(slug)?.color ?? "#99aab5");
+        if (state.me?.roles?.includes(slug)) pill.classList.add("me");
+      } else if (kind === "special" || label.toLowerCase() === state.me?.username.toLowerCase()) pill.classList.add("me");
+      box.append(pill);
+    }
+  }
+
+  /** Did this message ping you (by name, by a role of yours, or @everyone / @here)? */
+  function pingsMe(message) {
+    const m = message.mentions;
+    if (!m || !state.me || message.user.username === state.me.username) return false;
+    const me = state.me.username.toLowerCase();
+    return Boolean(m.everyone || m.here || (m.users ?? []).some((name) => name.toLowerCase() === me) || (m.roles ?? []).some((slug) => state.me.roles?.includes(slug)));
+  }
+
   const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   function dayLabel(ms) {
     const day = new Date(ms), today = new Date();
@@ -214,6 +296,7 @@
       failures = 0;
       state.me = data.me;
       state.settings = data.settings;
+      state.roles = data.roles ?? [];
       applyAdminLook(data.settings.adminLook);
       state.messages = data.messages;
       state.online = data.online;
@@ -226,9 +309,12 @@
       renderOnline();
       renderComposerState();
       autosize(); // now that the chat is showing, so it can be measured
-      $("mod-open").hidden = !state.me.admin;
+      applyPermissions();
       scrollToEnd();
     });
+    // An admin changed the roles: new names and colours show at once, and so do new permissions.
+    on("roles", (list) => { state.roles = list; renderAll(); renderOnline(); renderMe(); });
+    on("me", (about) => { if (!state.me) return; Object.assign(state.me, about); applyPermissions(); renderAll(); renderOnline(); renderMe(); renderComposerState(); });
     on("message", (message) => addMessage(message));
     on("delete", ({ id }) => {
       const before = state.messages.length;
@@ -260,37 +346,41 @@
 
   function renderMe() {
     paintAvatar($("me-avatar"), state.me);
-    $("me-avatar").className = `avatar small${state.me.admin ? " admin" : ""}`;
+    $("me-avatar").className = "avatar small";
     $("me-name").textContent = state.me.username;
-    $("me-name").classList.toggle("admin", Boolean(state.me.admin));
+    $("me-name").className = "me-name";
+    styleName($("me-name"), state.me);
   }
 
   function messageNode(message, previous) {
     const grouped = previous && previous.user.username === message.user.username && message.at - previous.at < GROUP_MS && sameDay(previous.at, message.at);
-    const row = el("li", `msg${message.user.admin ? " admin" : ""}${grouped ? " grouped" : ""}`);
+    const row = el("li", `msg${message.user.admin ? " admin" : ""}${grouped ? " grouped" : ""}${pingsMe(message) ? " pinged" : ""}`);
     row.dataset.id = message.id;
 
     row.append(grouped ? el("span", "spacer-avatar") : avatar(message.user));
     const content = el("div", "content");
     if (!grouped) {
       const head = el("div", "head");
-      head.append(el("span", `name${message.user.admin ? " admin" : ""}`, message.user.username));
-      if (message.user.admin) head.append(adminBadge());
+      const name = el("span", "name", message.user.username);
+      styleName(name, message.user);
+      head.append(name);
+      const tag = tagFor(message.user);
+      if (tag) head.append(tag);
       head.append(el("span", "time", clock(message.at)));
       content.append(head);
     }
-    if (message.text) content.append(el("div", "text", message.text));
+    if (message.text) { const box = el("div", "text"); fillText(box, message); content.append(box); }
     if (message.media) content.append(mediaNode(message.media));
     row.append(content);
 
-    if (state.me?.admin) {
+    if (canModerate()) {
       const tools = el("div", "tools");
       const del = el("button", "", "Delete");
       del.type = "button";
       del.title = "Delete this message";
       del.addEventListener("click", () => deleteMessage(message, del));
       tools.append(del);
-      if (!message.user.admin) {
+      if (canModeratePerson(message.user)) {
         const mod = el("button", "", "Moderate…");
         mod.type = "button";
         mod.title = `Time out or ban ${message.user.username}`;
@@ -358,11 +448,14 @@
     list.textContent = "";
     for (const person of state.online) {
       const item = el("li");
-      const row = el("button", person.admin ? "admin" : "");
+      const row = el("button", "");
       row.type = "button";
-      row.append(avatar(person, "small"), el("span", `who${person.admin ? " admin" : ""}`, person.username));
-      if (person.admin) row.append(adminBadge());
-      if (state.me?.admin && !person.admin && person.username !== state.me.username) {
+      const who = el("span", "who", person.username);
+      styleName(who, person);
+      row.append(avatar(person, "small"), who);
+      const tag = tagFor(person);
+      if (tag) row.append(tag);
+      if (state.me && canModeratePerson(person)) {
         row.dataset.action = "moderate";
         row.title = `Moderate ${person.username}`;
         row.addEventListener("click", () => openModerate(person));
@@ -433,7 +526,7 @@
     if (!state.settings || !state.me) return false;
     if (state.sanction && (state.sanction.kind === "ban" || state.sanction.until > Date.now())) return false;
     if (!state.settings.enabled && !state.me.admin) return false;
-    if (state.settings.locked && !state.me.admin) return false;
+    if (state.settings.locked && !can("chat.bypass_limits")) return false;
     return true;
   }
 
@@ -495,10 +588,128 @@
     // one, arrows and all, for a single line otherwise).
     text.style.overflowY = wanted > MAX_HEIGHT ? "auto" : "hidden";
   }
-  text.addEventListener("input", () => { autosize(); updateCount(); });
+  text.addEventListener("input", () => { autosize(); updateCount(); updateMention(); });
   text.addEventListener("keydown", (event) => {
+    if (mentionKey(event)) return;
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); $("composer").requestSubmit(); }
   });
+
+  // --- @ suggestions: type @ and pick a person or a role, like Discord --------------------------------------------
+
+  const mentionPop = $("mention-pop");
+  const mention = { items: [], active: 0, ctx: null, seq: 0, timer: 0 };
+
+  /** The "@something" right before the caret, if that is what is being typed. */
+  function mentionContext() {
+    const caret = text.selectionStart;
+    if (caret !== text.selectionEnd) return null;
+    const found = /(^|[^A-Za-z0-9_@.\/-])@([A-Za-z0-9._-]{0,32})$/.exec(text.value.slice(0, caret));
+    return found ? { query: found[2], start: caret - found[2].length - 1, end: caret } : null;
+  }
+
+  function closeMention() {
+    clearTimeout(mention.timer);
+    mention.seq++;
+    mention.items = [];
+    mentionPop.hidden = true;
+  }
+
+  function updateMention() {
+    const ctx = mentionContext();
+    if (!ctx || !canPost()) return closeMention();
+    mention.ctx = ctx;
+    clearTimeout(mention.timer);
+    mention.timer = setTimeout(async () => {
+      const mine = ++mention.seq;
+      try {
+        const data = await api("GET", `/mention-search?q=${encodeURIComponent(ctx.query)}`);
+        if (mine !== mention.seq) return; // a newer keystroke is already asking
+        mention.items = [
+          ...data.users.map((u) => ({ kind: "user", value: u.username, user: u })),
+          ...data.roles.map((r) => ({ kind: "role", value: r.slug, role: r })),
+          ...data.special.map((name) => ({ kind: "special", value: name })),
+        ];
+        mention.active = 0;
+        renderMention();
+      } catch { closeMention(); }
+    }, 90);
+  }
+
+  function renderMention() {
+    mentionPop.textContent = "";
+    if (!mention.items.length) { mentionPop.hidden = true; return; }
+    let lastKind = "";
+    const heading = { user: "Members", role: "Roles", special: "Notify everyone" };
+    mention.items.forEach((item, index) => {
+      if (item.kind !== lastKind) { mentionPop.append(el("div", "mention-head", heading[item.kind])); lastKind = item.kind; }
+      const row = el("div", "mention-item");
+      row.setAttribute("role", "option");
+      row.setAttribute("aria-selected", String(index === mention.active));
+      if (item.kind === "user") {
+        const dot = el("span", `presence${item.user.online ? " on" : ""}`);
+        dot.title = item.user.online ? "In the chat" : "Not in the chat";
+        const name = el("span", "mi-name", item.user.username);
+        styleName(name, item.user);
+        row.append(avatar(item.user, "small"), name);
+        const tag = tagFor(item.user);
+        if (tag) row.append(tag);
+        row.append(dot);
+      } else if (item.kind === "role") {
+        const badge = el("span", "mi-at", "@");
+        badge.style.setProperty("--mc", item.role.color);
+        const name = el("span", "mi-name role", item.role.name);
+        name.style.setProperty("--role", item.role.color);
+        row.append(badge, name, el("span", "mi-hint", "Role"));
+      } else {
+        row.append(el("span", "mi-at", "@"), el("span", "mi-name", item.value), el("span", "mi-hint", item.value === "everyone" ? "Notify everyone" : "Notify everyone in the chat now"));
+      }
+      row.addEventListener("mousedown", (event) => { event.preventDefault(); chooseMention(index); });
+      row.addEventListener("mousemove", () => { if (mention.active !== index) { mention.active = index; markMention(); } });
+      mentionPop.append(row);
+    });
+    mentionPop.hidden = false;
+    markMention();
+  }
+
+  function markMention() {
+    let n = 0;
+    for (const row of mentionPop.querySelectorAll(".mention-item")) {
+      const on = n++ === mention.active;
+      row.setAttribute("aria-selected", String(on));
+      if (on) row.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function chooseMention(index) {
+    const item = mention.items[index];
+    const ctx = mention.ctx;
+    if (!item || !ctx) return;
+    const insert = `@${item.value} `;
+    text.value = text.value.slice(0, ctx.start) + insert + text.value.slice(ctx.end);
+    const caret = ctx.start + insert.length;
+    text.setSelectionRange(caret, caret);
+    closeMention();
+    autosize(); updateCount();
+    text.focus();
+  }
+
+  /** Keys while suggestions are open: up and down choose, Enter or Tab inserts, Escape closes. */
+  function mentionKey(event) {
+    if (mentionPop.hidden || !mention.items.length) return false;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const n = mention.items.length;
+      mention.active = (mention.active + (event.key === "ArrowDown" ? 1 : n - 1)) % n;
+      markMention();
+      return true;
+    }
+    if (event.key === "Enter" || event.key === "Tab") { event.preventDefault(); chooseMention(mention.active); return true; }
+    if (event.key === "Escape") { event.preventDefault(); closeMention(); return true; }
+    return false;
+  }
+  text.addEventListener("click", updateMention);
+  text.addEventListener("keyup", (event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) updateMention(); });
+  text.addEventListener("blur", () => setTimeout(closeMention, 120));
 
   async function send(body, { clear = false } = {}) {
     if (sending || !canPost()) return false;
@@ -508,7 +719,7 @@
       const { message } = await api("POST", "/messages", body);
       addMessage(message);
       if (clear) { text.value = ""; autosize(); updateCount(); }
-      if (state.settings.slowSeconds && !state.me.admin) state.cooldownUntil = Date.now() + state.settings.slowSeconds * 1000;
+      if (state.settings.slowSeconds && !can("chat.bypass_limits")) state.cooldownUntil = Date.now() + state.settings.slowSeconds * 1000;
       showNotice("");
       return true;
     } catch (err) {
@@ -706,7 +917,8 @@
     paintAvatar($("profile-avatar"), state.me);
     $("profile-name").textContent = state.me.username;
     $("profile-badge-slot").textContent = "";
-    if (state.me.admin) $("profile-badge-slot").append(adminBadge());
+    const tag = tagFor(state.me);
+    if (tag) $("profile-badge-slot").append(tag);
     $("profile").showModal();
   }
   $("me").addEventListener("click", openProfile);
@@ -836,7 +1048,17 @@
     if (tab === "log") loadLog();
   }
   for (const button of panel.querySelectorAll(".tab")) button.addEventListener("click", () => setPanelTab(button.dataset.tab));
-  $("mod-open").addEventListener("click", () => { panel.showModal(); setPanelTab("settings"); });
+  /** The moderation button and its tabs: what you can reach depends on your permissions. */
+  function applyPermissions() {
+    const manage = can("chat.manage"), moderate = canModerate();
+    $("mod-open").hidden = !(manage || moderate);
+    for (const button of panel.querySelectorAll(".tab")) button.hidden = !(["settings", "look"].includes(button.dataset.tab) ? manage : moderate);
+    $("moderate-site").hidden = !state.me?.admin; // banning from the whole site is for site admins
+  }
+  $("mod-open").addEventListener("click", () => {
+    panel.showModal();
+    setPanelTab(can("chat.manage") ? "settings" : "sanctions");
+  });
   $("panel-close").addEventListener("click", () => panel.close());
 
   async function loadSettings() {

@@ -1002,3 +1002,125 @@ code {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Roles: a name takes the colour of its highest role ---------------------------------------- */
+
+.name.role,
+.me-name.role,
+.who.role,
+.mi-name.role {
+  color: var(--role);
+  font-weight: 700;
+}
+
+/* --- @mentions ----------------------------------------------------------------------------------------- */
+
+.mention {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent, #7b4aa8) 28%, transparent);
+  color: color-mix(in srgb, var(--accent, #7b4aa8) 35%, #fff);
+  font-weight: 600;
+}
+
+.mention.role {
+  background: color-mix(in srgb, var(--mc) 26%, transparent);
+  color: var(--mc);
+}
+
+/* a mention of you (or a role of yours, or everyone) is brighter */
+.mention.me {
+  background: color-mix(in srgb, var(--accent, #7b4aa8) 60%, transparent);
+  color: #fff;
+}
+
+.mention.role.me {
+  background: color-mix(in srgb, var(--mc) 50%, transparent);
+  color: #fff;
+}
+
+/* a message that pinged you */
+.msg.pinged {
+  background: color-mix(in srgb, var(--accent, #7b4aa8) 13%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent, #7b4aa8);
+}
+
+/* suggestions while you type @ */
+.mention-pop {
+  left: 10px;
+  right: auto;
+  width: min(420px, calc(100% - 20px));
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.mention-head {
+  padding: 6px 12px 3px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mention-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+}
+
+.mention-item[aria-selected="true"] {
+  background: var(--raised);
+  box-shadow: inset 3px 0 0 var(--accent, #7b4aa8);
+}
+
+.mention-item .avatar {
+  flex: none;
+}
+
+.online .badge .badge-text {
+  max-width: 5.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mi-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mi-at {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--mc, #7b4aa8) 30%, #2b2b2b);
+  color: var(--mc, #fff);
+  font-weight: 700;
+}
+
+.mi-hint {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.mention-item .presence {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: #6b6b6b;
+}
+
+.mention-item .presence.on {
+  background: var(--green);
+}

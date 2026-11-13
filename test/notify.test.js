@@ -11,7 +11,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 test("defaults: notifications are on in general, but the Chat's are off until turned on", () => {
   const s = core.parse(read({}));
   assert.deepEqual(plain(s), {
-    enabled: true, dnd: false, chat: false, banners: true, sound: true, preview: true, pictures: true,
+    enabled: true, dnd: false, chat: false, mentions: true, banners: true, sound: true, preview: true, pictures: true,
     durationMs: 5000, theme: "dark", size: "small", position: "bottom-right",
   });
 });
