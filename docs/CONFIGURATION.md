@@ -146,7 +146,7 @@ The **App Store** is a taskbar app, pinned by default after Chat, where people p
 
 ## The acceptable use screen
 
-Admin Panel > Site > **Acceptable use screen** (off by default) shows everyone who is not signed in a full-screen red legal notice that says the site is for education and open source learning only and must not be used during school or to get past school filters. They tick a box and press **I agree** once; that is saved in the browser (`localStorage` key `snTermsAgreed`, deliberately not synced with an account and not cleared by signing out), so it is not shown again, even after the site is closed. People who are signed in are never shown it, and it also appears on the sign-in page. `GET /api/terms` tells any page whether it is on, and the live channel switches it on or off on open pages at once. The wording is in `public/resources/scripts/terms.js`.
+Admin Panel > Site > **Acceptable use screen** (off by default) shows everyone who is not signed in a full-screen red legal notice that says the site is for education and open source learning only and must not be used during school or to get past school filters. They tick a box and press **I agree** once; that is saved in the browser (`localStorage` key `snTermsAgreed`, deliberately not synced with an account and not cleared by signing out), so it is not shown again, even after the site is closed. People who are signed in are never shown it, and it also appears on the sign-in page. `GET /api/terms` tells any page whether it is on, and the live channel switches it on or off on open pages at once. Without an admin account (a fresh local run has accounts off), use `npm run admin -- terms on` (or `off`). The wording is in `public/resources/scripts/terms.js`.
 
 ## The live channel
 

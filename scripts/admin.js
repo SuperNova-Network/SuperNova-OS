@@ -8,6 +8,7 @@
  *   npm run admin -- status
  *   npm run admin -- accounts off|optional|required
  *   npm run admin -- signup invite|open|closed
+ *   npm run admin -- terms on|off
  *   npm run admin -- make-admin <username>
  *   npm run admin -- remove-admin <username>
  *   npm run admin -- invite [--uses N] [--days N] [--label TEXT]
@@ -25,12 +26,14 @@ import {
   AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, openDatabase, revokeInvite,
   setAdmin, setBanned, setSiteSetting,
 } from "../src/accountsdb.js";
+import { saveTerms } from "../src/admindb.js";
 
 const USAGE = `Usage: npm run admin -- <command>
 
   status                                      how accounts are set up
   accounts off|optional|required              turn accounts off, make them optional, or require sign-in
   signup invite|open|closed                   who can create an account
+  terms on|off                                the red acceptable use screen for people who aren't signed in
   make-admin <username>                       give someone Settings > Admin
   remove-admin <username>                     take it away
   invite [--uses N] [--days N] [--label TEXT]   make an invite code (default: 1 use, 7 days; --days 0 never expires)
@@ -88,6 +91,12 @@ async function main(argv) {
         setSiteSetting(db, key, rest[0], "command line");
         console.log(`${command === "accounts" ? "Accounts" : "Sign-up"}: ${rest[0]}. A running server picks this up within a few seconds.`);
         if (key === "mode" && rest[0] !== "off" && !adminCount(db) && !admins.size) console.log("Nobody is an admin yet: use make-admin, or the setup link the server prints.");
+        break;
+      }
+      case "terms": {
+        if (rest[0] !== "on" && rest[0] !== "off") throw new AdminError(400, "Use: terms on  or  terms off");
+        saveTerms(db, { enabled: rest[0] === "on" }, "command line");
+        console.log(`The acceptable use screen is ${rest[0]}. Pages pick it up the next time they load (a running server within a few seconds).`);
         break;
       }
       case "make-admin":
