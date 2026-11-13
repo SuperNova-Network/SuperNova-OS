@@ -191,10 +191,43 @@
     return parts;
   }
 
-  /** Fill a message's text element: plain text, with each mention as a pill. */
+  // --- links ---------------------------------------------------------------------------------------------
+
+  const LINK = /\b(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+
+  /** Add plain text to an element, turning web addresses in it into links (http and https only, opening in a new tab). */
+  function appendLinked(box, text) {
+    let from = 0;
+    for (const match of text.matchAll(LINK)) {
+      let url = match[0];
+      // Punctuation after an address belongs to the sentence ("see https://a.com/x.") and so does a lone closing bracket.
+      for (;;) {
+        const last = url.at(-1);
+        const unbalanced = (last === ")" && !url.includes("(")) || (last === "]" && !url.includes("[")) || last === "}";
+        if (/[.,;:!?'"]/.test(last) || unbalanced) url = url.slice(0, -1); else break;
+      }
+      let href = "";
+      try {
+        const parsed = new URL(/^www\./i.test(url) ? `https://${url}` : url);
+        if (parsed.protocol === "https:" || parsed.protocol === "http:") href = parsed.href;
+      } catch { /* not an address after all */ }
+      if (!href || !url) continue;
+      if (match.index > from) box.append(text.slice(from, match.index));
+      const link = el("a", "url", url);
+      link.href = href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer nofollow";
+      link.title = href;
+      box.append(link);
+      from = match.index + url.length;
+    }
+    if (from < text.length) box.append(text.slice(from));
+  }
+
+  /** Fill a message's text element: plain text with web addresses as links, and each mention as a pill. */
   function fillText(box, message) {
     for (const part of mentionParts(message.text, message.mentions)) {
-      if (part.text !== undefined) { box.append(part.text); continue; }
+      if (part.text !== undefined) { appendLinked(box, part.text); continue; }
       const { kind, label, slug } = part.pill;
       const pill = el("span", "mention", `@${label}`);
       if (kind === "role") {

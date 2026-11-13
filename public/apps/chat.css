@@ -1149,3 +1149,15 @@ code {
 .mi-pic .presence.on {
   background: var(--green);
 }
+
+/* web addresses in messages are links */
+a.url {
+  color: color-mix(in srgb, var(--accent, #7b4aa8) 45%, #9fd0ff);
+  text-decoration: none;
+  cursor: pointer !important;
+  overflow-wrap: anywhere;
+}
+
+a.url:hover {
+  text-decoration: underline;
+}
