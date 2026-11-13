@@ -40,7 +40,7 @@
     if (!document.getElementById("chat-badge-style") && typeof global.chatID === "number") {
       var style = document.createElement("style");
       style.id = "chat-badge-style";
-      style.textContent = ".taskbaricon[type='" + global.chatID + "']::after{content:var(--chat-unread,'');display:none;position:absolute;top:0.3vw;right:0.55vw;min-width:1.15vw;height:1.15vw;padding:0 0.25vw;box-sizing:border-box;border-radius:0.6vw;background:#e5484d;color:#fff;font:700 0.72vw/1.15vw 'Segoe UI',system-ui,sans-serif;text-align:center;pointer-events:none}" +
+      style.textContent = ".taskbaricon[type='" + global.chatID + "']::after{content:var(--chat-unread,'');display:none;position:absolute;top:0.3vw;left:calc(50% + 0.45vw);right:auto;min-width:1.15vw;height:1.15vw;padding:0 0.25vw;box-sizing:border-box;border-radius:0.6vw;background:#e5484d;color:#fff;font:700 0.72vw/1.15vw 'Segoe UI',system-ui,sans-serif;text-align:center;pointer-events:none}" +
         "html:not([data-chat-unread='0'])[data-chat-unread] .taskbaricon[type='" + global.chatID + "']::after{display:block}";
       document.head.appendChild(style);
     }
