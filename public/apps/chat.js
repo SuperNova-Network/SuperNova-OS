@@ -26,6 +26,7 @@
     atBottom: true,
     moderating: null,    // the person the Moderate dialog is about
     roles: [],           // [{ slug, name, color, position, mentionable }]: the roles as they are now
+    replying: null,      // { id, user, text, ping }: the message the next one will answer
   };
 
   /** Tell the server this person has read the chat: the number on the Chat icon goes away everywhere. */
@@ -368,7 +369,10 @@
     on("delete", ({ id }) => {
       const before = state.messages.length;
       state.messages = state.messages.filter((message) => message.id !== id);
-      if (state.messages.length !== before) renderAll();
+      let changed = state.messages.length !== before;
+      for (const message of state.messages) if (message.reply?.id === id && !message.reply.gone) { message.reply = { id, gone: true }; changed = true; }
+      if (state.replying?.id === id) cancelReply();
+      if (changed) renderAll();
     });
     on("clear", () => { state.messages = []; state.hasOlder = false; renderAll(); });
     on("presence", ({ online }) => {
@@ -402,12 +406,13 @@
   }
 
   function messageNode(message, previous) {
-    const grouped = previous && previous.user.username === message.user.username && message.at - previous.at < GROUP_MS && sameDay(previous.at, message.at);
+    const grouped = !message.reply && previous && previous.user.username === message.user.username && message.at - previous.at < GROUP_MS && sameDay(previous.at, message.at);
     const row = el("li", `msg${message.user.admin ? " admin" : ""}${grouped ? " grouped" : ""}${pingsMe(message) ? " pinged" : ""}`);
     row.dataset.id = message.id;
 
     row.append(grouped ? el("span", "spacer-avatar") : avatar(message.user));
     const content = el("div", "content");
+    if (message.reply) content.append(replyRef(message.reply));
     if (!grouped) {
       const head = el("div", "head");
       const name = el("span", "name", message.user.username);
@@ -422,8 +427,14 @@
     if (message.media) content.append(mediaNode(message.media));
     row.append(content);
 
+    // Everyone can reply (the button shows when the pointer is over the message); moderators also get Delete and Moderate.
+    const tools = el("div", canModerate() ? "tools" : "tools hover-only");
+    const reply = el("button", "reply-btn", "Reply");
+    reply.type = "button";
+    reply.title = `Reply to ${message.user.username}`;
+    reply.addEventListener("click", () => startReply(message));
+    tools.append(reply);
     if (canModerate()) {
-      const tools = el("div", "tools");
       const del = el("button", "", "Delete");
       del.type = "button";
       del.title = "Delete this message";
@@ -436,8 +447,8 @@
         mod.addEventListener("click", () => openModerate(message.user));
         tools.append(mod);
       }
-      row.append(tools);
     }
+    row.append(tools);
     return row;
   }
 
@@ -641,6 +652,7 @@
   text.addEventListener("input", () => { autosize(); updateCount(); updateMention(); });
   text.addEventListener("keydown", (event) => {
     if (mentionKey(event)) return;
+    if (event.key === "Escape" && state.replying) { event.preventDefault(); cancelReply(); return; }
     if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); $("composer").requestSubmit(); }
   });
 
@@ -769,19 +781,78 @@
   text.addEventListener("keyup", (event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) updateMention(); });
   text.addEventListener("blur", () => setTimeout(closeMention, 120));
 
+  // --- replying ----------------------------------------------------------------------------------------------
+
+  const replyBar = $("reply-bar");
+
+  function startReply(message) {
+    if (!canPost()) return;
+    state.replying = { id: message.id, user: message.user, text: message.text || (message.media ? "[GIF]" : ""), ping: true };
+    $("reply-name").textContent = message.user.username;
+    $("reply-name").className = "";
+    styleName($("reply-name"), message.user);
+    $("reply-snip").textContent = state.replying.text;
+    $("reply-ping").setAttribute("aria-pressed", "true");
+    $("reply-ping").textContent = "@ On";
+    replyBar.hidden = false;
+    text.focus();
+  }
+
+  function cancelReply() {
+    state.replying = null;
+    replyBar.hidden = true;
+  }
+  $("reply-cancel").addEventListener("click", () => { cancelReply(); text.focus(); });
+  $("reply-ping").addEventListener("click", () => {
+    if (!state.replying) return;
+    state.replying.ping = !state.replying.ping;
+    $("reply-ping").setAttribute("aria-pressed", String(state.replying.ping));
+    $("reply-ping").textContent = state.replying.ping ? "@ On" : "@ Off";
+    text.focus();
+  });
+
+  /** The little quote above a reply: who it answers and a bit of what they said. Clicking it jumps to the original. */
+  function replyRef(reply) {
+    const ref = el("div", "reply-ref");
+    if (reply.gone || !reply.user) {
+      ref.classList.add("gone");
+      ref.append(el("span", "reply-text", "The original message was deleted"));
+      return ref;
+    }
+    const name = el("span", "reply-name", reply.user.username);
+    styleName(name, reply.user);
+    ref.append(name, el("span", "reply-text", reply.text || (reply.media ? "Click to see the GIF" : "")));
+    ref.title = "Jump to the original message";
+    ref.addEventListener("click", () => jumpTo(reply.id));
+    return ref;
+  }
+
+  /** Scroll to a message and flash it. */
+  function jumpTo(id) {
+    const row = $("list").querySelector(`.msg[data-id="${id}"]`);
+    if (!row) { showNotice("That message is older than what is shown here."); return; }
+    row.scrollIntoView({ block: "center" });
+    row.classList.add("flash");
+    setTimeout(() => row.classList.remove("flash"), 1600);
+  }
+
   async function send(body, { clear = false } = {}) {
     if (sending || !canPost()) return false;
     sending = true;
     updateSend();
+    const replying = state.replying;
+    if (replying) body = { ...body, replyTo: replying.id, ...(replying.ping ? {} : { pingReply: false }) };
     try {
       const { message } = await api("POST", "/messages", body);
       addMessage(message);
+      if (replying && state.replying === replying) cancelReply();
       if (clear) { text.value = ""; autosize(); updateCount(); }
       if (state.settings.slowSeconds && !can("chat.bypass_limits")) state.cooldownUntil = Date.now() + state.settings.slowSeconds * 1000;
       showNotice("");
       return true;
     } catch (err) {
       if (err.data?.sanction) { state.sanction = err.data.sanction; renderComposerState(); }
+      if (err.status === 404 && replying) cancelReply(); // the message you were answering is gone
       showNotice(err.message);
       return false;
     } finally {

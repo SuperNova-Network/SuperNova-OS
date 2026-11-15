@@ -149,8 +149,13 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
 
   /** Messages as pages get them: with each sender's highest role. */
   function shapeMessages(rows) {
-    const map = roles.rolesOfUsers(db, [...new Set(rows.map((row) => row.user_id))]);
-    return rows.map((row) => store.publicMessage(row, isAdmin, roles.topRole(map.get(row.user_id))));
+    const originals = store.messagesById(db, rows.map((row) => row.reply_to).filter(Boolean));
+    const ids = [...new Set([...rows.map((row) => row.user_id), ...[...originals.values()].map((row) => row.user_id)])];
+    const map = roles.rolesOfUsers(db, ids);
+    return rows.map((row) => {
+      const original = row.reply_to ? originals.get(row.reply_to) : null;
+      return store.publicMessage(row, isAdmin, roles.topRole(map.get(row.user_id)), original ? store.replyPreview(original, isAdmin, roles.topRole(map.get(original.user_id))) : null);
+    });
   }
 
   /** What a page needs to know about the roles: names, colours and who can be pinged. */
@@ -314,6 +319,14 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
       media = { upload: readUpload(gif.data) };
     }
 
+    // A reply: to a message that is still there.
+    let replyTarget = null;
+    if (req.body?.replyTo !== undefined && req.body?.replyTo !== null) {
+      if (!Number.isInteger(req.body.replyTo)) throw new HttpError(400, "That reply isn't valid.");
+      replyTarget = store.getMessage(db, req.body.replyTo);
+      if (!replyTarget) throw new HttpError(404, "The message you are replying to is gone.");
+    }
+
     // Who was pinged: only people and roles that exist, and only what this person may ping.
     const mentions = text ? parseMentions(text, {
       person: (name) => db.prepare("SELECT username FROM users WHERE username = ? AND banned_at IS NULL").get(name)?.username ?? null,
@@ -321,7 +334,13 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
       everyone: can(user, "chat.mention_everyone"),
       anyRole: can(user, "chat.mention_roles"),
     }) : null;
-    const row = store.insertMessage(db, { userId: user.id, text, media, mentions: hasMentions(mentions) ? mentions : null });
+    // Replying pings the person you answer (unless the sender turned that off), like Discord.
+    let pings = mentions;
+    if (replyTarget && req.body?.pingReply !== false && replyTarget.user_id !== user.id) {
+      pings = pings ?? { users: [], roles: [], everyone: false, here: false };
+      if (!pings.users.some((name) => name.toLowerCase() === replyTarget.username.toLowerCase())) pings.users.push(replyTarget.username);
+    }
+    const row = store.insertMessage(db, { userId: user.id, text, media, mentions: hasMentions(pings) ? pings : null, replyTo: replyTarget?.id ?? null });
     if (!bypass) spam.record(user.id, fingerprint);
     const message = shapeMessages([row])[0];
     broadcast("message", message);

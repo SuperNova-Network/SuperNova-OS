@@ -79,7 +79,8 @@
     var what = core.describeChat(message, settings.preview);
     var name = message.user.username;
     var title = what.title;
-    if (ping) title = name + (ping === "you" ? " mentioned you" : ping === "role" ? " mentioned your role" : " mentioned everyone");
+    var answeredYou = message.reply && message.reply.user && message.reply.user.username === me.username;
+    if (ping) title = name + (answeredYou ? " replied to you" : ping === "you" ? " mentioned you" : ping === "role" ? " mentioned your role" : " mentioned everyone");
     global.SnNotify.show({
       app: APP,
       icon: "chat",

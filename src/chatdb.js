@@ -116,14 +116,35 @@ export function setChatSettings(db, patch, by = null) {
 
 const MESSAGE_SELECT = `
   SELECT chat_messages.id, chat_messages.user_id, chat_messages.body, chat_messages.media_kind, chat_messages.media_ref,
-         chat_messages.created_at, chat_messages.mentions, users.username, users.is_admin, users.avatar_version
+         chat_messages.created_at, chat_messages.mentions, chat_messages.reply_to, users.username, users.is_admin, users.avatar_version
   FROM chat_messages JOIN users ON users.id = chat_messages.user_id`;
 
 /**
  * A message as the page gets it. `isAdmin(row)` decides the admin badge from the
  * account as it is now, so removing someone's admin role removes it from their old messages too.
  */
-export function publicMessage(row, isAdmin, role = null) {
+const SNIPPET = 140;
+/** What a reply shows of the message it answers: its author, a short piece of its text, and whether it had a GIF. */
+export function replyPreview(original, isAdmin, role = null) {
+  const text = String(original.body ?? "").replace(/\s+/g, " ").trim();
+  return {
+    id: original.id,
+    user: { username: original.username, ...(isAdmin(original) ? { admin: true } : {}), ...(role ? { role } : {}) },
+    text: Array.from(text).slice(0, SNIPPET).join("") + (Array.from(text).length > SNIPPET ? "\u2026" : ""),
+    media: Boolean(original.media_kind),
+  };
+}
+
+/** The messages (still there) with these ids, as a Map of id to row. */
+export function messagesById(db, ids) {
+  const out = new Map();
+  const list = [...new Set(ids.map(Number).filter(Number.isInteger))];
+  if (!list.length) return out;
+  for (const row of db.prepare(`${MESSAGE_SELECT} WHERE chat_messages.id IN (${list.map(() => "?").join(",")}) AND chat_messages.deleted_at IS NULL`).all(...list)) out.set(row.id, row);
+  return out;
+}
+
+export function publicMessage(row, isAdmin, role = null, reply = null) {
   let mentions = null;
   try { mentions = row.mentions ? JSON.parse(row.mentions) : null; } catch { /* an old or damaged value: no mentions */ }
   return {
@@ -133,6 +154,7 @@ export function publicMessage(row, isAdmin, role = null) {
     text: row.body,
     media: row.media_kind ? { kind: row.media_kind, id: row.media_ref } : null,
     ...(mentions ? { mentions } : {}),
+    ...(row.reply_to ? { reply: reply ?? { id: row.reply_to, gone: true } } : {}),
   };
 }
 
@@ -158,7 +180,7 @@ export function markRead(db, userId) {
 }
 
 /** Add a message, keep the history to HISTORY_LIMIT, and return its row. */
-export function insertMessage(db, { userId, text = "", media = null, mentions = null }) {
+export function insertMessage(db, { userId, text = "", media = null, mentions = null, replyTo = null }) {
   return transaction(db, () => {
     const now = Date.now();
     let mediaRef = media?.ref ?? null;
@@ -166,8 +188,8 @@ export function insertMessage(db, { userId, text = "", media = null, mentions = 
       mediaRef = randomBytes(12).toString("hex");
       db.prepare("INSERT INTO chat_media (id, user_id, mime, data, created_at) VALUES (?, ?, ?, ?, ?)").run(mediaRef, userId, media.upload.mime, media.upload.data, now);
     }
-    const { lastInsertRowid } = db.prepare("INSERT INTO chat_messages (user_id, body, media_kind, media_ref, created_at, mentions) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(userId, text, media ? (media.upload ? "upload" : media.kind) : null, mediaRef, now, mentions ? JSON.stringify(mentions) : null);
+    const { lastInsertRowid } = db.prepare("INSERT INTO chat_messages (user_id, body, media_kind, media_ref, created_at, mentions, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(userId, text, media ? (media.upload ? "upload" : media.kind) : null, mediaRef, now, mentions ? JSON.stringify(mentions) : null, replyTo);
     const id = Number(lastInsertRowid);
     db.prepare("DELETE FROM chat_messages WHERE id <= ?").run(id - HISTORY_LIMIT);
     db.prepare(ORPHANED_MEDIA).run();

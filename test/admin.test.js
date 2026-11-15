@@ -197,7 +197,7 @@ test("a database from before invite codes and bans is upgraded in place", option
     old.close();
 
     const db = await openDatabase(dir);
-    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 11);
+    assert.equal(db.prepare("PRAGMA user_version").get().user_version, 12);
     const columns = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
     for (const name of ["banned_at", "ban_reason", "last_seen_at", "invite_id", "is_admin", "avatar_version"]) assert.ok(columns.includes(name), name);
     for (const table of ["invites", "site_settings", "avatars", "chat_messages", "chat_media", "chat_sanctions", "chat_settings", "chat_log", "admin_log", "admin_settings", "store_apps", "store_icons", "store_installs", "store_reports", "friendships", "user_status", "roles", "user_roles", "chat_reads"]) assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name = ?").get(table), table);
@@ -233,7 +233,7 @@ test("a development database that already stands at version 10 still gets the la
     first.exec("DROP TABLE chat_reads; PRAGMA user_version = 10;");
     first.close();
     const again = await openDatabase(dir);
-    assert.equal(again.prepare("PRAGMA user_version").get().user_version, 11);
+    assert.equal(again.prepare("PRAGMA user_version").get().user_version, 12);
     assert.ok(again.prepare("SELECT name FROM sqlite_master WHERE name = 'chat_reads'").get(), "the table comes back");
     again.close();
   } finally { rmSync(dir, { recursive: true, force: true }); }

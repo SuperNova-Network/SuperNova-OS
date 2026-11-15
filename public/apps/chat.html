@@ -87,6 +87,14 @@
             </div>
           </div>
 
+          <!-- Who you are replying to -->
+          <div class="reply-bar" id="reply-bar" hidden>
+            <span class="reply-label">Replying to <b id="reply-name"></b></span>
+            <span class="reply-snip" id="reply-snip"></span>
+            <button class="reply-ping" id="reply-ping" type="button" aria-pressed="true" title="Ping them with your reply">@ On</button>
+            <button class="reply-x" id="reply-cancel" type="button" aria-label="Cancel the reply" title="Cancel the reply">&#10005;</button>
+          </div>
+
           <!-- @mention suggestions -->
           <div class="popup mention-pop" id="mention-pop" role="listbox" aria-label="Mention someone" hidden></div>
 

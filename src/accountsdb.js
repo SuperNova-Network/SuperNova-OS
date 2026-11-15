@@ -280,6 +280,10 @@ const MIGRATIONS = [
       at INTEGER NOT NULL
     );
   `),
+  // 12: replies. A message can answer another (its id is kept even after the original is deleted or trimmed).
+  (db) => {
+    if (!db.prepare("PRAGMA table_info(chat_messages)").all().some((c) => c.name === "reply_to")) db.exec("ALTER TABLE chat_messages ADD COLUMN reply_to INTEGER");
+  },
 ];
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */
