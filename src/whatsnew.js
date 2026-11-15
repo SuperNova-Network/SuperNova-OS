@@ -99,7 +99,7 @@ export function datesOf(items, changelogFile) {
 }
 
 /** A function returning the current items (with their dates), re-read when the changelog file changes. */
-export function createWhatsNew(file, datesFile = null) {
+export function createWhatsNew(file, datesFile = null, fallbackDay = null) {
   let stamp = null, items = [];
   return () => {
     try {
@@ -108,8 +108,12 @@ export function createWhatsNew(file, datesFile = null) {
         const parsed = parseWhatsNew(readFileSync(file, "utf8"));
         let dates = {};
         try { dates = datesFile ? JSON.parse(readFileSync(datesFile, "utf8")) : {}; } catch { dates = null; }
-        if (!dates || !Object.keys(dates).length) dates = datesOf(parsed, file); // a checkout: ask git
-        items = parsed.map((item) => (dates[item.id] ? { ...item, date: dates[item.id] } : item));
+        dates = dates || {};
+        // Anything the file doesn't know (a checkout, or lines written since it was made): ask git, then fall back to the build's date.
+        const missing = parsed.filter((item) => !dates[item.id]);
+        if (missing.length) dates = { ...dates, ...datesOf(missing, file) };
+        const day = typeof fallbackDay === "function" ? fallbackDay() : fallbackDay;
+        items = parsed.map((item) => { const date = dates[item.id] || (/^\d{4}-\d{2}-\d{2}$/.test(day ?? "") ? day : null); return date ? { ...item, date } : item; });
         stamp = mtime;
       }
     } catch { items = []; }

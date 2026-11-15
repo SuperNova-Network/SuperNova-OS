@@ -49,7 +49,7 @@
     var thisWeek = mondayOf(new Date()).getTime();
     return order.map(function (key) {
       var week = map[key];
-      if (!key) { week.label = "Earlier"; week.sub = "Before these were dated"; return week; }
+      if (!key) { week.label = "All updates"; week.sub = week.items.length + (week.items.length === 1 ? " update" : " updates"); return week; }
       var start = new Date(key), end = new Date(key); end.setDate(end.getDate() + 6);
       var diff = Math.round((thisWeek - key) / (7 * 86400000));
       week.label = diff === 0 ? "This week" : diff === 1 ? "Last week" : "Week of " + dayLabel(start);
@@ -141,7 +141,7 @@
         var name = document.createElement("strong");
         name.textContent = week.label;
         var sub = document.createElement("small");
-        sub.textContent = week.sub + " \u00b7 " + week.items.length + (week.items.length === 1 ? " update" : " updates");
+        sub.textContent = week.key ? week.sub + " \u00b7 " + week.items.length + (week.items.length === 1 ? " update" : " updates") : week.sub;
         left.appendChild(name); left.appendChild(sub);
         row.appendChild(left);
         var tags = document.createElement("span");
