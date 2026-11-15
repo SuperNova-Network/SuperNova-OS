@@ -17,7 +17,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createLimiter } from "./ratelimit.js";
 import {
   AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, newInviteCode, newRecoveryCode,
-  getAvatar, lastRename, nameHeldByOther, normalizeCode, openDatabase, renameUser, RENAME_EVERY_MS, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
+  getAvatar, USERNAME_PATTERN, lastRename, nameHeldByOther, normalizeCode, openDatabase, renameUser, RENAME_EVERY_MS, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
 } from "./accountsdb.js";
 import { logAdmin } from "./admindb.js";
 import { HttpError, guardWrites } from "./http.js";
@@ -27,7 +27,7 @@ import { imageInfo } from "./imageinfo.js";
 export const COOKIE = "sn_session";
 const SESSION_DAYS = 30;
 const DAY = 24 * 60 * 60 * 1000;
-const USERNAME = /^[A-Za-z0-9_.-]{3,32}$/;
+const USERNAME = USERNAME_PATTERN;
 const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 200;
 
@@ -463,6 +463,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
       if (/UNIQUE/.test(err.message)) throw new HttpError(409, "That username is taken.");
       throw err;
     }
+    for (const listener of banListeners) listener(user.id); // other tabs' live connections start over under the new name
     logAdmin(db, wanted, "renamed", wanted, `was ${user.username}`);
     res.json({ user: { ...publicUser({ ...user, username: wanted }) } });
   }));

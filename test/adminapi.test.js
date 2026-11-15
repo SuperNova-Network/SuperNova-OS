@@ -56,7 +56,7 @@ test("every admin endpoint refuses strangers and ordinary accounts", options, as
   const stranger = browser();
   const member = await person();
   const gets = ["/overview", "/users", "/users/Boss", "/sessions", "/chat/messages", "/announcement", "/maintenance", "/blocklist", "/audit", "/system", "/system/backup", "/export/users.csv", "/export/audit.csv", "/export/chat.csv"];
-  const posts = [["/users/Boss/signout"], ["/users/Boss/password", { password: "longenough1" }], ["/users/Boss/delete", { confirm: "Boss" }], ["/users/bulk", { action: "signout", usernames: ["Boss"] }],
+  const posts = [["/users/Boss/signout"], ["/users/Boss/password", { password: "longenough1" }], ["/users/Boss/delete", { confirm: "Boss" }], ["/users/Boss/rename", { username: "Someone" }], ["/users/bulk", { action: "signout", usernames: ["Boss"] }],
     ["/sessions/1/revoke"], ["/invites/bulk", { count: 1 }], ["/announcement", { text: "x", active: true }], ["/maintenance", { on: true }], ["/blocklist", { hosts: [] }], ["/system/prune"]];
   for (const path of gets) {
     assert.equal((await api(stranger, path)).status, 401, `stranger GET ${path}`);
@@ -153,6 +153,27 @@ test("setting a password: it works, signs them out, and is checked", options, as
   assert.equal((await boss.post(`/api/admin/users/${other.username}/password`, { password: "brandnewpass1" })).status, 403);
   await boss.post(`/api/account/admin/users/${other.username}/unadmin`);
   assert.equal((await boss.post("/api/admin/users/nobody-here/password", { password: "brandnewpass1" })).status, 404);
+});
+
+test("renaming someone: it is kept on record, they stay signed in, and the rules still apply", options, async () => {
+  const pat = await person();
+  const before = pat.username;
+  const after = `${before}x`;
+  assert.equal((await boss.post(`/api/admin/users/${before}/rename`, { username: "no spaces" })).status, 400);
+  assert.equal((await boss.post("/api/admin/users/nobody-here/rename", { username: after })).status, 404);
+  const done = await boss.post(`/api/admin/users/${before}/rename`, { username: after });
+  assert.equal(done.status, 200);
+  assert.equal((await pat.get("/api/account")).data.user.username, after, "still signed in, under the new name");
+  const detail = (await api(boss, `/users/${after}`)).data;
+  assert.deepEqual(detail.pastUsernames.map((n) => n.username), [before]);
+  assert.ok((await api(boss, `/users?q=${before}`)).data.users.some((u) => u.username === after), "found by the old name");
+  assert.equal((await browser().post("/api/account/register", { username: before, password: "password123" })).status, 409, "the old name is held");
+  assert.equal((await boss.post(`/api/admin/users/${after}/rename`, { username: "Boss" })).status, 409, "taken");
+  const other = await person();
+  await boss.post(`/api/account/admin/users/${other.username}/admin`);
+  assert.equal((await boss.post(`/api/admin/users/${other.username}/rename`, { username: `${other.username}y` })).status, 403, "another admin's name is not yours to change");
+  await boss.post(`/api/account/admin/users/${other.username}/unadmin`);
+  assert.equal((await person().then((p) => p.post("/api/admin/users/Boss/rename", { username: "Hijacked" }))).status, 403);
 });
 
 test("deleting an account needs the name typed, and spares admins and yourself", options, async () => {

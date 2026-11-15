@@ -300,6 +300,9 @@ const MIGRATIONS = [
   },
 ];
 
+/** What a username may be. */
+export const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,32}$/;
+
 /** How long a name someone gave up stays theirs alone (so nobody can take it and pass for them). */
 export const NAME_HOLD_MS = 30 * 24 * 60 * 60 * 1000;
 /** How often someone may change their username. */

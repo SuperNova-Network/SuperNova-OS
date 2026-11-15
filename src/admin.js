@@ -9,7 +9,7 @@ import express from "express";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir, loadavg, cpus, totalmem, freemem } from "node:os";
 import { join } from "node:path";
-import { AdminError, createInvite, setBanned } from "./accountsdb.js";
+import { AdminError, USERNAME_PATTERN, createInvite, nameHeldByOther, renameUser, setBanned } from "./accountsdb.js";
 import {
   backupTo, databaseInfo, deleteUser, getAdminSetting, listAudit, listSessions, listUsersPage, logAdmin, overview, prune,
   revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, saveTerms, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
@@ -101,6 +101,24 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     kick(id);
     logAdmin(db, admin.username, "set password", req.params.username, "signed out everywhere");
     res.json({ ok: true });
+  }));
+
+  // An admin changes someone's username (for a name that breaks the rules, or at their request). The old one is kept.
+  router.post("/users/:username/rename", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const wanted = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+    if (!USERNAME_PATTERN.test(wanted)) throw new HttpError(400, "Usernames are 3 to 32 letters, numbers, dots, dashes or underscores.");
+    const row = rowOf(req.params.username);
+    if (!row) throw new HttpError(404, "There's no account with that name.");
+    if (serverAdmins.has(row.username.toLowerCase())) throw new HttpError(403, "That admin is named in the server's ADMINS setting, so the name can't be changed here.");
+    if (isAdmin(row) && row.id !== userFor(req).id) throw new HttpError(403, "You can only rename another admin by removing their admin role first.");
+    if (wanted === row.username) throw new HttpError(400, "That is already their username.");
+    const other = rowOf(wanted);
+    if ((other && other.id !== row.id) || nameHeldByOther(db, wanted, row.id)) throw new HttpError(409, "That username is taken, or was used by someone else recently.");
+    renameUser(db, row.id, row.username, wanted);
+    kick(row.id); // their open chat and live connections start over under the new name
+    logAdmin(db, admin.username, "renamed", wanted, `was ${row.username}`);
+    res.json({ username: wanted });
   }));
 
   router.post("/users/:username/delete", handle((req, res) => {

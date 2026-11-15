@@ -398,6 +398,10 @@
           if (reason !== null) act(b, async () => { await api("POST", `/api/account/admin/users/${u}/ban`, { reason }); await refresh(); }, "Banned and signed out.");
         }, "danger", detail.admin || self),
       btn("Sign out everywhere", (b) => act(b, async () => { const r = await A("POST", `/users/${u}/signout`, {}); await refresh(); toast(`${r.ended} session${r.ended === 1 ? "" : "s"} ended.`, "ok"); })),
+      btn("Rename…", async (b) => {
+        const name = await askText(`Rename ${detail.username}`, "New username", { hint: "3 to 32 letters, numbers, dots, dashes or underscores. Their old name stays on record here. They stay signed in and see the new name.", confirm: "Rename", validate: (v) => (/^[A-Za-z0-9_.-]{3,32}$/.test(v.trim()) ? "" : "Use 3 to 32 letters, numbers, dots, dashes or underscores.") });
+        if (name !== null) act(b, async () => { const r = await A("POST", `/users/${u}/rename`, { username: name.trim() }); closeDialog(); if (current === "accounts") views.accounts(); toast(`Renamed to ${r.username}.`, "ok"); });
+      }, "", (detail.admin && !self) || detail.serverAdmin),
       btn("Set a new password…", async (b) => {
         const password = await askText(`New password for ${detail.username}`, "New password", { type: "password", hint: "At least 8 characters. They are signed out everywhere and should change it after signing in.", validate: (v) => (v.length < 8 ? "Use at least 8 characters." : "") });
         if (password !== null) act(b, async () => { await A("POST", `/users/${u}/password`, { password }); await refresh(); }, "Password changed.");
