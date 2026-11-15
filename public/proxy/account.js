@@ -258,6 +258,13 @@
     return call("POST", "/password", { currentPassword: currentPassword, newPassword: newPassword });
   }
 
+  function rename(username, password) {
+    return call("POST", "/rename", { username: username, password: password }).then(function (result) {
+      if (result && result.user) user = result.user;
+      return result;
+    });
+  }
+
   function deleteAccount(password) {
     var top = topEngine();
     return call("POST", "/delete", { password: password }).then(function () {
@@ -375,6 +382,7 @@
     setup: setup,
     logout: logout,
     changePassword: changePassword,
+    rename: rename,
     deleteAccount: deleteAccount,
     setAvatar: setAvatar,
     uploadAvatar: uploadAvatar,

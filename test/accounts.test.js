@@ -262,3 +262,24 @@ test("sign-up can be closed while sign-in keeps working", options, async () => {
     await closed.stop();
   }
 });
+
+test("people can change their username; admins see the old ones, and nobody can grab them right away", options, async () => {
+  const first = unique("Before");
+  const second = unique("After");
+  const third = unique("Later");
+  const person = client();
+  await person.post("/register", { username: first, password: "password123" });
+  assert.equal((await person.post("/rename", { username: second, password: "wrong-password" })).status, 401);
+  assert.equal((await person.post("/rename", { username: "no spaces!", password: "password123" })).status, 400);
+  const done = await person.post("/rename", { username: second, password: "password123" });
+  assert.equal(done.status, 200);
+  assert.equal(done.data.user.username, second);
+  assert.equal((await person.get("/")).data.user.username, second, "the same session carries on under the new name");
+  assert.equal((await client().post("/login", { username: second, password: "password123" })).status, 200);
+  assert.equal((await client().post("/login", { username: first, password: "password123" })).status, 401, "the old name no longer signs in");
+  assert.equal((await person.post("/rename", { username: third, password: "password123" })).status, 429, "once a week");
+  assert.equal((await client().post("/register", { username: first, password: "password123" })).status, 409, "the old name is held for a while");
+  const taken = unique("Taken");
+  await client().post("/register", { username: taken, password: "password123" });
+  assert.equal((await person.post("/rename", { username: taken, password: "password123" })).status, 409);
+});

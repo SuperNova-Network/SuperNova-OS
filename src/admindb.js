@@ -5,7 +5,7 @@
  */
 import { statSync } from "node:fs";
 import { join } from "node:path";
-import { AdminError, transaction } from "./accountsdb.js";
+import { AdminError, pastUsernames, transaction } from "./accountsdb.js";
 import { rolesOf } from "./roles.js";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -250,6 +250,7 @@ export function userDetail(db, username, serverAdmins = new Set(), now = Date.no
       .map((s) => ({ kind: s.kind, reason: s.reason, by: s.created_by, at: s.created_at, until: s.expires_at, liftedAt: s.lifted_at, liftedBy: s.lifted_by })),
     audit: listAudit(db, { q: row.username, limit: 15 }),
     roles: rolesOf(db, row.id).map((r) => ({ id: r.id, name: r.name, color: r.color })),
+    pastUsernames: pastUsernames(db, row.id),
   };
 }
 

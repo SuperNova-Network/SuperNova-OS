@@ -17,7 +17,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createLimiter } from "./ratelimit.js";
 import {
   AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, newInviteCode, newRecoveryCode,
-  getAvatar, normalizeCode, openDatabase, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
+  getAvatar, lastRename, nameHeldByOther, normalizeCode, openDatabase, renameUser, RENAME_EVERY_MS, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
 } from "./accountsdb.js";
 import { logAdmin } from "./admindb.js";
 import { HttpError, guardWrites } from "./http.js";
@@ -355,7 +355,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     const fixedHash = fixedInviteHash();
     const fixedCode = Boolean(fixedHash && given) && timingSafeEqual(Buffer.from(sha256(given)), Buffer.from(fixedHash));
     if (signup === "invite" && !given) throw new HttpError(403, "Enter an invite code.");
-    if (sql.userByName.get(username)) throw new HttpError(409, "That username is taken.");
+    if (sql.userByName.get(username) || nameHeldByOther(db, username)) throw new HttpError(409, "That username is taken.");
     const passwordHash = await hashPassword(password); // before the transaction: it awaits
     const recoveryCode = newRecoveryCode();
     const now = Date.now();
@@ -438,6 +438,33 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     sql.setPassword.run(await hashPassword(req.body.newPassword), Date.now(), user.id);
     sql.deleteOtherSessions.run(user.id, req.sessionHash);
     res.json({ ok: true });
+  }));
+
+  // Change your username. Needs the password; once a week; not for admins named in ADMINS (that list is by name).
+  router.post("/rename", handle(async (req, res) => {
+    const user = requireUser(req);
+    const wanted = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+    if (!USERNAME.test(wanted)) throw new HttpError(400, "Usernames are 3 to 32 letters, numbers, dots, dashes or underscores.");
+    if (serverAdmins.has(user.username.toLowerCase())) throw new HttpError(403, "This admin account is named in the server's ADMINS setting, so its name can't be changed here.");
+    const releaseRename = guard([[limits.loginUser, user.username.toLowerCase()]], "Too many wrong passwords.");
+    if (!(await checkPassword(String(req.body?.password ?? ""), user.password_hash))) throw new HttpError(401, "Your password is wrong.");
+    releaseRename();
+    if (wanted === user.username) throw new HttpError(400, "That is already your username.");
+    const other = sql.userByName.get(wanted);
+    if ((other && other.id !== user.id) || nameHeldByOther(db, wanted, user.id)) throw new HttpError(409, "That username is taken.");
+    const waitMs = lastRename(db, user.id) + RENAME_EVERY_MS - Date.now();
+    if (waitMs > 0 && !isAdmin(user)) {
+      const days = Math.ceil(waitMs / DAY);
+      throw new HttpError(429, `You can change your username once a week. Try again in about ${days} day${days === 1 ? "" : "s"}.`, { retryAfter: Math.ceil(waitMs / 1000) });
+    }
+    try {
+      renameUser(db, user.id, user.username, wanted);
+    } catch (err) {
+      if (/UNIQUE/.test(err.message)) throw new HttpError(409, "That username is taken.");
+      throw err;
+    }
+    logAdmin(db, wanted, "renamed", wanted, `was ${user.username}`);
+    res.json({ user: { ...publicUser({ ...user, username: wanted }) } });
   }));
 
   router.post("/delete", handle(async (req, res) => {

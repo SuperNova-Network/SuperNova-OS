@@ -206,6 +206,18 @@
         </div>
 
         <div class="group">
+          <h3>Change username</h3>
+          <form class="account-form" id="form-rename" novalidate>
+            <label class="row column"><span class="row-label"><strong>New username</strong><small>3 to 32 letters, numbers, dots, dashes or underscores. You can change it once a week, and your old name stays on record for admins.</small></span>
+              <input class="field" name="username" autocomplete="username" maxlength="32" required></label>
+            <label class="row column"><span class="row-label"><strong>Your password</strong></span>
+              <input class="field" name="password" type="password" autocomplete="current-password" required></label>
+            <small class="status" role="status"></small>
+            <div class="buttons"><button class="btn" type="submit">Change username</button></div>
+          </form>
+        </div>
+
+        <div class="group">
           <h3>Delete account</h3>
           <form class="account-form" id="form-delete" novalidate>
             <label class="row column"><span class="row-label"><strong>Password</strong><small>Deletes your account and the settings saved in it. This browser keeps its current settings. This can't be undone.</small></span>

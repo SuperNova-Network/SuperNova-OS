@@ -436,6 +436,9 @@
       h("dl", { class: "kv" },
         h("dt", { text: "Joined" }), h("dd", { text: dateTime(detail.createdAt) }),
         h("dt", { text: "Invite" }), h("dd", { text: detail.invite ?? "none" }),
+        h("dt", { text: "Past usernames" }), h("dd", {}, detail.pastUsernames.length
+          ? h("ul", { class: "feed" }, detail.pastUsernames.map((n) => h("li", {}, h("strong", { text: n.username }), h("span", { class: "dim small", title: dateTime(n.changedAt), text: ` until ${ago(n.changedAt)}` }))))
+          : "None, they have never changed it"),
         h("dt", { text: "Roles" }), h("dd", {}, rolesBox(detail, u, refresh)),
         h("dt", { text: "Chat messages" }), h("dd", { text: number(detail.messages) }),
         h("dt", { text: "Saved settings" }), h("dd", { text: `${bytes(detail.settingsBytes)} (revision ${detail.settingsRevision})` })),

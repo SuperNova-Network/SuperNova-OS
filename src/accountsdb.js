@@ -284,7 +284,50 @@ const MIGRATIONS = [
   (db) => {
     if (!db.prepare("PRAGMA table_info(chat_messages)").all().some((c) => c.name === "reply_to")) db.exec("ALTER TABLE chat_messages ADD COLUMN reply_to INTEGER");
   },
+  // 13: people can change their username. The names they had before are kept (admins see them; for a while
+  // nobody else may take one).
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS username_history (
+        id INTEGER PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        username TEXT NOT NULL COLLATE NOCASE,
+        changed_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS username_history_user ON username_history(user_id, changed_at);
+      CREATE INDEX IF NOT EXISTS username_history_name ON username_history(username, changed_at);
+    `);
+  },
 ];
+
+/** How long a name someone gave up stays theirs alone (so nobody can take it and pass for them). */
+export const NAME_HOLD_MS = 30 * 24 * 60 * 60 * 1000;
+/** How often someone may change their username. */
+export const RENAME_EVERY_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Past usernames of an account, newest first. */
+export function pastUsernames(db, userId) {
+  return db.prepare("SELECT username, changed_at FROM username_history WHERE user_id = ? ORDER BY changed_at DESC, id DESC LIMIT 50").all(userId)
+    .map((r) => ({ username: r.username, changedAt: r.changed_at }));
+}
+
+/** Whether someone else gave this name up recently, and so still holds it. */
+export function nameHeldByOther(db, username, userId = 0, now = Date.now()) {
+  return Boolean(db.prepare("SELECT 1 FROM username_history WHERE username = ? AND user_id != ? AND changed_at > ?").get(String(username), userId, now - NAME_HOLD_MS));
+}
+
+/** When this account last changed its name (0 if never). */
+export function lastRename(db, userId) {
+  return db.prepare("SELECT MAX(changed_at) AS at FROM username_history WHERE user_id = ?").get(userId)?.at ?? 0;
+}
+
+/** Change a username, keeping the old one on record. The caller has checked who may do it. */
+export function renameUser(db, userId, oldName, newName, now = Date.now()) {
+  transaction(db, () => {
+    db.prepare("INSERT INTO username_history (user_id, username, changed_at) VALUES (?, ?, ?)").run(userId, oldName, now);
+    db.prepare("UPDATE users SET username = ?, updated_at = ? WHERE id = ?").run(newName, now, userId);
+  });
+}
 
 /** Open (creating and upgrading as needed) DATA_DIR/accounts.db. */
 export async function openDatabase(dataDir) {
@@ -455,8 +498,9 @@ export function listUsers(db, { search = "", admins = new Set() } = {}) {
            invites.label AS invite_label, invites.hint AS invite_hint
     FROM users LEFT JOIN invites ON invites.id = users.invite_id
     WHERE users.username LIKE ? ESCAPE '\\'
+       OR users.id IN (SELECT user_id FROM username_history WHERE username LIKE ? ESCAPE '\\')
     ORDER BY users.created_at DESC LIMIT 1000
-  `).all(like).map((row) => ({
+  `).all(like, like).map((row) => ({
     username: row.username,
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,

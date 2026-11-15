@@ -665,6 +665,12 @@
       formStatus($("form-password"), "Password changed. Other browsers have been signed out.", "ok");
     });
 
+    submitting($("form-rename"), async (f) => {
+      await SnAccount.rename(f.username.value, f.password.value);
+      formStatus($("form-rename"), "Username changed. Restarting…", "ok");
+      reloadEverything();
+    });
+
     submitting($("form-delete"), async (f) => {
       await SnAccount.deleteAccount(f.password.value);
       $("form-delete").reset();
