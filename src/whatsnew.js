@@ -9,7 +9,8 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 
-const MAX_ITEMS = 12;
+const MAX_ITEMS = 30;
+const MAX_FIXES = 3; // the newest few fixes with a bold title are worth telling people about too
 const MAX_TEXT = 220;
 
 /** Markdown out of a piece of text: bold, code and links keep their words. */
@@ -56,6 +57,16 @@ export function parseWhatsNew(markdown) {
     if (!title) continue;
     items.push({ id: createHash("sha1").update(title.toLowerCase()).digest("hex").slice(0, 10), title, text: short(firstSentence(rest.replace(/^[.:\s]+/, ""))) });
     if (items.length >= MAX_ITEMS) break;
+  }
+  // The newest fixes that have a bold title, after the new things.
+  const fixed = section.findIndex((line) => /^### Fixed\s*$/.test(line));
+  let taken = 0;
+  for (let i = fixed + 1; fixed !== -1 && i < section.length && !/^### /.test(section[i]) && taken < MAX_FIXES; i++) {
+    const bullet = /^- \*\*(.+?)\*\*\s*(.*)$/.exec(section[i]);
+    if (!bullet) continue;
+    const title = plain(bullet[1].replace(/[.:]+$/, ""));
+    items.push({ id: createHash("sha1").update(title.toLowerCase()).digest("hex").slice(0, 10), title, text: short(firstSentence(bullet[2].replace(/^[.:\s]+/, ""))) });
+    taken++;
   }
   return items;
 }

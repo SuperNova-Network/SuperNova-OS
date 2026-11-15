@@ -8,7 +8,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Fixed
 
-- The Chat window opens about 20% wider, so the channel list, messages and online list fit comfortably.
+- **The Chat opens wider.** The window is about 20% wider by default, so the channel list, messages and online list fit comfortably.
 - **Pages stopped loading when a few tabs were open.** Every tab kept two live connections to the server, and a browser allows six per address over plain HTTP, so three tabs used them all and the Chat window, the health check and everything else waited forever. The tabs now share one connection through a SharedWorker (six tabs hold two connections instead of twelve); a browser that can't share just connects by itself, as before.
 - **People were locked out of signing in and signing up for no reason.** The limits counted every try, including right passwords, taken usernames and everyone else sharing the same network (a school, a household, a phone carrier), so the whole group ran out together. Now only wrong passwords, wrong codes and failed sign-ups count, per person where possible, a blocked try counts nothing, the allowances are looser, and the message says how many minutes to wait. `TRUST_PROXY` turns on by itself on Fly.io, Render, Railway and Heroku, and the server warns when proxy headers show up without it.
 - Pin to taskbar from a desktop icon threw, and pinned nothing, whenever an unpinned window was open.
@@ -30,6 +30,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Added
 
+- **Achievements.** A trophy beside the battery in the taskbar opens an animated window with 35 achievements, from sending your first message and making a friend to publishing an app and keeping a daily streak, showing what you have unlocked, how far along the rest are and your points. A gold dot says when something new unlocked, and each unlock shows a notification. Nothing is ever taken away.
 - **A "..." menu on chat messages.** The row of buttons beside each message is gone: hover a message and it lights up with one small "..." button that opens a short menu (Add reaction, Reply, Report, and for moderators Delete and Moderate), the way Discord does it. The message stays lit while its menu is open, so you can tell which one it belongs to.
 - **Which sites work right now.** The network icon's flyout now lists a dozen popular sites, YouTube, Reddit, Discord, Spotify and more, with a green, amber or red dot and how fast each answered, so you can tell "YouTube is down" from "the proxy is broken". The server checks them every five minutes from its own connection (the one the proxy uses), and a site the content filter blocks shows as Blocked instead of being asked. `SITE_CHECK=0` turns it off.
 - **One-click site shortcuts.** Add an app (right-click the desktop) now has a grid of popular sites, YouTube, Reddit, Discord, Spotify, Twitch, GitHub, Wikipedia, Khan Academy, Google Docs and more, that go on your desktop in one click in their brand colour, each opening in its own window like any app you add (and follows your account). Sites already on your desktop show as added, and the content filter still decides what can be added.

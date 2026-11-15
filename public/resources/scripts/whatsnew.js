@@ -9,7 +9,7 @@
   "use strict";
 
   var SEEN = "whatsNewSeen";
-  var SHOWN = 6;      // at most this many in the window after an update
+  var SHOWN = 30;     // everything new since they last looked (the window scrolls)
   var KEEP = 80;      // how many seen ids are remembered
   var items = [];
 
@@ -118,7 +118,7 @@
 
   global.SnWhatsNew = {
     /** Open the window on demand with the newest items, whether or not they were seen. */
-    open: function () { load().then(function (all) { if (all.length) show(all.slice(0, 10), 0); }); },
+    open: function () { load().then(function (all) { if (all.length) show(all, 0); }); },
   };
 
   // Not while a full-screen notice or a sign-in is in the way, and not over the welcome message.
