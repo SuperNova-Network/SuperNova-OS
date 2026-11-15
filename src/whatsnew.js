@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 
 const MAX_ITEMS = 30;
+const MAX_FULL = 1200; // the whole description, for when an item is opened
 const MAX_FIXES = 3; // the newest few fixes with a bold title are worth telling people about too
 const MAX_TEXT = 220;
 
@@ -35,6 +36,13 @@ function firstSentence(text) {
 
 const short = (text) => (Array.from(text).length > MAX_TEXT ? `${Array.from(text).slice(0, MAX_TEXT - 1).join("").trimEnd()}…` : text);
 
+/** The whole description of an item, if it says more than the one sentence shown. */
+function fullOf(rest, shown) {
+  const all = plain(rest.replace(/^[.:\s]+/, ""));
+  if (!all || all === shown) return {};
+  return { full: Array.from(all).length > MAX_FULL ? `${Array.from(all).slice(0, MAX_FULL - 1).join("").trimEnd()}\u2026` : all };
+}
+
 /** The items of the newest changelog section. */
 export function parseWhatsNew(markdown) {
   const lines = String(markdown ?? "").split(/\r?\n/);
@@ -55,7 +63,8 @@ export function parseWhatsNew(markdown) {
     let rest = bold ? bold[2] : "";
     if (rest.startsWith("(")) { const close = rest.indexOf(")"); if (close !== -1 && /\S/.test(rest.slice(close + 1).replace(/^[.:\s]+/, ""))) rest = rest.slice(close + 1); }
     if (!title) continue;
-    items.push({ id: createHash("sha1").update(title.toLowerCase()).digest("hex").slice(0, 10), title, text: short(firstSentence(rest.replace(/^[.:\s]+/, ""))) });
+    const text = short(firstSentence(rest.replace(/^[.:\s]+/, "")));
+    items.push({ id: createHash("sha1").update(title.toLowerCase()).digest("hex").slice(0, 10), title, text, ...fullOf(rest, text) });
     if (items.length >= MAX_ITEMS) break;
   }
   // The newest fixes that have a bold title, after the new things.
@@ -65,7 +74,8 @@ export function parseWhatsNew(markdown) {
     const bullet = /^- \*\*(.+?)\*\*\s*(.*)$/.exec(section[i]);
     if (!bullet) continue;
     const title = plain(bullet[1].replace(/[.:]+$/, ""));
-    items.push({ id: createHash("sha1").update(title.toLowerCase()).digest("hex").slice(0, 10), title, text: short(firstSentence(bullet[2].replace(/^[.:\s]+/, ""))) });
+    const text = short(firstSentence(bullet[2].replace(/^[.:\s]+/, "")));
+    items.push({ id: createHash("sha1").update(title.toLowerCase()).digest("hex").slice(0, 10), title, text, ...fullOf(bullet[2], text) });
     taken++;
   }
   return items;

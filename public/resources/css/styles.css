@@ -2369,6 +2369,17 @@ div[data-title]:hover:before {
   overflow-wrap: anywhere;
 }
 
+#whatsnew .wn-more-info {
+  cursor: pointer;
+}
+
+#whatsnew .wn-hint {
+  display: block;
+  margin-top: 0.3vw;
+  color: var(--accent, #9b6fd0);
+  font-size: 0.85vw;
+}
+
 #whatsnew .wn-more {
   margin: 0.4vw 0 0.6vw;
   color: #9a9a9a;
@@ -2392,7 +2403,7 @@ div[data-title]:hover:before {
 }
 
 @media (max-width: 700px) {
-  #whatsnew .wn-bar, #whatsnew .wn-item strong, #whatsnew .wn-item p, #whatsnew .wn-more, #whatsnew .wn-foot button { font-size: 14px; }
+  #whatsnew .wn-bar, #whatsnew .wn-item strong, #whatsnew .wn-item p, #whatsnew .wn-more, #whatsnew .wn-hint, #whatsnew .wn-foot button { font-size: 14px; }
 }
 
 /* --- Achievements: the trophy beside the battery, and the window it opens above itself (achievements.js) ------- */

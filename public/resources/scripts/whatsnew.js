@@ -58,7 +58,28 @@
       var name = document.createElement("strong");
       name.textContent = item.title;
       row.appendChild(name);
-      if (item.text) { var text = document.createElement("p"); text.textContent = item.text; row.appendChild(text); }
+      var text = document.createElement("p");
+      text.textContent = item.text || "";
+      if (item.text || item.full) row.appendChild(text);
+      if (item.full) {
+        // Click an item to read all of it.
+        row.className += " wn-more-info";
+        row.tabIndex = 0;
+        row.setAttribute("role", "button");
+        row.setAttribute("aria-expanded", "false");
+        var hint = document.createElement("small");
+        hint.className = "wn-hint";
+        hint.textContent = "Click for details";
+        row.appendChild(hint);
+        var toggle = function () {
+          var open = row.getAttribute("aria-expanded") === "true";
+          row.setAttribute("aria-expanded", String(!open));
+          text.textContent = open ? item.text : item.full;
+          hint.textContent = open ? "Click for details" : "Click to show less";
+        };
+        row.addEventListener("click", toggle);
+        row.addEventListener("keydown", function (event) { if (event.key === " " || event.key === "Enter") { event.preventDefault(); event.stopPropagation(); toggle(); } });
+      }
       body.appendChild(row);
     });
     if (others > 0) {
