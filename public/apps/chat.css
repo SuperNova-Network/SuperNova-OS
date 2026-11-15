@@ -1617,20 +1617,24 @@ a.url:hover {
   color: #fff;
 }
 
-/* Holding Shift over a message shows one-click icons beside the "..." */
+/* Holding Shift over a message shows one-click icons where the "..." is */
 .quick-bar {
   position: absolute;
   top: -12px;
-  right: 50px;
+  right: 14px;
   z-index: 2;
   display: none;
   border: 1px solid var(--line);
   background: var(--panel);
 }
 
-html[data-shift] .msg:hover .quick-bar,
-html[data-shift] .msg.menu-open .quick-bar {
+/* the icons take the "..." button's place while Shift is held */
+html[data-shift] .msg:hover:not(.menu-open) .quick-bar {
   display: flex;
+}
+
+html[data-shift] .msg:hover:not(.menu-open) .more-btn {
+  display: none;
 }
 
 .quick-btn {
