@@ -244,10 +244,33 @@
     if (from < text.length) box.append(text.slice(from));
   }
 
+  const CHANNEL_REF = /(^|[^A-Za-z0-9_#@.\/&-])#([A-Za-z0-9][A-Za-z0-9-]{0,22}[A-Za-z0-9])(?![A-Za-z0-9-])/g;
+
+  /** Plain text with web addresses as links, and #channel names (of channels you can see) as pills that take you there. */
+  function appendRich(box, text) {
+    let from = 0;
+    for (const match of text.matchAll(CHANNEL_REF)) {
+      const channel = state.channels.find((c) => c.name === match[2].toLowerCase());
+      if (!channel) continue;
+      const at = match.index + match[1].length;
+      if (at > from) appendLinked(box, text.slice(from, at));
+      const pill = el("span", "channel-ref", `#${channel.name}`);
+      pill.setAttribute("role", "link");
+      pill.tabIndex = 0;
+      pill.title = channel.description || `Go to #${channel.name}`;
+      const go = () => selectChannel(channel.id);
+      pill.addEventListener("click", go);
+      pill.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); go(); } });
+      box.append(pill);
+      from = at + 1 + match[2].length;
+    }
+    if (from < text.length) appendLinked(box, text.slice(from));
+  }
+
   /** Fill a message's text element: plain text with web addresses as links, and each mention as a pill. */
   function fillText(box, message) {
     for (const part of mentionParts(message.text, message.mentions)) {
-      if (part.text !== undefined) { appendLinked(box, part.text); continue; }
+      if (part.text !== undefined) { appendRich(box, part.text); continue; }
       const { kind, label, slug } = part.pill;
       const pill = el("span", "mention", `@${label}`);
       if (kind === "role") {
@@ -890,6 +913,14 @@
     return found ? { query: found[2], start: caret - found[2].length - 1, end: caret } : null;
   }
 
+  /** Typing # (not after a letter, so "issue#3" is left alone) offers the channels you can see. */
+  function channelContext() {
+    const caret = text.selectionStart;
+    if (caret !== text.selectionEnd) return null;
+    const found = /(^|[^A-Za-z0-9_#@.\/&-])#([A-Za-z0-9-]{0,24})$/.exec(text.value.slice(0, caret));
+    return found ? { query: found[2].toLowerCase(), start: caret - found[2].length - 1, end: caret, channel: true } : null;
+  }
+
   function closeMention() {
     clearTimeout(mention.timer);
     mention.seq++;
@@ -898,6 +929,21 @@
   }
 
   function updateMention() {
+    const channelCtx = mentionContext() ? null : channelContext();
+    if (channelCtx && canPost()) {
+      // Channels are already on the page: no asking the server. Names that start with what was typed come first.
+      clearTimeout(mention.timer);
+      mention.seq++;
+      mention.ctx = channelCtx;
+      const q = channelCtx.query;
+      mention.items = state.channels
+        .filter((c) => c.name.startsWith(q) || c.name.includes(q))
+        .sort((a, b) => Number(b.name.startsWith(q)) - Number(a.name.startsWith(q)))
+        .slice(0, 8)
+        .map((c) => ({ kind: "channel", value: c.name, channel: c }));
+      mention.active = 0;
+      return renderMention();
+    }
     const ctx = mentionContext();
     if (!ctx || !canPost()) return closeMention();
     mention.ctx = ctx;
@@ -930,14 +976,17 @@
     mention.items.forEach((item, index) => {
       // "Members" gets a heading; the roles and @everyone that follow are set off by a line, like Discord.
       if (item.kind !== lastKind) {
-        if (item.kind === "user") mentionPop.append(el("div", "mention-head", "Members"));
+        if (item.kind === "channel") mentionPop.append(el("div", "mention-head", "Channels"));
+      else if (item.kind === "user") mentionPop.append(el("div", "mention-head", "Members"));
         else if (lastKind) mentionPop.append(el("div", "mention-rule"));
         lastKind = item.kind;
       }
       const row = el("div", "mention-item");
       row.setAttribute("role", "option");
       row.setAttribute("aria-selected", String(index === mention.active));
-      if (item.kind === "user") {
+      if (item.kind === "channel") {
+        row.append(el("span", "mi-name big", `#${item.channel.name}`), el("span", "mi-hint", item.channel.description || ""));
+      } else if (item.kind === "user") {
         const pic = el("span", "mi-pic");
         const dot = el("span", `presence${item.user.online ? " on" : ""}`);
         dot.title = item.user.online ? "In the chat" : "Not in the chat";
@@ -975,7 +1024,7 @@
     const item = mention.items[index];
     const ctx = mention.ctx;
     if (!item || !ctx) return;
-    const insert = `@${item.value} `;
+    const insert = `${item.kind === "channel" ? "#" : "@"}${item.value} `;
     text.value = text.value.slice(0, ctx.start) + insert + text.value.slice(ctx.end);
     const caret = ctx.start + insert.length;
     text.setSelectionRange(caret, caret);

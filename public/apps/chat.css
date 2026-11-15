@@ -1601,3 +1601,18 @@ a.url:hover {
   margin: 4px 0;
   background: var(--line);
 }
+
+/* #channel in a message: a pill that takes you there */
+.channel-ref {
+  padding: 0 3px;
+  background: color-mix(in srgb, var(--accent, #7b4aa8) 28%, transparent);
+  color: color-mix(in srgb, var(--accent, #7b4aa8) 35%, #fff);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.channel-ref:hover,
+.channel-ref:focus-visible {
+  background: var(--accent, #7b4aa8);
+  color: #fff;
+}
