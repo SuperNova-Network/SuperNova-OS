@@ -1272,3 +1272,70 @@ a.url:hover {
 .reply-x:hover {
   color: var(--text);
 }
+
+/* --- Asking for notification permission: the chat blurs behind a short message ---------------------------------- */
+
+.ask {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 38%);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  opacity: 0;
+  transition: opacity 220ms ease-out, backdrop-filter 220ms ease-out !important; /* the one thing in the chat that eases in and out */
+}
+
+.ask.show {
+  opacity: 1;
+}
+
+.ask.leaving {
+  opacity: 0;
+  transition-duration: 160ms !important;
+}
+
+.ask-card {
+  width: min(380px, 100%);
+  padding: 22px 24px 20px;
+  background: var(--panel);
+  border-top: 3px solid var(--accent, #7b4aa8);
+  box-shadow: 0 10px 40px rgb(0 0 0 / 55%);
+  text-align: center;
+}
+
+.ask-bell {
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ask-card h2 {
+  margin: 8px 0 6px;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.ask-card p {
+  margin: 0 0 16px;
+  color: var(--dim);
+  line-height: 1.45;
+}
+
+.ask-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ask-card.done p {
+  color: var(--green);
+}

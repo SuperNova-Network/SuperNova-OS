@@ -360,6 +360,7 @@
       scrollToEnd();
       // Opening the chat is reading it. (A reconnect while it is behind another window is not.)
       if (!state.seen || beingRead()) markRead();
+      if (!state.seen) maybeAskNotifications();
       state.seen = true;
     });
     // An admin changed the roles: new names and colours show at once, and so do new permissions.
@@ -780,6 +781,55 @@
   text.addEventListener("click", updateMention);
   text.addEventListener("keyup", (event) => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) updateMention(); });
   text.addEventListener("blur", () => setTimeout(closeMention, 120));
+
+  // --- asking for notification permission ------------------------------------------------------------------------
+  // When the chat opens and the browser hasn't been asked yet, the chat blurs behind a short question. Yes asks the
+  // browser; no, Escape, a click outside, a refusal or being ignored for a while just fades it away. Once the browser
+  // has answered (allowed or blocked) it is never asked again, and a "not now" waits a day.
+
+  const ask = $("ask");
+  const ASK_AGAIN_MS = 24 * 60 * 60 * 1000, ASK_IDLE_MS = 20_000;
+  let askTimer = 0, asking = false;
+
+  function maybeAskNotifications() {
+    if (asking || !("Notification" in window) || Notification.permission !== "default") return;
+    if (Date.now() - (Number(SnStore.get("notifyAskedAt")) || 0) < ASK_AGAIN_MS) return;
+    asking = true;
+    ask.hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => ask.classList.add("show")));
+    $("ask-yes").focus();
+    askTimer = setTimeout(() => closeAsk(), ASK_IDLE_MS); // ignored: let it go
+  }
+
+  /** Fade the question away (quickly). */
+  function closeAsk() {
+    clearTimeout(askTimer);
+    if (!asking) return;
+    asking = false;
+    SnStore.set("notifyAskedAt", String(Date.now()));
+    ask.classList.add("leaving");
+    ask.classList.remove("show");
+    setTimeout(() => { ask.hidden = true; ask.classList.remove("leaving"); }, 180);
+  }
+
+  $("ask-no").addEventListener("click", closeAsk);
+  ask.addEventListener("mousedown", (event) => { if (event.target === ask) closeAsk(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && asking) closeAsk(); });
+  $("ask-yes").addEventListener("click", async () => {
+    clearTimeout(askTimer); // the browser's own question is showing: wait for the answer
+    let answer = "default";
+    try { answer = await Notification.requestPermission(); } catch { /* an old browser: treat as ignored */ }
+    if (answer === "granted") {
+      SnStore.set("notifyBrowser", "1");
+      $("ask-title").textContent = "You're all set";
+      $("ask-text").textContent = "We'll notify you when someone messages or mentions you.";
+      ask.querySelector(".ask-card").classList.add("done");
+      $("ask-yes").hidden = true; $("ask-no").hidden = true;
+      setTimeout(() => closeAsk(), 1100);
+    } else {
+      closeAsk(); // blocked or dismissed
+    }
+  });
 
   // --- replying ----------------------------------------------------------------------------------------------
 
