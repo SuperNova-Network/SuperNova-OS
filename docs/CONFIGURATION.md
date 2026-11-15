@@ -142,6 +142,10 @@ The Chat is the first sender, called "Messaging app". Its notifications are **of
 
 Click someone's name or picture in the Chat (a message, the Online list or an @mention), in Friends, or the maker's name in an App Store listing, and a card opens with their picture, roles, when they joined, their **bio**, the friends you have in common and what you can do: add them as a friend, accept, decline or cancel a request, remove or unblock them, **Mention** them (in the Chat, it puts @name in your message box) and, for moderators, **Moderate…**. A friend's status (online, away, offline) shows on the card; a stranger's never does, and someone who blocked you isn't there at all. It comes from `GET /api/friends/profile/:username`. The bio is up to 160 characters of plain text that people write in Settings > Account (`POST /api/account/bio`, database version 17) and the chat's blocked words apply to it.
 
+## Reports
+
+Anyone signed in can report a **chat message** (the Report button beside it, not on your own) or a **profile** (Report on the profile card), picking a reason and adding a note if they like. The person reported isn't told who. There is one open report per person per message or profile, and a message's text is kept with the report so it can still be read after the message is deleted. Admin Panel > **Reports** is the one inbox for all of it: message and profile reports together with the reported **apps** from the App Store, newest first, with the reasons and who said what. Delete the message (that settles its reports), time out or ban from there, clear a bio, open the account, then mark it handled or dismiss it; the number beside Reports is how many things are waiting. Reports of messages and profiles are in `reports` (database version 18), app reports stay in `store_reports`.
+
 ## App Store
 
 The **App Store** is a taskbar app, pinned by default after Chat, where people publish apps for each other. It needs accounts and goes through `/api/store`.

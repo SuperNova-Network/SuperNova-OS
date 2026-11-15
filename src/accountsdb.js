@@ -357,6 +357,25 @@ const MIGRATIONS = [
   (db) => {
     if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === "bio")) db.exec("ALTER TABLE users ADD COLUMN bio TEXT NOT NULL DEFAULT ''");
   },
+  // 18: reports of chat messages and profiles (apps keep store_reports). One open report per person per thing.
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL CHECK (kind IN ('message', 'profile')),
+      ref TEXT NOT NULL,
+      target_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      note TEXT,
+      snapshot TEXT,
+      created_at INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'handled', 'dismissed')),
+      handled_by TEXT,
+      handled_at INTEGER
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS reports_once ON reports(reporter_id, ref) WHERE status = 'open';
+    CREATE INDEX IF NOT EXISTS reports_open ON reports(status, ref);
+  `),
 ];
 
 /** The schema version this build upgrades a database to. */

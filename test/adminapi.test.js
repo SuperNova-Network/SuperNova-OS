@@ -56,8 +56,8 @@ const api = (b, p) => b.get(`/api/admin${p}`);
 test("every admin endpoint refuses strangers and ordinary accounts", options, async () => {
   const stranger = browser();
   const member = await person();
-  const gets = ["/overview", "/users", "/users/Boss", "/sessions", "/chat/messages", "/announcement", "/maintenance", "/blocklist", "/audit", "/system", "/system/backup", "/export/users.csv", "/export/audit.csv", "/export/chat.csv"];
-  const posts = [["/users/Boss/signout"], ["/users/Boss/password", { password: "longenough1" }], ["/users/Boss/delete", { confirm: "Boss" }], ["/users/Boss/rename", { username: "Someone" }], ["/users/bulk", { action: "signout", usernames: ["Boss"] }],
+  const gets = ["/overview", "/reports", "/users", "/users/Boss", "/sessions", "/chat/messages", "/announcement", "/maintenance", "/blocklist", "/audit", "/system", "/system/backup", "/export/users.csv", "/export/audit.csv", "/export/chat.csv"];
+  const posts = [["/users/Boss/signout"], ["/users/Boss/password", { password: "longenough1" }], ["/users/Boss/delete", { confirm: "Boss" }], ["/users/Boss/rename", { username: "Someone" }], ["/users/Boss/clear-bio"], ["/reports/resolve", { ref: "m:1" }], ["/users/bulk", { action: "signout", usernames: ["Boss"] }],
     ["/sessions/1/revoke"], ["/invites/bulk", { count: 1 }], ["/announcement", { text: "x", active: true }], ["/maintenance", { on: true }], ["/blocklist", { hosts: [] }], ["/system/prune"]];
   for (const path of gets) {
     assert.equal((await api(stranger, path)).status, 401, `stranger GET ${path}`);

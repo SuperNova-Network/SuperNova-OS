@@ -15,6 +15,7 @@ import { HttpError, guardWrites } from "./http.js";
 import { createLimiter } from "./ratelimit.js";
 import * as db_ from "./friendsdb.js";
 import * as roles from "./roles.js";
+import * as reportsdb from "./reportsdb.js";
 
 const ONLINE_MS = 150_000;
 
@@ -29,6 +30,7 @@ export function createFriends({ db, site, userFor, isAdmin }) {
     change: createLimiter({ limit: 120, windowMs: 60_000 }),
     ping: createLimiter({ limit: 20, windowMs: 60_000 }),
     read: createLimiter({ limit: 240, windowMs: 60_000 }),
+    report: createLimiter({ limit: 20, windowMs: 60 * 60_000 }),
   };
   const limit = (limiter, key) => {
     const wait = limiter.hit(key);
@@ -102,6 +104,18 @@ export function createFriends({ db, site, userFor, isAdmin }) {
       ...(rel.friends ? { status: state(row.id, db_.getMode(db, row.id)) } : {}),
       mutual: { count: mutual.length, people: mutual.slice(0, 8).map((f) => person(f)) },
     });
+  }));
+
+  // Tell the admins about someone's profile (their picture, name or bio): { reason, note? }.
+  router.post("/profile/:username/report", handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.report, `u${user.id}`);
+    const row = db.prepare("SELECT id, banned_at FROM users WHERE username = ?").get(String(req.params.username ?? "").trim());
+    if (!row || row.banned_at) throw new HttpError(404, "There's no one with that name.");
+    if (row.id === user.id) throw new HttpError(400, "That's you.");
+    if (db_.relation(db, user.id, row.id).blockedByThem) throw new HttpError(404, "There's no one with that name.");
+    reportsdb.addReport(db, { kind: "profile", reporterId: user.id, targetUserId: row.id, reason: req.body?.reason, note: req.body?.note });
+    res.status(201).json({ ok: true });
   }));
 
   // The heartbeat: "I'm here". The answer is what the desktop needs to know without opening the app.

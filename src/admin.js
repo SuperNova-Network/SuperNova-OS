@@ -17,6 +17,7 @@ import {
 import * as apps from "./storedb.js";
 import * as roles from "./roles.js";
 import * as channels from "./channels.js";
+import * as reportsdb from "./reportsdb.js";
 import { HttpError, guardWrites } from "./http.js";
 import { hashPassword } from "./passwords.js";
 
@@ -179,6 +180,39 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     const done = results.filter((r) => r.ok).length;
     logAdmin(db, admin.username, `bulk ${action}`, `${done} account${done === 1 ? "" : "s"}`, [...results.filter((r) => r.ok).map((r) => r.username).slice(0, 10), String(reason ?? "").slice(0, 100)].filter(Boolean).join(", "));
     res.json({ results });
+  }));
+
+  // --- reports: messages and profiles (apps are reported through the App Store pages) ----------------
+
+  router.get("/reports", handle((req, res) => {
+    requireAdmin(req);
+    const apps = db.prepare(`SELECT a.id, a.name, a.status, owner.username AS owner, COUNT(r.id) AS count, MAX(r.created_at) AS at
+      FROM store_reports r JOIN store_apps a ON a.id = r.app_id JOIN users owner ON owner.id = a.owner_id GROUP BY a.id ORDER BY at DESC`).all()
+      .map((a) => ({ ref: `a:${a.id}`, kind: "app", at: a.at, count: a.count, app: { id: a.id, name: a.name, status: a.status, owner: a.owner } }));
+    const others = reportsdb.openReports(db);
+    const items = [...others, ...apps].sort((x, y) => y.at - x.at);
+    res.json({ items, open: items.length, reasons: reportsdb.REASONS });
+  }));
+
+  router.post("/reports/resolve", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const ref = String(req.body?.ref ?? "");
+    if (!/^[mp]:\d+$/.test(ref)) throw new HttpError(400, "That isn't a report.");
+    const closed = reportsdb.resolveRef(db, ref, admin.username, req.body?.status === "dismissed" ? "dismissed" : "handled");
+    if (!closed) throw new HttpError(404, "Someone already dealt with that.");
+    logAdmin(db, admin.username, req.body?.status === "dismissed" ? "dismissed a report" : "handled a report", ref, `${closed} report${closed === 1 ? "" : "s"}`);
+    res.json({ ok: true });
+  }));
+
+  // A bio that breaks the rules: clear it. (Reports of a profile point here.)
+  router.post("/users/:username/clear-bio", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const row = rowOf(req.params.username);
+    if (!row) throw new HttpError(404, "There's no account with that name.");
+    mustOutrank(req, row);
+    db.prepare("UPDATE users SET bio = '' WHERE id = ?").run(row.id);
+    logAdmin(db, admin.username, "cleared a bio", row.username);
+    res.json({ ok: true });
   }));
 
   // --- sessions ---------------------------------------------------------------------------------------

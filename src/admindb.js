@@ -163,6 +163,7 @@ export function overview(db, now = Date.now()) {
     },
     signups: series(db.prepare("SELECT created_at FROM users WHERE created_at >= ?").all(since).map((r) => r.created_at), days, now),
     messages: series(db.prepare("SELECT created_at FROM chat_messages WHERE deleted_at IS NULL AND created_at >= ?").all(since).map((r) => r.created_at), days, now),
+    reports: one("SELECT COUNT(DISTINCT ref) AS n FROM reports WHERE status = 'open'").n + one("SELECT COUNT(DISTINCT app_id) AS n FROM store_reports").n,
     store: {
       pending: one("SELECT COUNT(*) AS n FROM store_apps WHERE status = 'pending'").n,
       live: one("SELECT COUNT(*) AS n FROM store_apps WHERE status = 'approved'").n,

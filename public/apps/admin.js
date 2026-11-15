@@ -961,6 +961,59 @@
   // App Store: the approval queue, every app, and how new apps get in
   // ---------------------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------------------
+  // Reports: messages, profiles and apps, in one inbox
+  // ---------------------------------------------------------------------------------------
+
+  const setReportCount = (n) => { const badge = $("reports-count"); badge.hidden = !n; badge.textContent = String(n); };
+
+  views.reports = async () => {
+    const data = await A("GET", "/reports");
+    setReportCount(data.open);
+    const reload = () => show("reports");
+    const kindChip = { message: chip("MESSAGE", "amber"), profile: chip("PROFILE", ""), app: chip("APP", "green") };
+    const resolve = (item, status, b) => act(b, async () => { await A("POST", "/reports/resolve", { ref: item.ref, status }); await reload(); }, status === "dismissed" ? "Dismissed." : "Marked as handled.");
+    const btn = (label, onClick, kind = "") => h("button", { class: `btn small ${kind}`.trim(), type: "button", text: label, onclick: (e) => onClick(e.target) });
+
+    const cards = data.items.map((item) => {
+      const subject = item.kind === "app" ? h("strong", { text: item.app.name }) : h("strong", { text: item.user.username });
+      const lines = [];
+      if (item.kind === "message") {
+        lines.push(h("p", { class: "wrap", style: "margin:8px 0;padding:8px 10px;border-left:3px solid var(--line,#555);background:rgba(255,255,255,.04)", text: item.message.text || (item.message.gif ? "[GIF]" : "") }));
+        lines.push(h("p", { class: "dim small", style: "margin:0 0 6px", text: `${item.message.channel ? `In #${item.message.channel}. ` : ""}${item.message.deleted ? "This message has been deleted." : "Still in the chat."}` }));
+      } else if (item.kind === "app") {
+        lines.push(h("p", { class: "dim small", style: "margin:6px 0", text: `By ${item.app.owner}. ${item.app.status === "approved" ? "Live in the store." : item.app.status === "pending" ? "Waiting for approval." : "Rejected."}` }));
+      }
+      if (item.reasons) lines.push(h("p", { class: "small", style: "margin:0 0 6px", text: item.reasons.map((r) => `${r.label}${r.count > 1 ? ` (${r.count})` : ""}`).join(" · ") }));
+      if (item.reports) {
+        lines.push(h("details", { class: "small" }, h("summary", { class: "dim", text: `Who reported it (${item.reports.length})` }),
+          h("ul", { class: "feed" }, item.reports.map((r) => h("li", {}, h("span", { class: "when", title: dateTime(r.at), text: ago(r.at) }), h("span", { class: "wrap" }, h("strong", { text: r.reporter }), ` said: ${r.label}${r.note ? `. ${r.note}` : ""}`))))));
+      }
+      const actions = h("div", { class: "row", style: "flex-wrap:wrap;gap:6px;margin-top:8px" });
+      if (item.kind === "message") {
+        actions.append(
+          btn("Delete the message", (b) => act(b, async () => { await api("POST", `/api/chat/admin/messages/${item.message.id}/delete`, {}); await reload(); }, "Deleted."), "danger"),
+          btn("Time out or ban…", () => chatSanction(item.user.username, reload)),
+          btn(`Open ${item.user.username}`, () => openUser(item.user.username)));
+        if (item.message.deleted) actions.firstChild.disabled = true;
+      } else if (item.kind === "profile") {
+        actions.append(
+          btn("Clear their bio", (b) => act(b, async () => { await A("POST", `/users/${encodeURIComponent(item.user.username)}/clear-bio`, {}); }, "Bio cleared.")),
+          btn(`Open ${item.user.username}`, () => openUser(item.user.username)));
+      } else {
+        actions.append(btn("Review in the App Store", () => { storeState.status = "reported"; show("store"); }, "primary"));
+      }
+      if (item.kind === "app") actions.append(btn("Dismiss", (b) => act(b, async () => { await A("POST", `/store/apps/${item.app.id}/dismiss`, {}); await reload(); }, "Dismissed.")));
+      else actions.append(btn("Mark as handled", (b) => resolve(item, "handled", b), "primary"), btn("Dismiss", (b) => resolve(item, "dismissed", b)));
+      return h("div", { class: "card stack", style: "margin-bottom:10px" },
+        h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" }, kindChip[item.kind], subject, chip(`${item.count} report${item.count === 1 ? "" : "s"}`, item.count > 1 ? "red" : ""), h("span", { class: "dim small", title: dateTime(item.at), text: ago(item.at) })),
+        ...lines, actions);
+    });
+    main.replaceChildren(head("Reports"),
+      h("p", { class: "dim section", text: "Things people flagged: chat messages, profiles and apps. Deal with them here, then mark them handled. A message that is deleted settles its own reports, and the text stays here so you can still read what was said." }),
+      ...(cards.length ? cards : [h("p", { class: "faint", text: "Nothing to look at. When someone reports a message, a profile or an app it shows up here." })]));
+  };
+
   const storeState = { status: "pending", q: "" };
   const setStoreCount = (counts) => {
     const badge = $("store-count");
@@ -1129,6 +1182,7 @@
     $("app").hidden = false;
     $("nav-foot").textContent = `Signed in as ${me.username}`;
     A("GET", "/store?status=none").then((d) => setStoreCount(d.counts), () => {}); // the badge on the App Store item
+    A("GET", "/reports").then((d) => setReportCount(d.open), () => {});               // and on Reports
     show(location.hash.slice(1) || "dashboard");
   })();
 })();

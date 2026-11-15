@@ -79,6 +79,81 @@
     node.style.top = Math.round(top) + "px";
   }
 
+  // --- reporting ---------------------------------------------------------------------------------
+
+  var REASONS = {
+    message: [["spam", "Spam or flooding"], ["harassment", "Harassment or bullying"], ["inappropriate", "Inappropriate or harmful content"], ["scam", "A scam or a dangerous link"], ["other", "Something else"]],
+    profile: [["inappropriate", "Inappropriate picture, name or bio"], ["impersonation", "Pretending to be someone else"], ["harassment", "Harassment or bullying"], ["other", "Something else"]],
+  };
+
+  /**
+   * Ask what is wrong and send it to the admins. { kind: "message" | "profile", id (a message), username (whose profile, or who
+   * wrote the message) }. The person reported isn't told who reported them.
+   */
+  function report(target) {
+    var kind = target.kind === "message" ? "message" : "profile";
+    var dialog = el("dialog", "sn-report");
+    dialog.appendChild(el("h2", "", kind === "message" ? "Report this message" : "Report " + target.username));
+    dialog.appendChild(el("p", "sr-hint", "An admin will look at it. " + target.username + " isn't told it was you."));
+    var chosen = null;
+    var list = el("div", "sr-reasons");
+    REASONS[kind].forEach(function (pair) {
+      var label = el("label", "sr-reason");
+      var radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "sn-report-reason";
+      radio.value = pair[0];
+      radio.addEventListener("change", function () { chosen = pair[0]; send.disabled = false; });
+      label.appendChild(radio);
+      label.appendChild(el("span", "", pair[1]));
+      list.appendChild(label);
+    });
+    dialog.appendChild(list);
+    var note = document.createElement("textarea");
+    note.className = "sr-note";
+    note.rows = 3;
+    note.maxLength = 300;
+    note.placeholder = "Anything else the admins should know (optional)";
+    dialog.appendChild(note);
+    var status = el("p", "sr-status");
+    status.setAttribute("role", "status");
+    dialog.appendChild(status);
+    var row = el("div", "sr-buttons");
+    var cancel = el("button", "pc-btn quiet", "Cancel");
+    cancel.type = "button";
+    var send = el("button", "pc-btn primary", "Send report");
+    send.type = "button";
+    send.disabled = true;
+    row.appendChild(cancel);
+    row.appendChild(send);
+    dialog.appendChild(row);
+    var done = function () { dialog.close(); dialog.remove(); };
+    cancel.addEventListener("click", done);
+    dialog.addEventListener("cancel", function () { dialog.remove(); });
+    send.addEventListener("click", function () {
+      if (!chosen) return;
+      send.disabled = true;
+      var path = kind === "message" ? "/api/chat/messages/" + encodeURIComponent(target.id) + "/report" : "/api/friends/profile/" + encodeURIComponent(target.username) + "/report";
+      fetch(path, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ reason: chosen, note: note.value }) })
+        .then(function (res) { return res.json().catch(function () { return {}; }).then(function (data) { if (!res.ok) throw new Error(data.error || "Something went wrong (" + res.status + ")."); }); })
+        .then(function () {
+          dialog.textContent = "";
+          dialog.appendChild(el("h2", "", "Thank you"));
+          dialog.appendChild(el("p", "sr-hint", "The admins will take a look."));
+          var ok = el("button", "pc-btn primary", "Done");
+          ok.type = "button";
+          ok.addEventListener("click", done);
+          var buttons = el("div", "sr-buttons");
+          buttons.appendChild(ok);
+          dialog.appendChild(buttons);
+          if (typeof target.onSent === "function") target.onSent();
+        })
+        .catch(function (err) { status.textContent = err.message; send.disabled = false; });
+    });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  }
+
   function monthYear(ms) {
     try { return new Date(ms).toLocaleDateString(undefined, { month: "long", year: "numeric" }); } catch (e) { return ""; }
   }
@@ -166,7 +241,10 @@
         moderate.addEventListener("click", function () { var who = profile.username; close(); options.onModerate(who); });
         buttons.appendChild(moderate);
       }
-      if (typeof global.SnProfile.extraButtons === "function") global.SnProfile.extraButtons(profile, buttons, note, close);
+      var flag = el("button", "pc-btn quiet", "Report");
+      flag.type = "button";
+      flag.addEventListener("click", function () { var who = profile.username; close(); report({ kind: "profile", username: who }); });
+      buttons.appendChild(flag);
     }
     node.appendChild(buttons);
     node.appendChild(note);
@@ -206,5 +284,5 @@
   });
   document.addEventListener("keydown", function (event) { if (event.key === "Escape") close(); });
 
-  global.SnProfile = { open: open, close: close, avatar: avatar, extraButtons: null };
+  global.SnProfile = { open: open, close: close, avatar: avatar, report: report };
 })(self);

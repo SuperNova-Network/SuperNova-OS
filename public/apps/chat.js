@@ -508,6 +508,13 @@
     reply.title = `Reply to ${message.user.username}`;
     reply.addEventListener("click", () => startReply(message));
     tools.append(reply);
+    if (message.user.username !== state.me.username) {
+      const flag = el("button", "report-btn", "Report");
+      flag.type = "button";
+      flag.title = "Tell the admins about this message";
+      flag.addEventListener("click", () => window.SnProfile?.report({ kind: "message", id: message.id, username: message.user.username }));
+      tools.append(flag);
+    }
     if (canModerate()) {
       const del = el("button", "", "Delete");
       del.type = "button";

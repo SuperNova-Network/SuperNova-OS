@@ -32,6 +32,7 @@ import { createLimiter } from "./ratelimit.js";
 import { LIMITS, checkMessage, createSpamTracker, createWordFilter, normalizeText } from "./chatfilter.js";
 import * as store from "./chatdb.js";
 import * as channels from "./channels.js";
+import * as reportsdb from "./reportsdb.js";
 
 const UPLOAD_MAX_BYTES = 2 * 1024 * 1024;     // an uploaded GIF
 const UPLOAD_MAX_PIXELS = 2000;
@@ -62,6 +63,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     search: createLimiter({ limit: 30, windowMs: 60_000 }),
     read: createLimiter({ limit: 120, windowMs: 60_000 }),
     react: createLimiter({ limit: 60, windowMs: 60_000 }),
+    report: createLimiter({ limit: 20, windowMs: 60 * 60_000 }),
   };
   const limit = (limiter, key, message = "Slow down a little.") => {
     const wait = limiter.hit(key);
@@ -406,6 +408,18 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     res.json({ id: row.id, mine, reactions });
   }));
 
+  // Tell the admins about a message: { reason, note? }. One open report per person per message; not your own.
+  router.post("/messages/:id/report", express.json({ limit: "4kb" }), handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.report, String(user.id), "You have sent a lot of reports. Try again in a while.");
+    const row = store.getMessage(db, req.params.id);
+    const channel = row && channels.getChannel(db, row.channel_id);
+    if (!row || !channel || !channels.mayRead(channel, user, channels.heldRoleIds(db, user.id))) throw new HttpError(404, "That message is gone.");
+    if (row.user_id === user.id) throw new HttpError(400, "That's your own message.");
+    reportsdb.addReport(db, { kind: "message", reporterId: user.id, targetUserId: row.user_id, message: { ...row, channel: channel.name }, reason: req.body?.reason, note: req.body?.note });
+    res.status(201).json({ ok: true });
+  }));
+
   // "I've read this channel" (or, with no channel named, all of them): the number on the Chat icon drops on every
   // computer this person is on.
   router.post("/read", express.json({ limit: "2kb" }), handle((req, res) => {
@@ -543,6 +557,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     const row = store.getMessage(db, req.params.id);
     if (!row || !store.deleteMessage(db, row.id, admin.username)) throw new HttpError(404, "That message is already gone.");
     store.addLog(db, admin.username, "delete message", row.username, row.body.slice(0, 80) || (row.media_kind ? "[GIF]" : ""));
+    reportsdb.resolveRef(db, `m:${row.id}`, admin.username, "handled"); // deleting it settles the reports about it
     broadcast("delete", { id: row.id });
     res.json({ ok: true });
   }));
