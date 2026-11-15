@@ -527,8 +527,35 @@
     more.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
     more.addEventListener("click", (event) => { event.stopPropagation(); openMsgMenu(message, row, more); });
     row.append(more);
+
+    // Hold Shift over a message for one-click icons (React, Reply, Report, and for moderators Delete and Moderate), like Discord.
+    const quick = el("div", "quick-bar");
+    const icon = (label, paths, onClick, kind = "") => {
+      const button = el("button", `quick-btn ${kind}`.trim());
+      button.type = "button";
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
+      button.addEventListener("click", (event) => { event.stopPropagation(); onClick(button); });
+      quick.append(button);
+    };
+    icon("Add reaction", '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 14c.9 1.3 2 2 3.5 2s2.6-.7 3.5-2"/><path d="M9 10h.01M15 10h.01"/>', (button) => openReactPop(message, button));
+    icon("Reply", '<path d="M9 8 4 13l5 5"/><path d="M4 13h9a6 6 0 0 1 6 6"/>', () => startReply(message));
+    if (message.user.username !== state.me.username) icon("Report message", '<path d="M6 21V4"/><path d="M6 4h12l-2.5 4.5L18 13H6"/>', () => window.SnProfile?.report({ kind: "message", id: message.id, username: message.user.username }));
+    if (canModerate()) {
+      if (canModeratePerson(message.user)) icon(`Moderate ${message.user.username}`, '<path d="M12 3 4.5 6v6c0 4.4 3.1 7.7 7.5 9 4.4-1.3 7.5-4.6 7.5-9V6z"/>', () => openModerate(message.user));
+      icon("Delete message", '<path d="M5 7h14"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/>', (button) => deleteMessage(message, button), "danger");
+    }
+    row.append(quick);
     return row;
   }
+
+  // --- Shift: show the quick icons on whatever message is under the pointer ------------------------------------------
+  const setShift = (on) => { if (document.documentElement.hasAttribute("data-shift") !== on) document.documentElement.toggleAttribute("data-shift", on); };
+  document.addEventListener("keydown", (event) => { if (event.key === "Shift") setShift(true); });
+  document.addEventListener("keyup", (event) => { if (event.key === "Shift") setShift(false); });
+  document.addEventListener("mousemove", (event) => setShift(event.shiftKey));
+  window.addEventListener("blur", () => setShift(false));
 
   // --- the "..." menu on a message ---------------------------------------------------------------------
 

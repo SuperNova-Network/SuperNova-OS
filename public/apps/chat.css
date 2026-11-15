@@ -1616,3 +1616,53 @@ a.url:hover {
   background: var(--accent, #7b4aa8);
   color: #fff;
 }
+
+/* Holding Shift over a message shows one-click icons beside the "..." */
+.quick-bar {
+  position: absolute;
+  top: -12px;
+  right: 50px;
+  z-index: 2;
+  display: none;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+html[data-shift] .msg:hover .quick-bar,
+html[data-shift] .msg.menu-open .quick-bar {
+  display: flex;
+}
+
+.quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+}
+
+.quick-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.quick-btn:hover,
+.quick-btn:focus-visible {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.quick-btn.danger:hover,
+.quick-btn.danger:focus-visible {
+  background: var(--red);
+  color: #fff;
+}

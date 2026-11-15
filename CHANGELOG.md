@@ -31,6 +31,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Added
 
+- **Hold Shift for quick icons on chat messages.** Hover a message and hold Shift to see one-click icons beside the "...": react, reply, report, and for moderators moderate and delete. Let go and they hide again.
 - **#channel references in the chat.** Type # and a list of channels you can see drops down (like @ does for people); pick one and it goes in your message. A #channel in a message is a pill that takes you to that channel when clicked. Channels you can't see stay plain text, and so do things like issue#3 or a link's #section.
 - **Achievements.** A trophy beside the battery in the taskbar opens an animated window with 35 achievements, from sending your first message and making a friend to publishing an app and keeping a daily streak, showing what you have unlocked, how far along the rest are and your points. A gold dot says when something new unlocked, and each unlock shows a notification. Nothing is ever taken away.
 - **A "..." menu on chat messages.** The row of buttons beside each message is gone: hover a message and it lights up with one small "..." button that opens a short menu (Add reaction, Reply, Report, and for moderators Delete and Moderate), the way Discord does it. The message stays lit while its menu is open, so you can tell which one it belongs to.
