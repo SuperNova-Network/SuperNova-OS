@@ -30,45 +30,43 @@
 
   // Everything is sized in one unit, --u, so the screen looks the same on any window shape and always fits it:
   // about 100u tall on a wide screen. Nothing scrolls on the page; the text is shrunk (see fit) until it fits.
-  // It wears the desktop's own look (dark, flat, the accent colour); the one thing in red is the warning itself.
+  // It is laid out like one of the desktop's own windows (an accent title bar, flat dark panels, a button row
+  // at the bottom) on a dark backdrop. The only red is the warning.
   function css() {
     return '\
-#sn-terms{--u:min(1vh,.6vw);--a:var(--accent,#7b4aa8);position:fixed;inset:0;z-index:2147483000;overflow:hidden;display:flex;flex-direction:column;align-items:center;background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--a) 38%,#0b0b14) 0%,#0e0e16 55%,#08080d 100%);color:#e9e9ef;font-family:"Segoe UI","Segoe UI Variable",system-ui,-apple-system,Roboto,sans-serif;-webkit-font-smoothing:antialiased}\
+#sn-terms{--u:min(1vh,.6vw);--a:var(--accent,#7b4aa8);position:fixed;inset:0;z-index:2147483000;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 20% 10%,color-mix(in srgb,var(--a) 22%,#0d0d12) 0%,transparent 60%),radial-gradient(ellipse at 90% 100%,color-mix(in srgb,var(--a) 14%,#0d0d12) 0%,transparent 55%),#0d0d12;color:#e6e6e6;font-family:"Segoe UI","Segoe UI Variable",Selawik,system-ui,-apple-system,Roboto,sans-serif;-webkit-font-smoothing:antialiased}\
 @media (max-aspect-ratio:1/1){#sn-terms{--u:min(1vh,1.7vw)}}\
 #sn-terms *{box-sizing:border-box;cursor:default}\
-#sn-terms .st-tape{flex:none;width:100%;height:calc(var(--u)*.7);background:var(--a)}\
-#sn-terms .st-wrap{flex:1;min-height:0;width:min(94vw,calc(var(--u)*150));display:flex;flex-direction:column;padding:calc(var(--u)*1.6) 0 calc(var(--u)*1.8);text-align:center;color:#fff;animation:st-rise 520ms cubic-bezier(.1,.9,.2,1) both}\
-@keyframes st-rise{from{opacity:0;transform:translateY(calc(var(--u)*1.6))}}\
-#sn-terms .st-top{flex:none}\
-#sn-terms .st-logo{width:calc(var(--u)*7.5);height:calc(var(--u)*7.5);display:block;margin:0 auto calc(var(--u)*.9);filter:drop-shadow(0 calc(var(--u)*.4) calc(var(--u)*1.4) rgba(0,0,0,.6))}\
-#sn-terms .st-kicker{display:inline-flex;align-items:center;gap:calc(var(--u)*.8);padding:calc(var(--u)*.4) calc(var(--u)*1.3);border:1px solid color-mix(in srgb,var(--a) 70%,#fff);color:color-mix(in srgb,var(--a) 35%,#fff);font-weight:600;letter-spacing:.3em;font-size:calc(var(--u)*1.15)}\
-#sn-terms .st-kicker::before{content:"";width:calc(var(--u)*.9);height:calc(var(--u)*.9);background:#e5484d;border-radius:50%;box-shadow:0 0 calc(var(--u)*1) #e5484d}\
-#sn-terms h1{margin:calc(var(--u)*1) 0 calc(var(--u)*.4);font-size:calc(var(--u)*4.6);line-height:1.05;font-weight:300;letter-spacing:.04em;text-transform:uppercase}\
-#sn-terms .st-sub{margin:0 auto;text-align:center;max-width:calc(var(--u)*90);font-size:calc(var(--u)*1.8);font-weight:400;color:#c9c9d6;line-height:1.3}\
+#sn-terms .st-win{display:flex;flex-direction:column;width:min(96vw,calc(var(--u)*148));height:min(94vh,calc(var(--u)*88));background:#1f1f1f;box-shadow:0 calc(var(--u)*2.4) calc(var(--u)*7) rgba(0,0,0,.65),0 0 0 1px #3a3a3a;animation:st-rise 480ms cubic-bezier(.1,.9,.2,1) both}\
+@keyframes st-rise{from{opacity:0;transform:translateY(calc(var(--u)*1.6)) scale(.985)}}\
+#sn-terms .st-titlebar{flex:none;display:flex;align-items:center;gap:calc(var(--u)*1.1);height:calc(var(--u)*4.2);padding:0 calc(var(--u)*1.6);background:var(--a);font-size:calc(var(--u)*1.6);color:#fff}\
+#sn-terms .st-titlebar img{width:calc(var(--u)*2.4);height:calc(var(--u)*2.4)}\
+#sn-terms .st-main{flex:1;min-height:0;display:flex}\
+#sn-terms .st-side{flex:none;width:calc(var(--u)*40);display:flex;flex-direction:column;padding:calc(var(--u)*3) calc(var(--u)*2.8);background:#2b2b2b}\
+#sn-terms .st-logo{width:calc(var(--u)*8);height:calc(var(--u)*8);display:block;margin:0 0 calc(var(--u)*2)}\
+#sn-terms h1{margin:0 0 calc(var(--u)*1);font-size:calc(var(--u)*3.7);line-height:1.08;font-weight:300;color:#fff}\
+#sn-terms .st-sub{margin:0 0 calc(var(--u)*2);font-size:calc(var(--u)*1.75);line-height:1.4;color:#c6c6c6}\
 #sn-terms .st-sub b{color:#fff;font-weight:700}\
-#sn-terms .st-paper{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;margin:calc(var(--u)*1.6) 0 0;text-align:left;background:#1c1c22;border:1px solid #34343f;border-top:calc(var(--u)*.35) solid var(--a);box-shadow:0 calc(var(--u)*2) calc(var(--u)*6) rgba(0,0,0,.55);font-family:Georgia,"Times New Roman",serif}\
-#sn-terms .st-head{flex:none;display:flex;justify-content:space-between;gap:calc(var(--u)*1.2);padding:calc(var(--u)*1) calc(var(--u)*2.6) calc(var(--u)*.8);border-bottom:1px solid #34343f;font:600 calc(var(--u)*1.05)/1.4 "Consolas","Courier New",monospace;letter-spacing:.1em;text-transform:uppercase;color:#9a9aab}\
-#sn-terms .st-body{flex:1;min-height:0;overflow:hidden;padding:calc(var(--u)*1.4) calc(var(--u)*2.6) calc(var(--u)*.6);font-size:calc(var(--u)*1.6);line-height:1.5;color:#d6d6df;column-count:2;column-gap:calc(var(--u)*3.2);column-rule:1px solid #34343f;column-fill:auto}\
-@media (max-aspect-ratio:1/1){#sn-terms .st-body{column-count:auto;column-rule:none;column-fill:balance}}\
-#sn-terms .st-lead{column-span:all;margin:0 0 calc(var(--u)*1.2);padding:calc(var(--u)*1) calc(var(--u)*1.4);background:rgba(229,72,77,.12);border-left:calc(var(--u)*.45) solid #e5484d;font-family:"Segoe UI","Segoe UI Variable",system-ui,sans-serif;font-weight:700;font-size:1.04em;line-height:1.35;color:#ffd9da;text-transform:uppercase;letter-spacing:.02em}\
-#sn-terms h2{margin:calc(var(--u)*1.1) 0 calc(var(--u)*.2);font:700 .82em/1.3 "Segoe UI","Segoe UI Variable",system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--a) 45%,#fff);break-after:avoid}\
-#sn-terms h2:first-of-type{margin-top:0}\
-#sn-terms p{margin:0 0 calc(var(--u)*.6);text-align:justify;hyphens:auto;break-inside:avoid}\
-#sn-terms .st-seal{position:absolute;right:calc(var(--u)*3);top:calc(var(--u)*6);width:calc(var(--u)*9);height:calc(var(--u)*9);opacity:.1;color:var(--a);pointer-events:none}\
-#sn-terms .st-foot{flex:none;padding:calc(var(--u)*1.1) calc(var(--u)*2.6) calc(var(--u)*1.2);border-top:1px solid #34343f;background:#16161b;font-family:"Segoe UI","Segoe UI Variable",system-ui,sans-serif}\
-#sn-terms label{display:flex;gap:calc(var(--u)*1.2);align-items:flex-start;font-weight:600;font-size:calc(var(--u)*1.5);line-height:1.35;color:#f1f1f6;cursor:pointer!important}\
+#sn-terms .st-lead{margin:0;padding:calc(var(--u)*1.2) calc(var(--u)*1.5);background:rgba(229,72,77,.14);border-left:calc(var(--u)*.4) solid #e5484d;font-size:calc(var(--u)*1.45);font-weight:600;line-height:1.45;color:#ffd5d7}\
+#sn-terms .st-meta{margin:auto 0 0;padding-top:calc(var(--u)*2);font:600 calc(var(--u)*1.05)/1.6 "Consolas","Courier New",monospace;letter-spacing:.08em;text-transform:uppercase;color:#8c8c8c}\
+#sn-terms .st-body{flex:1;min-width:0;min-height:0;overflow:hidden;padding:calc(var(--u)*2.6) calc(var(--u)*3.2);font-size:calc(var(--u)*1.55);line-height:1.5;color:#cfcfcf}\
+#sn-terms h2{margin:calc(var(--u)*1.5) 0 calc(var(--u)*.3);font-size:1em;font-weight:700;color:#fff}\
+#sn-terms h2:first-child{margin-top:0}\
+#sn-terms h2 span{display:inline-block;min-width:1.7em;color:color-mix(in srgb,var(--a) 55%,#fff)}\
+#sn-terms .st-body p{margin:0 0 calc(var(--u)*.3) 0;padding-left:1.7em}#sn-terms .st-side p{margin-top:0}\
+#sn-terms .st-foot{flex:none;display:flex;align-items:center;gap:calc(var(--u)*2.4);padding:calc(var(--u)*1.6) calc(var(--u)*2.8);background:#2b2b2b;border-top:1px solid #3a3a3a}\
+#sn-terms label{flex:1;display:flex;gap:calc(var(--u)*1.2);align-items:flex-start;font-size:calc(var(--u)*1.45);line-height:1.4;color:#f0f0f0;cursor:pointer!important}\
 #sn-terms label *{cursor:pointer!important}\
-#sn-terms input[type=checkbox]{flex:none;width:calc(var(--u)*2.2);height:calc(var(--u)*2.2);margin:0;accent-color:var(--a)}\
-#sn-terms .st-buttons{display:flex;gap:calc(var(--u)*1.2);margin-top:calc(var(--u)*1.1)}\
-#sn-terms button{font:600 calc(var(--u)*1.5) "Segoe UI","Segoe UI Variable",system-ui,sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:calc(var(--u)*1.1) calc(var(--u)*2.6);border:2px solid transparent;background:#2f2f38;color:#fff;transition:background-color 120ms,border-color 120ms,transform 120ms}\
-#sn-terms button.agree{flex:1;background:var(--a);color:#fff}\
+#sn-terms input[type=checkbox]{flex:none;width:calc(var(--u)*2.1);height:calc(var(--u)*2.1);margin:0;accent-color:var(--a)}\
+#sn-terms .st-buttons{flex:none;display:flex;gap:calc(var(--u)*1)}\
+#sn-terms button{min-width:calc(var(--u)*17);padding:calc(var(--u)*.9) calc(var(--u)*2);border:2px solid transparent;border-radius:0;background:#3b3b3b;color:#fff;font:400 calc(var(--u)*1.55) "Segoe UI","Segoe UI Variable",Selawik,system-ui,sans-serif;transition:background-color 100ms,border-color 100ms}\
+#sn-terms button:hover{background:#444;border-color:#6b6b6b}\
+#sn-terms button.agree{background:var(--a)}\
 #sn-terms button.agree:not(:disabled):hover{border-color:#fff}\
-#sn-terms button.agree:not(:disabled):active{transform:scale(.99)}\
-#sn-terms button:disabled{opacity:.38}\
-#sn-terms button.leave:hover{background:#3a3a45;border-color:#6b6b7b}\
-#sn-terms .st-fine{margin:calc(var(--u)*.8) 0 0;font-size:calc(var(--u)*1.1);color:#8b8b9b;line-height:1.3;text-align:left}\
-#sn-terms .st-preview{position:absolute;top:calc(var(--u)*2.2);left:50%;transform:translateX(-50%);padding:calc(var(--u)*.4) calc(var(--u)*1.2);background:#fff;color:#111;font:700 calc(var(--u)*1.2) "Segoe UI",sans-serif;letter-spacing:.14em;z-index:2}\
-@media (prefers-reduced-motion:reduce){#sn-terms .st-wrap{animation:none}#sn-terms button{transition:none}}';
+#sn-terms button:disabled{opacity:.4;pointer-events:none}\
+#sn-terms .st-preview{position:absolute;top:calc(var(--u)*1.4);left:50%;transform:translateX(-50%);padding:calc(var(--u)*.4) calc(var(--u)*1.2);background:#fff;color:#111;font:700 calc(var(--u)*1.2) "Segoe UI",sans-serif;letter-spacing:.14em;z-index:2}\
+@media (max-aspect-ratio:1/1){#sn-terms .st-main{flex-direction:column}#sn-terms .st-side{width:auto;padding:calc(var(--u)*1.4) calc(var(--u)*2)}#sn-terms .st-logo,#sn-terms .st-meta{display:none}#sn-terms h1{font-size:calc(var(--u)*3)}#sn-terms .st-foot{flex-direction:column;align-items:stretch;gap:calc(var(--u)*1.2)}#sn-terms .st-buttons{justify-content:flex-end}}\
+@media (prefers-reduced-motion:reduce){#sn-terms .st-win{animation:none}#sn-terms button{transition:none}}';
   }
 
   function el(tag, cls, text) {
@@ -76,15 +74,6 @@
     if (cls) node.className = cls;
     if (text !== undefined) node.textContent = text;
     return node;
-  }
-
-  function seal() {
-    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("viewBox", "0 0 100 100");
-    svg.setAttribute("class", "st-seal");
-    svg.setAttribute("aria-hidden", "true");
-    svg.innerHTML = '<circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M50 18l8 20 22 2-17 14 6 21-19-12-19 12 6-21-17-14 22-2z" fill="currentColor"/>'; // fixed markup, nothing from outside
-    return svg;
   }
 
   // The page never scrolls: shrink the text until all of it fits its box. (If a window is so small that it can't
@@ -96,13 +85,12 @@
     body.style.overflowY = "hidden";
     var size = parseFloat(global.getComputedStyle(body).fontSize);
     var guard = 0;
-    // Too much text either runs past the bottom, or (in two columns) spills into an extra column to the right.
-    var over = function () { return body.scrollHeight > body.clientHeight + 1 || body.scrollWidth > body.clientWidth + 1; };
+    var over = function () { return body.scrollHeight > body.clientHeight + 1; };
     while (over() && size > 9 && guard++ < 80) {
       size *= 0.97;
       body.style.fontSize = size + "px";
     }
-    if (over()) { body.style.columnCount = "auto"; body.style.overflowY = "auto"; body.style.overflowX = "hidden"; }
+    if (over()) body.style.overflowY = "auto";
   }
   var resizeTimer = 0;
   global.addEventListener("resize", function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(fit, 80); });
@@ -123,34 +111,43 @@
     var style = el("style");
     style.textContent = css();
     root.appendChild(style);
-    root.appendChild(el("div", "st-tape"));
     if (preview) root.appendChild(el("div", "st-preview", "PREVIEW: NOTHING IS SAVED"));
 
-    var wrap = el("div", "st-wrap");
-    var top = el("div", "st-top");
+    var win = el("div", "st-win");
+    var bar = el("div", "st-titlebar");
+    var small = el("img");
+    small.src = LOGO; small.alt = "";
+    bar.appendChild(small);
+    bar.appendChild(el("span", "", "SuperNova OS · Acceptable use agreement"));
+    win.appendChild(bar);
+
+    var main = el("div", "st-main");
+    var side = el("div", "st-side");
     var logo = el("img", "st-logo");
-    logo.src = LOGO; logo.alt = "SuperNova OS"; logo.width = 92; logo.height = 92;
-    top.appendChild(logo);
-    top.appendChild(el("div", "st-kicker", "LEGAL NOTICE"));
-    top.appendChild(el("h1", "", "Read before you continue"));
+    logo.src = LOGO; logo.alt = "SuperNova OS";
+    side.appendChild(logo);
+    side.appendChild(el("h1", "", "Before you continue"));
     var sub = el("p", "st-sub");
     sub.appendChild(document.createTextNode("This website must "));
     sub.appendChild(el("b", "", "NOT"));
     sub.appendChild(document.createTextNode(" be used during school or to get past school filters."));
-    top.appendChild(sub);
-    wrap.appendChild(top);
+    side.appendChild(sub);
+    side.appendChild(el("p", "st-lead", "SuperNova OS was made only for education and for learning open source programming. It is not for use during school, and it is not for getting around school filters or any other restriction."));
+    side.appendChild(el("div", "st-meta", "Ref. SN-EDU-AUA · Version 1.0"));
+    main.appendChild(side);
 
-    var paper = el("div", "st-paper");
-    var head = el("div", "st-head");
-    head.appendChild(el("span", "", "Acceptable use agreement"));
-    head.appendChild(el("span", "", "Ref. SN-EDU-AUA · Version 1.0"));
-    paper.appendChild(head);
     var body = el("div", "st-body");
     body.tabIndex = 0;
-    body.appendChild(el("p", "st-lead", "Important: this website was made only for education and for learning open source programming. It is not to be used during school, and it is not to be used to get around school filters or any other restriction."));
-    SECTIONS.forEach(function (s) { body.appendChild(el("h2", "", s[0])); body.appendChild(el("p", "", s[1])); });
-    paper.appendChild(body);
-    paper.appendChild(seal());
+    SECTIONS.forEach(function (s) {
+      var title = el("h2");
+      var number = s[0].match(/^(\d+)\.\s*(.*)$/);
+      title.appendChild(el("span", "", number ? number[1] + "." : ""));
+      title.appendChild(document.createTextNode(number ? number[2] : s[0]));
+      body.appendChild(title);
+      body.appendChild(el("p", "", s[1]));
+    });
+    main.appendChild(body);
+    win.appendChild(main);
 
     var foot = el("div", "st-foot");
     var label = el("label");
@@ -159,17 +156,14 @@
     label.appendChild(box);
     label.appendChild(el("span", "", "I have read and understood this notice. I will not use this website during school or to get past school filters, and I accept these terms."));
     var buttons = el("div", "st-buttons");
-    var agree = el("button", "agree", "I agree — continue");
-    agree.type = "button"; agree.disabled = true;
-    var leave = el("button", "leave", preview ? "Close preview" : "I do not agree — leave");
+    var leave = el("button", "leave", preview ? "Close preview" : "I do not agree");
     leave.type = "button";
-    buttons.appendChild(agree); buttons.appendChild(leave);
+    var agree = el("button", "agree", "I agree");
+    agree.type = "button"; agree.disabled = true;
+    buttons.appendChild(leave); buttons.appendChild(agree);
     foot.appendChild(label); foot.appendChild(buttons);
-    foot.appendChild(el("p", "st-fine", preview ? "This is how everyone who is not signed in will see it. It is shown once to each person." : "Your agreement is kept on this device only. You are asked once. Signed-in accounts are not shown this notice."));
-    paper.appendChild(foot);
-    wrap.appendChild(paper);
-    root.appendChild(wrap);
-    root.appendChild(el("div", "st-tape bottom"));
+    win.appendChild(foot);
+    root.appendChild(win);
     document.body.appendChild(root);
     current = root;
     fit();
