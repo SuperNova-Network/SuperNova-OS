@@ -28,7 +28,7 @@ SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has 
 
 - A Windows 10 style desktop with draggable and resizable windows, a launcher, a terminal and a file explorer.
 - A taskbar that starts with SuperNova, Settings, Chat, the App Store and (for admins) the Admin Panel, a thin divider, then the apps you pin. Right click any of them to pin or unpin, and the choice follows your account. The Chat icon shows a small red number for messages you haven't read, and it follows your account to any computer.
-- A speedometer and a live graph in the taskbar that show whether the site and the proxy really work and how fast data is moving, plus the version and commit in faint text.
+- A speedometer and a live graph in the taskbar that show whether the site and the proxy really work, which popular sites (YouTube, Reddit, Discord and more) are up right now and how fast data is moving, plus the version and commit in faint text.
 - A taskbar search box that flips between Apps and Web with a card flip animation. In Web mode it suggests searches as you type, from the engine you picked.
 - A start menu with your profile at the top. Click it for a Windows 10 style menu with Change account settings, Lock and Sign out. Search it for any app, including the App Store and Friends.
 - A Windows 10 lock screen for signing in: a different wallpaper each visit, a big clock, a frosted sign-in screen and a Welcome screen with Windows' spinning dots. It has Sleep, Restart and Reduce motion controls, and it runs at 60 fps.

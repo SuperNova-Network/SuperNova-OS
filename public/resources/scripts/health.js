@@ -3,6 +3,9 @@
  * visible) it checks that the server answers and that the proxy's connection (Wisp) opens, and
  * clicking it shows what it found. Nothing here loads a site or sends anything but the checks.
  *
+ * The flyout also lists popular sites and whether each works right now (the server asks them every few minutes:
+ * GET /api/sites), so "YouTube is down" can be told apart from "the proxy is broken".
+ *
  * Levels (the icon's bars): 3 all good, 2 slow, 1 the proxy connection fails, 0 the server can't be reached.
  * Plain script; needs SnProxy (for the Wisp address) but works without it.
  */
@@ -74,6 +77,63 @@
     return running;
   }
 
+  // --- popular sites -------------------------------------------------------------------------------
+
+  var sites = { at: 0, data: null };
+  var SITE_LABEL = { up: "", slow: "Slow", down: "Down", blocked: "Blocked", unknown: "" };
+
+  function loadSites() {
+    if (sites.data && Date.now() - sites.at < 60000) return Promise.resolve();
+    return fetch("/api/sites", { cache: "no-store" })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) { if (data && Array.isArray(data.sites)) { sites = { at: Date.now(), data: data }; } render(); })
+      .catch(function () { /* the list just stays as it was */ });
+  }
+
+  function renderSites() {
+    var box = document.getElementById("hm-sites");
+    if (!box) return;
+    box.textContent = "";
+    var data = sites.data;
+    if (!data || !data.sites.length) return;
+    var checked = data.sites.filter(function (s) { return s.state !== "unknown" && s.state !== "blocked"; });
+    var working = checked.filter(function (s) { return s.state === "up" || s.state === "slow"; }).length;
+    var head = document.createElement("div");
+    head.className = "hm-sitehead";
+    var title = document.createElement("span");
+    title.textContent = "Popular sites";
+    var summary = document.createElement("span");
+    summary.className = "hm-sitesum";
+    summary.textContent = checked.length ? working + " of " + checked.length + " working" : "Not checked yet";
+    head.appendChild(title); head.appendChild(summary);
+    box.appendChild(head);
+    var grid = document.createElement("div");
+    grid.className = "hm-sitegrid";
+    data.sites.forEach(function (site) {
+      var item = document.createElement("div");
+      item.className = "hm-site";
+      var dot = document.createElement("span");
+      dot.className = "hm-dot";
+      dot.setAttribute("data-state", site.state === "up" ? "ok" : site.state === "down" ? "bad" : site.state === "slow" ? "slow" : "unknown");
+      var name = document.createElement("span");
+      name.className = "hm-sname";
+      name.textContent = site.name;
+      var detail = document.createElement("span");
+      detail.className = "hm-ms";
+      detail.textContent = SITE_LABEL[site.state] || (site.ms ? site.ms + " ms" : "");
+      item.appendChild(dot); item.appendChild(name); item.appendChild(detail);
+      grid.appendChild(item);
+    });
+    box.appendChild(grid);
+    if (data.checkedAt) {
+      var when = document.createElement("div");
+      when.className = "hm-sitewhen";
+      var mins = Math.max(0, Math.round((Date.now() - data.checkedAt) / 60000));
+      when.textContent = "Checked from the server " + (mins < 1 ? "a moment ago" : mins + " min ago") + ", every few minutes";
+      box.appendChild(when);
+    }
+  }
+
   // --- the flyout -------------------------------------------------------------------------------
 
   var LABEL = { ok: "Working", slow: "Slow", bad: "Not working", idle: "Ready when needed", unknown: "Unknown" };
@@ -104,6 +164,7 @@
     box.appendChild(row("Proxy connection", offline ? { state: "bad", note: "You're offline." } : result.proxy));
     box.appendChild(row("Proxy engine", result.engine));
     if (global.SnNet) { var rate = global.SnNet.rates(); box.appendChild(row("Proxy traffic", { state: "idle", note: "Down " + global.SnNet.format(rate.down) + ", up " + global.SnNet.format(rate.up) })); }
+    renderSites();
     var when = document.getElementById("hm-when");
     when.textContent = result.at ? "Checked " + Math.max(0, Math.round((Date.now() - result.at) / 1000)) + " s ago" : "Checking…";
   }
@@ -119,6 +180,7 @@
       menu.style.display = "block";
       render();
       check();
+      loadSites();
     }
     if (evt) evt.stopPropagation();
   }
@@ -132,7 +194,7 @@
   global.SnHealth = {
     toggle: toggle,
     check: check,
-    again: function () { result.at = 0; render(); return check(); },
+    again: function () { result.at = 0; sites.at = 0; render(); loadSites(); return check(); },
     level: level,
     full: function () { hide(); if (global.openSettings) global.openSettings("proxy"); },
   };

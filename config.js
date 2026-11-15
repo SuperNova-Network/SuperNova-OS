@@ -103,6 +103,10 @@ export default {
     giphyMediaUrl: env.GIPHY_MEDIA_URL || "",
   },
 
+  // Whether popular sites work right now (the network flyout lists them): the server checks a dozen of them every few
+  // minutes. SITE_CHECK=0 turns it off (the list then says "unknown").
+  siteCheck: !/^(0|false|off|no)$/i.test((env.SITE_CHECK ?? "").trim()),
+
   // URL prefixes the service worker intercepts. Both must start and end with "/".
   prefixes: {
     uv: "/service/",

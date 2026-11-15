@@ -17,6 +17,7 @@ Server settings come from environment variables, read in [`config.js`](../config
 | `ACCOUNTS` | *(empty)* | Optional override: `optional`, `required` or `off`. When set, the choice is fixed and shown locked in [Settings > Admin](#accounts) |
 | `ACCOUNTS_SIGNUP` | *(empty)* | Optional override: `invite`, `open` or `closed` |
 | `ADMINS` | *(empty)* | Usernames that are always admins, comma separated, besides those made admin in the panel |
+| `SITE_CHECK` | on | The server asks a dozen popular sites for their front page every few minutes so the network flyout can say which work right now. `0` turns it off |
 | `GIPHY_API_KEY` | *(empty)* | Turns on GIF search in the [chat](#chat). A free key from developers.giphy.com. Without it people can still upload GIFs |
 | `INVITE_CODE` | *(empty)* | A fixed invite code accepted besides the ones admins make. With accounts required and no `INVITE_CODE`, `AUTH_PASS` is accepted |
 | `TRUST_PROXY` | *(empty)* | Proxies in front of the server to trust for the visitor's address and protocol: a hop count (`1`), `true`, or addresses. Set it behind Fly.io, Render, nginx and the like |
@@ -191,7 +192,9 @@ Typing in the taskbar's Web search shows suggestions from `GET /api/suggest?q=..
 
 **The network speed graph** (taskbar) polls `GET /api/traffic` every 2 seconds while the page is visible. The server keeps running totals of bytes sent and received over each person's proxy connections (by account, or by address when there is no account, so people behind one shared address share a count) and the page works out the speed. Counts are in memory and start again at zero when the server restarts.
 
-**Site health** is the network icon in the taskbar. It runs in the browser: every 30 seconds it fetches `/healthz` and opens the proxy's Wisp connection (and closes it at once), and shows what it found. It needs nothing on the server.
+**Site health** is the network icon in the taskbar. It runs in the browser: every 30 seconds it fetches `/healthz` and opens the proxy's Wisp connection (and closes it at once), and shows what it found. It needs nothing on the server for those checks.
+
+**Popular sites.** The same flyout lists a dozen popular sites (Google, YouTube, Reddit, Discord, Spotify, Twitch, GitHub, Wikipedia, Khan Academy, Google Docs, TikTok, Instagram) and whether each works right now, so "YouTube is down" can be told apart from "the proxy is broken". The server asks each for its front page every 5 minutes, from its own connection (the same one the proxy uses), and keeps the answers in memory (`GET /api/sites`, public). Any answer below 500 is up (a login wall or bot check still means it is reachable), over 2.5 seconds is slow, a failure, a timeout or a 5xx is down, and a site the content filter blocks is not asked at all and shows as Blocked. The first check runs 8 seconds after the server starts; `SITE_CHECK=0` turns it off and the list shows nothing checked.
 
 ## Admin Panel
 

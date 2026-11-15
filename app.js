@@ -24,6 +24,7 @@ import { createFriends, disabledFriends } from "./src/friends.js";
 import { createLive } from "./src/live.js";
 import { readBuildInfo } from "./src/buildinfo.js";
 import { createWhatsNew } from "./src/whatsnew.js";
+import { createSiteCheck } from "./src/sitecheck.js";
 import * as roles from "./src/roles.js";
 import { createSuggest, cleanQuery } from "./src/suggest.js";
 import { createLimiter } from "./src/ratelimit.js";
@@ -256,6 +257,13 @@ app.get("/setup", (_req, res) => {
 app.get("/api/announcement", (_req, res) => {
   const { id, text, level, active } = admin.announcement();
   res.set("Cache-Control", "no-store").json({ announcement: active ? { id, text, level } : null });
+});
+
+// Which popular sites work right now: the server asks them every few minutes (the network flyout shows the list).
+const siteCheck = createSiteCheck({ blocked: (host) => Boolean(policy.checkHost(host)) });
+if (config.siteCheck) siteCheck.start();
+app.get("/api/sites", (_req, res) => {
+  res.set("Cache-Control", "no-cache").json(siteCheck.results());
 });
 
 // What's new after an update, from the changelog: public, like the version label.
@@ -525,6 +533,7 @@ function shutdown(signal) {
   chat.close(); // ends the live streams, or server.close() would wait for them
   friends.close();
   live.close();
+  siteCheck.stop();
   server.close(() => { accounts.close(); process.exit(0); });
   server.closeAllConnections?.();
 }

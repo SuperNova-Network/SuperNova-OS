@@ -44,7 +44,7 @@ export async function startServer(env = {}) {
   const child = spawn(process.execPath, [root + "app.js"], {
     env: {
       ...process.env, PORT: String(port), AUTH_PASS: "", OPEN_BROWSER: "0",
-      ACCOUNTS: "", ACCOUNTS_SIGNUP: "", ADMINS: "", INVITE_CODE: "",
+      ACCOUNTS: "", ACCOUNTS_SIGNUP: "", ADMINS: "", INVITE_CODE: "", SITE_CHECK: "0", // tests never ask real sites
       DATA_DIR: ownDataDir ?? env.DATA_DIR,
       ...env,
     },
