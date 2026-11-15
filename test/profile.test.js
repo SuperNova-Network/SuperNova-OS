@@ -81,3 +81,22 @@ test("mutual friends and the relation are shown, status only to friends, and blo
   assert.equal((await card(ann, dee.username)).status, 404);
   assert.equal((await card(dee, ann.username)).data.relation.blockedByMe, true);
 });
+
+test("a friend request reaches the person's open desktop at once, and the ping lists who is waiting", options, async () => {
+  const [ann, bea] = [await kit.person(), await kit.person()];
+  const quiet = await bea.listen("?quiet=1");
+  await quiet.waitFor("ready");
+  assert.equal((await ann.post("/api/friends/request", { username: bea.username })).status, 201);
+  const pushed = await quiet.waitFor("friend-request", (r) => r.username === ann.username, 3000);
+  assert.equal(pushed.username, ann.username);
+  assert.equal(typeof pushed.avatar, "number");
+  const ping = (await bea.post("/api/friends/ping")).data;
+  assert.equal(ping.requests, 1);
+  assert.deepEqual(ping.incoming.map((p) => p.username), [ann.username]);
+  // asking back is the same as accepting: nobody is told of a request that was answered
+  const quietAnn = await ann.listen("?quiet=1");
+  await quietAnn.waitFor("ready");
+  await bea.post("/api/friends/request", { username: ann.username });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.ok(!quietAnn.events.some((e) => e.event === "friend-request"), "a request that was really an acceptance isn't announced");
+});

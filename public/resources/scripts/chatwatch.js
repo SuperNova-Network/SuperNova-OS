@@ -138,6 +138,10 @@
     stream.addEventListener("read", function (event) {
       try { setUnread(JSON.parse(event.data).total); } catch (e) { setUnread(0); }
     });
+    // Someone asked to be your friend: shown at once, with Accept and Decline.
+    stream.addEventListener("friend-request", function (event) {
+      try { global.SnNotify.friendRequest(JSON.parse(event.data)); } catch (e) { /* keep listening */ }
+    });
     // You unlocked an achievement (the desktop's trophy announces it).
     stream.addEventListener("achievement", function (event) {
       try { if (global.SnAchieve) global.SnAchieve.onUnlocked(JSON.parse(event.data)); } catch (e) { /* keep listening */ }

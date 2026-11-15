@@ -2,7 +2,9 @@
  * Notification pop-ups on the desktop (the look is in notify.css, the settings and
  * rules are in notify-core.js).
  *
- *   SnNotify.show({ app, icon, title, text, picture, onClick })
+ *   SnNotify.show({ app, icon, title, text, picture, onClick, important, large, slowRing, durationMs, pauseWhenHidden,
+ *                   actions: [{ label, primary, onClick(handle) }] })
+ *   SnNotify.friendRequest({ username, avatar })   a friend request with Accept and Decline
  *   SnNotify.test()          a sample, for Settings > Notifications
  *
  * Notifications stack at the chosen corner, newest nearest the corner. They disappear
@@ -26,6 +28,7 @@
   var ICONS = {
     chat: "M3 5h18v12H10l-5 4v-4H3z",
     bell: "M6 17V11a6 6 0 0 1 12 0v6l2 2H4zM10 21h4",
+    friends: "M9 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M17 6a2.6 2.6 0 0 1 0 5M17.5 14.7c2 .6 3.5 2.3 3.5 5.3",
   };
 
   function reducedMotion() {
@@ -185,7 +188,22 @@
     if (options.text) text.appendChild(node("span", "sn-toast-msg", options.text));
     body.appendChild(text);
     el.appendChild(body);
-    return { el: el, close: close };
+
+    // Buttons under the text (Accept / Decline), when the notification asks for them.
+    var buttons = [];
+    if (options.actions && options.actions.length) {
+      var row = node("div", "sn-toast-actions");
+      options.actions.forEach(function (action) {
+        var button = node("button", "sn-toast-btn" + (action.primary ? " primary" : ""), action.label);
+        button.type = "button";
+        row.appendChild(button);
+        buttons.push(button);
+      });
+      el.appendChild(row);
+    }
+    if (options.large) el.classList.add("sn-toast-large");
+    if (options.slowRing) el.classList.add("sn-toast-slowring");
+    return { el: el, close: close, buttons: buttons, text: text, body: body };
   }
 
   /**
@@ -215,13 +233,105 @@
       leave(toast);
       if (typeof options.onClick === "function") { try { options.onClick(); } catch (e) { console.error(e); } }
     });
-    toast.timer = setTimeout(function () { leave(toast); }, settings.durationMs);
+    var duration = typeof options.durationMs === "number" ? options.durationMs : settings.durationMs;
+    if (options.pauseWhenHidden) {
+      // The time only runs while this tab is the one you are looking at: tab away and it waits for you.
+      toast.remaining = duration;
+      toast.timer = setInterval(function () {
+        if (document.hidden) return;
+        toast.remaining -= 1000;
+        if (toast.remaining <= 0) leave(toast);
+      }, 1000);
+    } else {
+      toast.timer = setTimeout(function () { leave(toast); }, duration);
+    }
+    var handle = {
+      dismiss: function () { leave(toast); },
+      /** Replace the text (and drop the buttons): for telling someone what happened when they pressed one. */
+      setText: function (message) {
+        var msg = built.text.querySelector(".sn-toast-msg") || built.text.appendChild(node("span", "sn-toast-msg"));
+        msg.textContent = message;
+        var actions = toast.el.querySelector(".sn-toast-actions");
+        if (actions) actions.remove();
+      },
+    };
+    // Each button runs its action. An action may return a promise: the notification closes when it finishes well.
+    built.buttons.forEach(function (button, index) {
+      button.addEventListener("click", function (event) {
+        event.stopPropagation();
+        var action = options.actions[index];
+        button.disabled = true;
+        Promise.resolve().then(function () { return action.onClick(handle); }).then(function () { leave(toast); }, function (error) {
+          button.disabled = false;
+          handle.setText(error && error.message ? error.message : "That didn't work.");
+        });
+      });
+    });
     trim();
-    return { dismiss: function () { leave(toast); } };
+    return handle;
+  }
+
+  // --- friend requests ----------------------------------------------------------------------------
+
+  var REQUEST_MS = 3 * 60 * 1000;  // stays for three minutes of you looking at the page
+  var REQUESTS_KEY = "snFriendReqSeen";
+  var requestToasts = {};          // username -> the notification being shown
+
+  function seenRequests() { try { return JSON.parse(global.localStorage.getItem(REQUESTS_KEY) || "[]") || []; } catch (e) { return []; } }
+  function saveSeen(list) { try { global.localStorage.setItem(REQUESTS_KEY, JSON.stringify(list.slice(-50))); } catch (e) { /* storage blocked */ } }
+
+  function answerRequest(path, username) {
+    return fetch("/api/friends/" + path, { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: username }) })
+      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (data) { if (!res.ok) throw new Error(data.error || "That didn't work."); }); });
+  }
+
+  /**
+   * "Someone wants to be friends", with Accept and Decline right on it. Important-looking: bigger, with a slow dotted
+   * ring, and it stays three minutes (only counting while this tab is in front). Each request is announced once per
+   * device by the slower check (quiet: true); the live push always shows it.
+   */
+  function friendRequest(person, quiet) {
+    if (!person || !person.username) return null;
+    var name = String(person.username);
+    if (requestToasts[name]) return requestToasts[name];
+    var seen = seenRequests();
+    if (quiet && seen.indexOf(name) !== -1) return null;
+    var url = global.SnAccount && global.SnAccount.avatarUrl ? global.SnAccount.avatarUrl(name, person.avatar) : "";
+    var forget = function () { delete requestToasts[name]; saveSeen(seenRequests().filter(function (n) { return n !== name; })); };
+    var handle = show({
+      app: "Friends",
+      icon: "friends",
+      title: name + " wants to be friends",
+      text: "Accept to add them to your friends.",
+      picture: { url: url, letter: name.charAt(0).toUpperCase(), color: core.avatarColor(name) },
+      important: true,
+      large: true,
+      slowRing: true,
+      durationMs: REQUEST_MS,
+      pauseWhenHidden: true,
+      onClick: function () { if (typeof global.openFriends === "function") global.openFriends(); },
+      actions: [
+        { label: "Accept", primary: true, onClick: function () { return answerRequest("accept", name).then(function () { forget(); show({ app: "Friends", icon: "friends", title: "You and " + name + " are friends", text: "They can see when you are online." }); }); } },
+        { label: "Decline", onClick: function () { return answerRequest("decline", name).then(forget); } },
+      ],
+    });
+    if (!handle) return null;
+    requestToasts[name] = handle;
+    if (seen.indexOf(name) === -1) { seen.push(name); saveSeen(seen); }
+    var dismiss = handle.dismiss;
+    handle.dismiss = function () { delete requestToasts[name]; dismiss(); };
+    return handle;
+  }
+
+  /** Forget the requests that are no longer waiting (answered, or taken back), so a new one from the same person is announced. */
+  function pruneRequests(stillWaiting) {
+    saveSeen(seenRequests().filter(function (name) { return stillWaiting.indexOf(name) !== -1; }));
   }
 
   global.SnNotify = {
     show: show,
+    friendRequest: friendRequest,
+    pruneRequests: pruneRequests,
     /** A sample notification, to try the settings. */
     test: function () {
       return show({

@@ -144,9 +144,10 @@
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
         if (!data) return;
-        if (requests !== null && data.requests > requests) {
-          global.SnNotify.show({ app: "Friends", icon: "bell", title: "New friend request", text: "Open Friends to answer it." });
-        }
+        // Anyone waiting who hasn't been announced on this device gets the notification with Accept and Decline.
+        var waiting = (data.incoming || []).map(function (p) { return p.username; });
+        (data.incoming || []).forEach(function (person) { global.SnNotify.friendRequest(person, true); });
+        global.SnNotify.pruneRequests(waiting);
         requests = data.requests;
       })
       .catch(function () { /* offline: the next beat will do */ });

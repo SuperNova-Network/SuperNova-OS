@@ -211,3 +211,67 @@
 @media (prefers-reduced-motion: reduce) {
   .sn-ring rect { animation: none; }
 }
+
+/* A bigger notification with buttons (a friend request): wider and roomier, the same text size */
+.sn-toasts .sn-toast.sn-toast-large {
+  width: 430px;
+  max-width: calc(100vw - 24px);
+  padding: 16px 18px 16px;
+}
+
+.sn-toast-large .sn-toast-body {
+  gap: 13px;
+  margin-top: 10px;
+}
+
+.sn-toasts .sn-toast-large .sn-toast-pic {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+
+.sn-toast-large .sn-toast-title,
+.sn-toast-large .sn-toast-msg {
+  white-space: normal;
+}
+
+.sn-toast-large .sn-toast-msg {
+  margin-top: 2px;
+}
+
+.sn-toast-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.sn-toast-btn {
+  flex: 1;
+  padding: 7px 12px;
+  border: 1px solid var(--sn-line);
+  background: transparent;
+  color: var(--sn-fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sn-toast-btn:hover:not(:disabled) {
+  background: rgb(255 255 255 / 10%);
+}
+
+.sn-toast-btn.primary {
+  border-color: var(--sn-accent, #6b5cff);
+  background: var(--sn-accent, #6b5cff);
+  color: #fff;
+}
+
+.sn-toast-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* its ring turns slowly, and is a little easier to see */
+.sn-toast-slowring .sn-ring rect {
+  stroke: rgba(255, 255, 255, 0.55);
+  animation-duration: 6s;
+}

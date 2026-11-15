@@ -20,7 +20,7 @@ import * as reportsdb from "./reportsdb.js";
 const ONLINE_MS = 150_000;
 
 /** options: db, site(), userFor, isAdmin(row) */
-export function createFriends({ db, site, userFor, isAdmin, achieve = () => {} }) {
+export function createFriends({ db, site, userFor, isAdmin, achieve = () => {}, notify = () => {} }) {
   const seen = new Map(); // user id -> time of the last ping
   const sweep = setInterval(() => { const cutoff = Date.now() - ONLINE_MS * 4; for (const [id, at] of seen) if (at < cutoff) seen.delete(id); }, 5 * 60_000);
   sweep.unref();
@@ -125,7 +125,7 @@ export function createFriends({ db, site, userFor, isAdmin, achieve = () => {} }
     seen.set(user.id, Date.now());
     const friends = db_.listFriends(db, user.id);
     const modes = db_.modes(db, friends.map((f) => f.id));
-    res.json({ requests: db_.incomingCount(db, user.id), online: friends.filter((f) => state(f.id, modes.get(f.id) ?? "online") !== "offline").length });
+    res.json({ requests: db_.incomingCount(db, user.id), incoming: db_.listIncoming(db, user.id).slice(0, 5).map((f) => ({ username: f.username, avatar: f.avatar_version })), online: friends.filter((f) => state(f.id, modes.get(f.id) ?? "online") !== "offline").length });
   }));
 
   router.post("/status", handle((req, res) => {
@@ -141,6 +141,7 @@ export function createFriends({ db, site, userFor, isAdmin, achieve = () => {} }
     const other = target(req);
     const result = db_.request(db, user, other);
     if (result === "accepted") { achieve(user.id); achieve(other.id); }
+    else notify(other.id, "friend-request", { username: user.username, avatar: user.avatar ?? 0 }); // their open desktop shows it at once
     res.status(201).json({ result });
   }));
 

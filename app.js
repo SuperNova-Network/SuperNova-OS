@@ -99,7 +99,7 @@ const store = accounts.database
   : disabledStore();
 
 const friends = accounts.database
-  ? createFriends({ achieve, db: accounts.database, site: accounts.site, userFor: accounts.userFor, isAdmin: accounts.isAdmin })
+  ? createFriends({ achieve, notify: (userId, event, data) => chat.notifyUser(userId, event, data), db: accounts.database, site: accounts.site, userFor: accounts.userFor, isAdmin: accounts.isAdmin })
   : disabledFriends();
 
 /** Make the admins' extra blocked sites live: the policy, and the list Wisp checks on each connection. */
