@@ -503,6 +503,10 @@
           <span class="row-label"><strong>Mentions</strong><small>When someone @mentions you, a role of yours, or @everyone in the Chat. These have a dotted ring that turns around the edge, and they come even when the Messaging app is off.</small></span>
           <input class="switch" id="n-mentions" type="checkbox" role="switch" data-flag="notifyMentions">
         </label>
+        <label class="row" for="n-browser">
+          <span class="row-label"><strong>Browser notifications</strong><small>Also show mentions and chat messages as your browser's own notifications when you are on another tab or window. Your browser asks for permission the first time. They only arrive while SuperNova is open in a tab.</small><small id="n-browser-note" hidden></small></span>
+          <input class="switch" id="n-browser" type="checkbox" role="switch" data-flag="notifyBrowser">
+        </label>
         <label class="row" for="n-chat">
           <span class="row-label"><strong>Messaging app</strong><small>New messages in the Chat, with the sender's picture and what they said. Off until you turn it on. You can also turn it on in the Chat's own settings.</small></span>
           <input class="switch" id="n-chat" type="checkbox" role="switch" data-flag="notifyChat">

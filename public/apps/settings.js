@@ -90,6 +90,24 @@
     SnStore.onChange((changedKey) => { if (changedKey === key || changedKey === "*") sync(); });
   });
 
+  // Browser notifications need the browser's permission: ask when the switch goes on, and switch it back off if it is refused.
+  {
+    const input = document.getElementById("n-browser");
+    const note = document.getElementById("n-browser-note");
+    const say = (message) => { note.hidden = !message; note.textContent = message; };
+    input?.addEventListener("change", async () => {
+      say("");
+      if (!input.checked) return;
+      const off = (message) => { SnStore.set("notifyBrowser", "0"); input.checked = false; input.closest(".toggle")?.querySelector(".toggle-state")?.replaceChildren("Off"); say(message); };
+      if (!("Notification" in window)) return off("This browser can't show notifications.");
+      if (Notification.permission === "denied") return off("Notifications are blocked for this site. Allow them in your browser's site settings, then try again.");
+      if (Notification.permission === "granted") return;
+      let answer = "default";
+      try { answer = await Notification.requestPermission(); } catch { /* an old browser: fall through */ }
+      if (answer !== "granted") off("Your browser didn't give permission, so this stays off.");
+    });
+  }
+
   // Drop-downs bound straight to a setting, like the notification ones.
   document.querySelectorAll("select[data-setting]").forEach((select) => {
     const key = select.dataset.setting;

@@ -69,6 +69,23 @@
     return "";
   }
 
+  /**
+   * The browser's own notification, when this tab or window isn't the one in front, the person turned this on
+   * (Settings > Notifications) and the browser gave permission. It needs SuperNova open in a tab: a closed browser
+   * can't be reached this way.
+   */
+  function browserNotify(title, body) {
+    var settings = core.settings();
+    if (!settings.browser || !settings.enabled || settings.dnd) return;
+    if (!("Notification" in global) || global.Notification.permission !== "granted") return;
+    if (document.hasFocus() && !document.hidden) return; // you are looking at SuperNova: the pop-up is enough
+    try {
+      var note = new global.Notification(title, { body: body, icon: "/resources/media/app_icons/SuperNova.png", tag: "supernova-chat", renotify: true });
+      note.onclick = function () { try { global.focus(); note.close(); if (typeof global.openChat === "function") global.openChat(); } catch (e) { /* the tab went away */ } };
+      setTimeout(function () { try { note.close(); } catch (e) { /* already closed */ } }, 10000);
+    } catch (e) { /* some browsers only allow it from a service worker: the pop-up still shows */ }
+  }
+
   function onMessage(message) {
     if (!message || !message.user || !me || message.user.username === me.username) return;
     if (chatInFront()) return; // you are looking at it: nothing to count or show
@@ -81,11 +98,13 @@
     var title = what.title;
     var answeredYou = message.reply && message.reply.user && message.reply.user.username === me.username;
     if (ping) title = name + (answeredYou ? " replied to you" : ping === "you" ? " mentioned you" : ping === "role" ? " mentioned your role" : " mentioned everyone");
+    var shownText = ping && !settings.preview ? "Open the Chat to read it" : what.text;
+    browserNotify(title, shownText);
     global.SnNotify.show({
       app: APP,
       icon: "chat",
       title: title,
-      text: ping && !settings.preview ? "Open the Chat to read it" : what.text,
+      text: shownText,
       important: Boolean(ping),
       picture: { url: global.SnAccount.avatarUrl(name, message.user.avatar), letter: name.charAt(0).toUpperCase(), color: core.avatarColor(name) },
       onClick: function () { if (typeof global.openChat === "function") global.openChat(); },
