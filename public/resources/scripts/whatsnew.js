@@ -35,6 +35,7 @@
   var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   function parseDay(text) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text || ""); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; }
+  function mondayOf(date) { var d = startOfDay(date); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }
   function startOfDay(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
 
   /** The items as days, newest first: [{ key, label, sub, items }]. Items with no date go last, as "All updates". */
@@ -46,16 +47,21 @@
       map[key].items.push(item);
     });
     order.sort(function (a, b) { return (b || -1) - (a || -1); });
-    var today = startOfDay(new Date()).getTime();
+    var now = new Date(), today = startOfDay(now).getTime(), thisMonday = mondayOf(now).getTime();
     return order.map(function (key) {
       var group = map[key];
       var count = group.items.length + (group.items.length === 1 ? " update" : " updates");
       if (!key) { group.label = "All updates"; group.sub = count; return group; }
       var date = new Date(key);
-      var diff = Math.round((today - key) / 86400000);
-      var full = WEEKDAYS[date.getDay()] + ", " + MONTHS[date.getMonth()] + " " + date.getDate() + (date.getFullYear() !== new Date().getFullYear() ? ", " + date.getFullYear() : "");
-      group.label = diff === 0 ? "Today" : diff === 1 ? "Yesterday" : full;
-      group.sub = (diff === 0 || diff === 1 ? full + " \u00b7 " : "") + count;
+      var short = MONTHS[date.getMonth()] + " " + date.getDate() + (date.getFullYear() !== now.getFullYear() ? ", " + date.getFullYear() : "");
+      var full = WEEKDAYS[date.getDay()] + ", " + short;
+      var days = Math.round((today - key) / 86400000);
+      var weeks = Math.round((thisMonday - mondayOf(date).getTime()) / (7 * 86400000));
+      if (days === 0) { group.label = "Today"; group.sub = full + " \u00b7 " + count; }
+      else if (days === 1) { group.label = "Yesterday"; group.sub = full + " \u00b7 " + count; }
+      else if (weeks === 0) { group.label = full; group.sub = count; }                                  // this week: the day and its date
+      else if (weeks === 1) { group.label = "Last " + WEEKDAYS[date.getDay()]; group.sub = short + " \u00b7 " + count; } // last week: "Last Thursday"
+      else { group.label = short; group.sub = count; }                                                  // before that: just the date
       return group;
     });
   }
