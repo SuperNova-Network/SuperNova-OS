@@ -556,6 +556,14 @@
   document.addEventListener("keyup", (event) => { if (event.key === "Shift") setShift(false); });
   document.addEventListener("mousemove", (event) => setShift(event.shiftKey));
   window.addEventListener("blur", () => setShift(false));
+  // Inside the desktop the keyboard may be going to the desktop itself (nothing in this window has focus yet), so Shift
+  // pressed over a message still counts: listen there too.
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.document.addEventListener("keydown", (event) => { if (event.key === "Shift") setShift(true); });
+      window.parent.document.addEventListener("keyup", (event) => { if (event.key === "Shift") setShift(false); });
+    }
+  } catch { /* not allowed to look at the desktop: this window's own keys still work */ }
 
   // --- the "..." menu on a message ---------------------------------------------------------------------
 
