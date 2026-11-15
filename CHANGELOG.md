@@ -8,6 +8,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Fixed
 
+- **What's new never showed on the live site.** The changelog it is written from was left out of the Docker image, so the list was empty and clicking the version did nothing. It is in the image now.
 - **The Chat opens wider.** The window is about 20% wider by default, so the channel list, messages and online list fit comfortably.
 - **Pages stopped loading when a few tabs were open.** Every tab kept two live connections to the server, and a browser allows six per address over plain HTTP, so three tabs used them all and the Chat window, the health check and everything else waited forever. The tabs now share one connection through a SharedWorker (six tabs hold two connections instead of twelve); a browser that can't share just connects by itself, as before.
 - **People were locked out of signing in and signing up for no reason.** The limits counted every try, including right passwords, taken usernames and everyone else sharing the same network (a school, a household, a phone carrier), so the whole group ran out together. Now only wrong passwords, wrong codes and failed sign-ups count, per person where possible, a blocked try counts nothing, the allowances are looser, and the message says how many minutes to wait. `TRUST_PROXY` turns on by itself on Fly.io, Render, Railway and Heroku, and the server warns when proxy headers show up without it.

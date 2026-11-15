@@ -21,6 +21,7 @@ e2e
 docs
 *.md
 !LICENSE
+!CHANGELOG.md
 .vscode
 .idea
 .DS_Store
