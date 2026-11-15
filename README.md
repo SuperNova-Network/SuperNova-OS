@@ -46,6 +46,7 @@ SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has 
 - An App Store where people publish apps for each other (a name, address, category, description and picture). Others add them to their desktop with one click, a maker's highest role shows beside their name, and anyone can report an app. Admins choose whether new apps wait for approval or go live at once.
 - Friends: add people by username, accept, decline or block requests, and see who is online, away or offline. You can show as online, away or invisible.
 - Optional chat notifications that show the sender's picture and message, off until you turn them on.
+- App Store ratings (1 to 5 stars, with a Top rated order) and a Featured shelf that admins fill.
 - Reports: report a message or a profile, and admins deal with those and app reports in one inbox.
 - Profile cards: click a name for their picture, roles, bio, join date and mutual friends, with Add friend and Mention right there.
 - Back up and restore your settings as a file.

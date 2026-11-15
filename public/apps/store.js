@@ -250,6 +250,12 @@
   // Browsing
   // ---------------------------------------------------------------------------------------
 
+  /** "4.5 (12)" in the accent colour, or nothing when nobody has rated it. */
+  const ratingText = (app) => (app.ratings ? `${app.rating.toFixed(1)} (${number(app.ratings)})` : "");
+  function ratingBadge(app) {
+    return app.ratings ? h("span", { class: "rating", title: `${app.rating.toFixed(1)} out of 5 from ${number(app.ratings)} rating${app.ratings === 1 ? "" : "s"}` }, h("span", { class: "star", text: "\u2605" }), ` ${ratingText(app)}`) : null;
+  }
+
   function appCard(app, reload) {
     const installedNow = () => desktopId(app) !== -1;
     const button = h("button", { class: `btn small${installedNow() ? "" : " primary"}`, type: "button", text: installedNow() ? "Open" : "Get" });
@@ -261,18 +267,23 @@
       h("button", { class: "hit", type: "button", "aria-label": `Details of ${app.name}`, onclick: () => details(app, reload) }),
       h("div", { class: "app-top" }, icon(app), h("div", { class: "app-text" }, h("div", { class: "app-name", text: app.name }), h("div", { class: "app-by" }, `by ${app.owner}`, app.ownerRole && roleTag(app.ownerRole)))),
       h("p", { class: "app-desc", text: app.description }),
-      h("div", { class: "app-foot" }, h("span", { text: `${number(app.installs)} ${app.installs === 1 ? "install" : "installs"}` }), button));
+      h("div", { class: "app-foot" }, ratingBadge(app), h("span", { text: `${number(app.installs)} ${app.installs === 1 ? "install" : "installs"}` }), button));
   }
 
   views.browse = async (category) => {
     const name = category?.id ?? "home";
     const grid = h("div", { class: "apps" });
+    const shelf = h("div", { class: "shelf", hidden: true });
     let timer = 0, token = 0;
     async function load() {
       const mine = ++token;
       const data = await S("GET", `/apps?${query({ q: browse.q, category: category?.id ?? "", sort: browse.sort })}`);
       if (mine !== token || current !== name) return;
       meta = { ...meta, ...data };
+      // Featured apps lead the front page (not a search, not a category).
+      const showShelf = !category && !browse.q && data.featured?.length;
+      shelf.hidden = !showShelf;
+      shelf.replaceChildren(...(showShelf ? [h("h3", { class: "shelf-title", text: "Featured" }), h("div", { class: "apps" }, data.featured.map((app) => appCard(app, load)))] : []));
       if (!data.apps.length) {
         grid.replaceChildren(h("p", { class: "empty", style: "grid-column:1/-1", text: browse.q ? "No apps match your search." : category ? `No ${category.label.toLowerCase()} apps yet.` : "The store is empty. Be the first to publish an app." }));
         return;
@@ -281,18 +292,47 @@
     }
     const q = h("input", { class: "field grow", type: "search", placeholder: category ? `Search ${category.label.toLowerCase()}` : "Search apps, descriptions and makers", value: browse.q, "aria-label": "Search the store", maxlength: "60" });
     q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => { browse.q = q.value.trim(); load().catch((e) => toast(e.message, "error")); }, 250); });
-    const sort = h("select", { class: "field select-sort", "aria-label": "Order" }, [["popular", "Most installed"], ["new", "Newest"], ["name", "A to Z"]].map(([v, t]) => h("option", { value: v, text: t })));
+    const sort = h("select", { class: "field select-sort", "aria-label": "Order" }, [["popular", "Most installed"], ["rating", "Top rated"], ["new", "Newest"], ["name", "A to Z"]].map(([v, t]) => h("option", { value: v, text: t })));
     sort.value = browse.sort;
     sort.addEventListener("change", () => { browse.sort = sort.value; load().catch((e) => toast(e.message, "error")); });
     main.replaceChildren(
       h("div", { class: "view-head" }, h("h2", { text: category ? category.label : "App Store" }), h("button", { class: "btn primary", type: "button", text: "Publish an app", onclick: () => editor(null, () => show("mine")) })),
       // (replaceChildren turns a stray false into the text "false", so leave the line out instead of passing false)
       ...(category ? [] : [h("p", { class: "lead", text: "Apps made by people on this site. Get one and it joins your desktop, and it opens like any other app." })]),
+      shelf,
       h("div", { class: "toolbar" }, q, sort),
       grid);
     await load();
   };
   views.home = () => views.browse(null);
+
+  /** The average, and (for an app you have that isn't yours) five stars to give it yours. */
+  function ratingBlock(app, reload) {
+    const box = h("div", { class: "rate-box" });
+    const mine = () => me && app.owner === me.username;
+    const draw = () => {
+      const row = h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" },
+        app.ratings ? h("span", {}, ratingBadge(app), h("span", { class: "dim", text: ` ${app.ratings === 1 ? "1 rating" : `${number(app.ratings)} ratings`}` })) : h("span", { class: "dim", text: "No ratings yet" }));
+      box.replaceChildren(row);
+      if (mine()) return;
+      if (desktopId(app) === -1) { box.append(h("p", { class: "dim small", style: "margin:4px 0 0", text: "Get the app to rate it." })); return; }
+      const stars = h("div", { class: "stars", role: "radiogroup", "aria-label": "Your rating" });
+      for (let n = 1; n <= 5; n++) {
+        stars.append(h("button", { class: `star-btn${(app.mine ?? 0) >= n ? " on" : ""}`, type: "button", role: "radio", "aria-checked": String(app.mine === n), title: `${n} star${n === 1 ? "" : "s"}`, text: "\u2605",
+          onclick: async (e) => {
+            const result = await act(e.target, () => S("POST", `/apps/${app.id}/rate`, { stars: n }), `You gave ${app.name} ${n} star${n === 1 ? "" : "s"}.`);
+            if (result) { Object.assign(app, result.app); draw(); reload(); }
+          } }));
+      }
+      const clear = app.mine ? h("button", { class: "btn small", type: "button", text: "Take my rating back", onclick: async (e) => {
+        const result = await act(e.target, () => S("POST", `/apps/${app.id}/rate`, { stars: 0 }), "Your rating is gone.");
+        if (result) { delete app.mine; Object.assign(app, result.app); delete app.mine; draw(); reload(); }
+      } }) : null;
+      box.append(h("div", { class: "row", style: "gap:8px;margin-top:6px;flex-wrap:wrap" }, h("span", { class: "dim small", text: app.mine ? "Your rating" : "Rate it" }), stars, clear));
+    };
+    draw();
+    return box;
+  }
 
   function details(app, reload) {
     const id = () => desktopId(app);
@@ -300,6 +340,7 @@
       h("div", { class: "detail-head" }, icon(app, "big"), h("div", {}, h("h2", { text: app.name }), h("div", { class: "dim" }, "by ", h("a", { href: "#", "data-profile": app.owner, text: app.owner, style: "color:inherit;text-decoration:underline", onclick: (e) => { e.preventDefault(); window.SnProfile?.open(app.owner, { anchor: e.currentTarget }); } }), app.ownerRole && roleTag(app.ownerRole)),
         h("div", { style: "margin-top:6px" }, chip(meta.categories.find((c) => c.id === app.category)?.label ?? app.category), chip(`${number(app.installs)} ${app.installs === 1 ? "install" : "installs"}`)))),
       h("p", { class: "detail-text", text: app.description }),
+      ratingBlock(app, reload),
       h("dl", { class: "kv" }, h("dt", { text: "Opens" }), h("dd", { text: hostOf(app.url) }), h("dt", { text: "Added" }), h("dd", { text: ago(app.created) })),
       h("p", { class: "notice", text: "Apps are made by other people and open through the proxy, like any site you add yourself. Only add apps you trust." }));
     const actions = [{ label: "Close" }];

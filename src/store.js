@@ -97,9 +97,13 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     const { q, category, sort, offset, limit: count } = req.query;
     const rows = apps.listApproved(db, { q: String(q ?? ""), category: String(category ?? ""), sort: String(sort ?? "popular"), offset, limit: count });
     const installed = apps.installedIds(db, user.id);
+    const given = apps.ratingsBy(db, user.id);
+    const shape = (row) => ({ ...pub(row), installed: installed.has(row.id), ...(given.has(row.id) ? { mine: given.get(row.id) } : {}) });
     res.json({
       ...status(),
-      apps: rows.map((row) => ({ ...pub(row), installed: installed.has(row.id) })),
+      apps: rows.map(shape),
+      // The front page's shelf (the page decides whether to show it: it is for the unfiltered view).
+      featured: apps.listFeatured(db).map(shape),
     });
   }));
 
@@ -186,6 +190,15 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     // Several different people reporting it is reason enough to take another look before anyone gets it.
     if (total >= apps.REPORTS_TO_PAUSE) apps.pauseApp(db, row.id);
     res.status(201).json({ ok: true });
+  }));
+
+  // Rate an app 1 to 5 stars (0 takes your rating back). You have to have it, and it can't be yours.
+  router.post("/apps/:id/rate", handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.install, `u${user.id}`);
+    const stars = typeof req.body?.stars === "number" ? req.body.stars : NaN; // anything else is refused, never read as "take it back"
+    const row = apps.setRating(db, { appId: req.params.id, userId: user.id, stars });
+    res.json({ app: { ...pub(row), installed: true, ...(stars ? { mine: stars } : {}) } });
   }));
 
   router.post("/apps/:id/uninstall", handle((req, res) => {

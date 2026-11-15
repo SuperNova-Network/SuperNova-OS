@@ -1082,7 +1082,7 @@
       drawTabs();
       drawSettings(data.settings);
       const rows = data.apps.map((app) => h("tr", {},
-        h("td", {}, h("a", { href: "#", text: app.name, style: "color:inherit", onclick: (e) => { e.preventDefault(); peek(app); } }), app.ownerIsAdmin && chip("ADMIN", "admin")),
+        h("td", {}, h("a", { href: "#", text: app.name, style: "color:inherit", onclick: (e) => { e.preventDefault(); peek(app); } }), app.ownerIsAdmin && chip("ADMIN", "admin"), app.featured && chip("FEATURED", "green")),
         h("td", { text: app.owner }),
         h("td", {}, h("a", { href: app.url, target: "_blank", rel: "noopener noreferrer", text: new URL(app.url).hostname, title: app.url, style: "color:inherit" })),
         h("td", { text: app.category }),
@@ -1091,6 +1091,7 @@
         h("td", {}, app.reports ? chip(`${app.reports} report${app.reports === 1 ? "" : "s"}`, "red") : ""),
         h("td", {}, h("div", { class: "row end" },
           app.reports && h("button", { class: "btn small", type: "button", text: "Dismiss", onclick: (e) => decide(e.target, app, "dismiss") }),
+          app.status === "approved" && h("button", { class: "btn small", type: "button", text: app.featured ? "Unfeature" : "Feature", title: app.featured ? "Take it off the store's front page" : "Show it on the store's front page", onclick: (e) => act(e.target, async () => { await A("POST", `/store/apps/${app.id}/feature`, { featured: !app.featured }); load(); }, app.featured ? "It is off the front page." : `${app.name} is featured.`) }),
           app.status !== "approved" && h("button", { class: "btn small primary", type: "button", text: "Approve", onclick: (e) => decide(e.target, app, "approve") }),
           app.status !== "rejected" && h("button", { class: "btn small", type: "button", text: app.status === "approved" ? "Take down…" : "Reject…", onclick: (e) => reject(e.target, app) }),
           h("button", { class: "btn small danger", type: "button", text: "Delete", onclick: async (e) => { if (await confirmBox(`Delete ${app.name}?`, "It is removed for good, along with its install counts.", { confirm: "Delete", danger: true })) decide(e.target, app, "delete"); } })))));

@@ -281,3 +281,48 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* Ratings and the Featured shelf */
+
+.rating {
+  color: var(--w-text, #fff);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.rating .star,
+.star-btn.on {
+  color: #ffc83d;
+}
+
+.stars {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.star-btn {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--w-faint, #8c8c8c);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rate-box {
+  margin: 10px 0 4px;
+}
+
+.shelf {
+  margin: 0 0 14px;
+}
+
+.shelf-title {
+  margin: 0 0 6px;
+  color: var(--w-dim, #b8b8b8);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

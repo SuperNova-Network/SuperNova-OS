@@ -369,7 +369,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     if (!row) throw new HttpError(404, "That app isn't in the store.");
     return row;
   };
-  const adminApp = (row) => ({ ...apps.publicApp(row, { forOwner: true }), reports: row.reports, key: row.url_key, reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, ownerIsAdmin: Boolean(row.owner_is_admin) });
+  const adminApp = (row) => ({ ...apps.publicApp(row, { forOwner: true }), featured: Boolean(row.featured_at), reports: row.reports, key: row.url_key, reviewedBy: row.reviewed_by, reviewedAt: row.reviewed_at, ownerIsAdmin: Boolean(row.owner_is_admin) });
 
   router.get("/store", handle((req, res) => {
     requireAdmin(req);
@@ -397,6 +397,15 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
   router.get("/store/apps/:id/reports", handle((req, res) => {
     requireAdmin(req);
     res.json({ reports: apps.reportsFor(db, appOf(req).id) });
+  }));
+
+  // Put a live app on the store's front page (up to 8), or take it off.
+  router.post("/store/apps/:id/feature", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const on = req.body?.featured !== false;
+    const row = apps.setFeatured(db, appOf(req).id, on, admin.username);
+    logAdmin(db, admin.username, on ? "featured a store app" : "unfeatured a store app", row.name);
+    res.json({ app: adminApp(row) });
   }));
 
   router.post("/store/apps/:id/dismiss", handle((req, res) => {

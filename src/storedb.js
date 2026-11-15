@@ -92,7 +92,10 @@ const COLUMNS = `a.id, a.name, a.description, a.url, a.url_key, a.category, a.st
   (SELECT r.name FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = a.owner_id ORDER BY r.position DESC LIMIT 1) AS owner_role,
   (SELECT r.color FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = a.owner_id ORDER BY r.position DESC LIMIT 1) AS owner_role_color,
   (SELECT COUNT(*) FROM store_installs i WHERE i.app_id = a.id) AS installs,
-  (SELECT COUNT(*) FROM store_reports r WHERE r.app_id = a.id) AS reports`;
+  (SELECT COUNT(*) FROM store_reports r WHERE r.app_id = a.id) AS reports,
+  (SELECT COUNT(*) FROM store_ratings x WHERE x.app_id = a.id) AS rating_count,
+  (SELECT AVG(x.stars) FROM store_ratings x WHERE x.app_id = a.id) AS rating_avg,
+  a.featured_at`;
 
 /**
  * An app as pages get it. `ownerRole` is the maker's highest role (an admin with no role is shown as Admin);
@@ -110,6 +113,9 @@ export function publicApp(row, { forOwner = false, isAdmin = null } = {}) {
     owner: row.owner,
     ...(ownerRole ? { ownerRole } : {}),
     installs: row.installs,
+    ratings: row.rating_count ?? 0,
+    rating: row.rating_count ? Math.round(row.rating_avg * 10) / 10 : null,
+    ...(row.featured_at ? { featured: true } : {}),
     icon: row.icon_version || 0,
     created: row.created_at,
     updated: row.updated_at,
@@ -132,11 +138,56 @@ export function listApproved(db, { q = "", category = "", sort = "popular", limi
     where.push("(a.name LIKE ? ESCAPE '\\' OR a.description LIKE ? ESCAPE '\\' OR u.username LIKE ? ESCAPE '\\')");
     args.push(like, like, like);
   }
-  const order = sort === "new" ? "a.created_at DESC" : sort === "name" ? "a.name COLLATE NOCASE ASC" : "installs DESC, a.created_at DESC";
+  // "rating" is a careful average: a few votes can't beat many (three votes of 3.5 stars are added to every app's own).
+  const order = sort === "new" ? "a.created_at DESC" : sort === "name" ? "a.name COLLATE NOCASE ASC"
+    : sort === "rating" ? "((COALESCE(rating_avg, 0) * rating_count + 3 * 3.5) / (rating_count + 3)) DESC, installs DESC, a.created_at DESC"
+      : "installs DESC, a.created_at DESC";
   const rows = db.prepare(`SELECT ${COLUMNS} FROM store_apps a JOIN users u ON u.id = a.owner_id
     WHERE ${where.join(" AND ")} ORDER BY ${order}, a.id DESC LIMIT ? OFFSET ?`)
     .all(...args, Math.min(Math.max(Number(limit) || 60, 1), 100), Math.max(Number(offset) || 0, 0));
   return rows;
+}
+
+export const FEATURED_MAX = 8;
+
+/** The apps admins feature, newest choice first. */
+export function listFeatured(db) {
+  return db.prepare(`SELECT ${COLUMNS} FROM store_apps a JOIN users u ON u.id = a.owner_id
+    WHERE a.status = 'approved' AND a.featured_at IS NOT NULL ORDER BY a.featured_at DESC LIMIT ?`).all(FEATURED_MAX);
+}
+
+/** Put an approved app on the front page, or take it off. At most FEATURED_MAX at once. */
+export function setFeatured(db, appId, on, by) {
+  const app = getApp(db, appId);
+  if (!app) throw new AdminError(404, "That app isn't in the store.");
+  if (on) {
+    if (app.status !== "approved") throw new AdminError(400, "Only apps that are live in the store can be featured.");
+    if (!app.featured_at && db.prepare("SELECT COUNT(*) AS n FROM store_apps WHERE status = 'approved' AND featured_at IS NOT NULL").get().n >= FEATURED_MAX) {
+      throw new AdminError(400, `You can feature ${FEATURED_MAX} apps at once. Take one off first.`);
+    }
+    db.prepare("UPDATE store_apps SET featured_at = COALESCE(featured_at, ?), featured_by = COALESCE(featured_by, ?) WHERE id = ?").run(Date.now(), by, app.id);
+  } else {
+    db.prepare("UPDATE store_apps SET featured_at = NULL, featured_by = NULL WHERE id = ?").run(app.id);
+  }
+  return getApp(db, app.id);
+}
+
+/** What this person gave each app: a Map of app id to stars. */
+export function ratingsBy(db, userId) {
+  return new Map(db.prepare("SELECT app_id, stars FROM store_ratings WHERE user_id = ?").all(userId).map((r) => [r.app_id, r.stars]));
+}
+
+/** Give an app 1 to 5 stars, or (0) take the rating back. Needs the app to be live, not yours, and installed by you. */
+export function setRating(db, { appId, userId, stars }) {
+  const app = getApp(db, appId);
+  if (!app || app.status !== "approved") throw new AdminError(404, "That app isn't in the store.");
+  if (db.prepare("SELECT 1 FROM store_apps WHERE id = ? AND owner_id = ?").get(app.id, userId)) throw new AdminError(400, "You can't rate your own app.");
+  if (stars === 0) { db.prepare("DELETE FROM store_ratings WHERE app_id = ? AND user_id = ?").run(app.id, userId); return getApp(db, app.id); }
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) throw new AdminError(400, "Give 1 to 5 stars.");
+  if (!db.prepare("SELECT 1 FROM store_installs WHERE app_id = ? AND user_id = ?").get(app.id, userId)) throw new AdminError(400, "Get the app first, then you can rate it.");
+  db.prepare("INSERT INTO store_ratings (app_id, user_id, stars, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(app_id, user_id) DO UPDATE SET stars = excluded.stars, updated_at = excluded.updated_at")
+    .run(app.id, userId, stars, Date.now());
+  return getApp(db, app.id);
 }
 
 export function listMine(db, userId) {

@@ -376,6 +376,21 @@ const MIGRATIONS = [
     CREATE UNIQUE INDEX IF NOT EXISTS reports_once ON reports(reporter_id, ref) WHERE status = 'open';
     CREATE INDEX IF NOT EXISTS reports_open ON reports(status, ref);
   `),
+  // 19: star ratings of store apps (one per person per app), and apps admins feature on the store's front page.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS store_ratings (
+        app_id INTEGER NOT NULL REFERENCES store_apps(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (app_id, user_id)
+      );
+    `);
+    const columns = db.prepare("PRAGMA table_info(store_apps)").all().map((c) => c.name);
+    if (!columns.includes("featured_at")) db.exec("ALTER TABLE store_apps ADD COLUMN featured_at INTEGER");
+    if (!columns.includes("featured_by")) db.exec("ALTER TABLE store_apps ADD COLUMN featured_by TEXT");
+  },
 ];
 
 /** The schema version this build upgrades a database to. */

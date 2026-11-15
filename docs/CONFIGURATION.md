@@ -154,6 +154,8 @@ The **App Store** is a taskbar app, pinned by default after Chat, where people p
 - **Approval** is the admin's choice (Admin Panel > App Store): every new app waits for an admin, or new apps go live at once. Admins can always take an app down or delete it. With approval on, changing a live app sends it back to the queue. A rejected app shows its reason to the maker, who can fix and send it again.
 - **Rules.** The content filter's blocked sites and search words apply to what people publish. Limits: 5 apps in the store per person (changeable), 12 publish or edit requests an hour, pictures are PNG, JPEG or WebP up to 120 KB (the app shrinks them to 256 px).
 - **Installs** are counted once per person and shown on each app. They are kept in the same `accounts.db` (tables `store_apps`, `store_icons`, `store_installs`).
+- **Ratings.** Someone who has an app can give it 1 to 5 stars (once, changeable, and not on their own app); the average and the number of ratings show on its card and details, and "Top rated" orders the store by a careful average, so a single five-star vote can't beat an app many people like (`POST /api/store/apps/:id/rate`, table `store_ratings`, database version 19).
+- **Featured.** Admins feature up to 8 live apps (Admin Panel > App Store > Feature); they sit on a Featured shelf at the top of the store's front page, newest choice first. Only live apps can be featured.
 
 ## Roles and mentions
 
