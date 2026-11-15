@@ -8,6 +8,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Fixed
 
+- Your own name in the Chat's top-right button is plain white now, not coloured by your role.
 - The unread number beside a channel is round now, not square.
 - **What's new never showed on the live site.** The changelog it is written from was left out of the Docker image, so the list was empty and clicking the version did nothing. It is in the image now.
 - **The Chat opens wider.** The window is about 20% wider by default, so the channel list, messages and online list fit comfortably.

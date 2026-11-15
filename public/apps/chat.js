@@ -464,8 +464,7 @@
     paintAvatar($("me-avatar"), state.me);
     $("me-avatar").className = "avatar small";
     $("me-name").textContent = state.me.username;
-    $("me-name").className = "me-name";
-    styleName($("me-name"), state.me);
+    $("me-name").className = "me-name"; // plain white: your own button isn't coloured by your roles
   }
 
   /** Clicking a name or picture opens that person's profile card (with Mention, and Moderate for moderators). */
