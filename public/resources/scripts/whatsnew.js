@@ -30,31 +30,33 @@
     if (old) old.parentNode.removeChild(old);
   }
 
-  // --- grouping by week ---------------------------------------------------------------------------------
+  // --- grouping by day ----------------------------------------------------------------------------------
 
   var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   function parseDay(text) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text || ""); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; }
-  function mondayOf(date) { var d = new Date(date.getFullYear(), date.getMonth(), date.getDate()); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }
-  function dayLabel(d) { return MONTHS[d.getMonth()] + " " + d.getDate(); }
+  function startOfDay(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
 
-  /** The items as weeks, newest first: [{ key, label, sub, items }]. Items with no date go last, as "Earlier". */
+  /** The items as days, newest first: [{ key, label, sub, items }]. Items with no date go last, as "All updates". */
   function weeksOf(list) {
     var map = {}, order = [];
     list.forEach(function (item) {
-      var day = parseDay(item.date), key = day ? mondayOf(day).getTime() : 0;
+      var day = parseDay(item.date), key = day ? startOfDay(day).getTime() : 0;
       if (!map[key]) { map[key] = { key: key, items: [] }; order.push(key); }
       map[key].items.push(item);
     });
     order.sort(function (a, b) { return (b || -1) - (a || -1); });
-    var thisWeek = mondayOf(new Date()).getTime();
+    var today = startOfDay(new Date()).getTime();
     return order.map(function (key) {
-      var week = map[key];
-      if (!key) { week.label = "All updates"; week.sub = week.items.length + (week.items.length === 1 ? " update" : " updates"); return week; }
-      var start = new Date(key), end = new Date(key); end.setDate(end.getDate() + 6);
-      var diff = Math.round((thisWeek - key) / (7 * 86400000));
-      week.label = diff === 0 ? "This week" : diff === 1 ? "Last week" : "Week of " + dayLabel(start);
-      week.sub = dayLabel(start) + " \u2013 " + dayLabel(end);
-      return week;
+      var group = map[key];
+      var count = group.items.length + (group.items.length === 1 ? " update" : " updates");
+      if (!key) { group.label = "All updates"; group.sub = count; return group; }
+      var date = new Date(key);
+      var diff = Math.round((today - key) / 86400000);
+      var full = WEEKDAYS[date.getDay()] + ", " + MONTHS[date.getMonth()] + " " + date.getDate() + (date.getFullYear() !== new Date().getFullYear() ? ", " + date.getFullYear() : "");
+      group.label = diff === 0 ? "Today" : diff === 1 ? "Yesterday" : full;
+      group.sub = (diff === 0 || diff === 1 ? full + " \u00b7 " : "") + count;
+      return group;
     });
   }
 
@@ -90,7 +92,7 @@
   }
 
   /**
-   * Open the window: first the weeks (the newest marked LATEST, any with things you haven't seen marked NEW), then, on
+   * Open the window: first the days (the newest marked LATEST, any with things you haven't seen marked NEW), then, on
    * clicking one, its updates. `unseen` is a list of ids the person hasn't seen yet.
    */
   function show(list, unseen) {
@@ -119,7 +121,7 @@
     var back = document.createElement("button");
     back.type = "button";
     back.className = "wn-back";
-    back.textContent = "\u2039 All weeks";
+    back.textContent = "\u2039 All days";
     var ok = document.createElement("button");
     ok.type = "button";
     ok.textContent = "Got it";
@@ -141,7 +143,7 @@
         var name = document.createElement("strong");
         name.textContent = week.label;
         var sub = document.createElement("small");
-        sub.textContent = week.key ? week.sub + " \u00b7 " + week.items.length + (week.items.length === 1 ? " update" : " updates") : week.sub;
+        sub.textContent = week.sub;
         left.appendChild(name); left.appendChild(sub);
         row.appendChild(left);
         var tags = document.createElement("span");
