@@ -23,6 +23,7 @@ import { createStore, disabledStore } from "./src/store.js";
 import { createFriends, disabledFriends } from "./src/friends.js";
 import { createLive } from "./src/live.js";
 import { readBuildInfo } from "./src/buildinfo.js";
+import { createWhatsNew } from "./src/whatsnew.js";
 import * as roles from "./src/roles.js";
 import { createSuggest, cleanQuery } from "./src/suggest.js";
 import { createLimiter } from "./src/ratelimit.js";
@@ -255,6 +256,12 @@ app.get("/setup", (_req, res) => {
 app.get("/api/announcement", (_req, res) => {
   const { id, text, level, active } = admin.announcement();
   res.set("Cache-Control", "no-store").json({ announcement: active ? { id, text, level } : null });
+});
+
+// What's new after an update, from the changelog: public, like the version label.
+const whatsNew = createWhatsNew(fileURLToPath(new URL("./CHANGELOG.md", import.meta.url)));
+app.get("/api/whatsnew", (_req, res) => {
+  res.set("Cache-Control", "no-cache").json({ items: whatsNew() });
 });
 
 // Announcements written ahead of time go out (and come down) on their own: checked every few seconds.

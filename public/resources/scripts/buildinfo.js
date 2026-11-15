@@ -8,6 +8,11 @@
   function show(build) {
     var box = document.getElementById("buildinfo");
     if (!box || !build || (!build.tag && !build.commit)) return;
+    if (!box.getAttribute("data-wn")) {
+      box.setAttribute("data-wn", "1");
+      box.title = "What\u2019s new";
+      box.addEventListener("click", function () { if (global.SnWhatsNew) global.SnWhatsNew.open(); });
+    }
     var version = build.tag ? build.tag + (build.ahead ? "+" + build.ahead : "") : "";
     var commit = build.commit ? build.commit + (build.dirty ? "*" : "") : "";
     box.textContent = "";
