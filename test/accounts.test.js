@@ -137,7 +137,7 @@ test("settings changes are validated, and history never reaches the server", opt
   assert.equal((await browser.patch("/settings", { set: { colId: 5 } })).status, 400);
   assert.equal((await browser.patch("/settings", { set: "nope" })).status, 400);
   assert.equal((await browser.patch("/settings", { set: { big: "a".repeat(200_001) } })).status, 400);
-  await browser.patch("/settings", { set: { history: '["secret"]', "visited-before": "true", "bad key": "x", __proto__x: "y", ok: "1" } });
+  await browser.patch("/settings", { set: { history: '["secret"]', browserSession: '{"tabs":[]}', "visited-before": "true", "bad key": "x", __proto__x: "y", ok: "1" } });
   assert.deepEqual((await browser.get("/settings")).data.settings, { ok: "1" });
   const tooBig = Object.fromEntries(Array.from({ length: 4 }, (_, i) => [`k${i}`, "a".repeat(150_000)]));
   assert.equal((await browser.patch("/settings", { set: tooBig })).status, 413);

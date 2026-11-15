@@ -37,7 +37,8 @@
     uv: "Lightweight, a good fallback if a site misbehaves",
   };
 
-  SnStore.defaults({ bookmarks: "[]", history: "[]", bookmarkbar: "1" });
+  // browserRestore: bring the tabs back when the browser opens. browserSession: the tabs as they were (kept on this device).
+  SnStore.defaults({ bookmarks: "[]", history: "[]", bookmarkbar: "1", browserRestore: "1" });
 
   const $ = (id) => document.getElementById(id);
   const els = {
@@ -206,15 +207,21 @@
     for (const tab of tabs) els.tabs.append(tab.button);
   }
 
-  function createTab(input, options = {}) {
-    if (tabs.length >= MAX_TABS) { toast(`You can have up to ${MAX_TABS} tabs open`); return null; }
+  function addTab(options = {}) {
     const tab = {
       id: nextId++, title: options.title ?? "New tab", url: "", pending: "", frame: null, button: null,
       loading: false, problem: null, icon: "", pinned: Boolean(options.pinned), fullscreen: false, zoom: 1,
+      sleeping: false, // brought back from last time: it loads when you first open it
     };
     tab.button = buildTabButton(tab);
     tabs.push(tab);
     els.tabs.appendChild(tab.button);
+    return tab;
+  }
+
+  function createTab(input, options = {}) {
+    if (tabs.length >= MAX_TABS) { toast(`You can have up to ${MAX_TABS} tabs open`); return null; }
+    const tab = addTab(options);
     if (tab.pinned) sortPinned();
     renderTab(tab);
     activate(tab.id);
@@ -236,6 +243,7 @@
     if (!tabs.length) { createTab(); return; }
     if (id === activeId) activate(tabs[Math.min(index, tabs.length - 1)].id);
     else refresh();
+    scheduleSave();
   }
 
   function reopenClosed() {
@@ -282,9 +290,12 @@
     } else {
       icon.textContent = letterFor(tab);
     }
+    scheduleSave();
   }
 
   function activate(id) {
+    const waking = tabs.find((tab) => tab.id === id);
+    if (waking?.sleeping) { waking.sleeping = false; navigate(waking, waking.url); } // brought back from last time: load it now
     activeId = id;
     tabs.forEach((tab) => {
       const selected = tab.id === id;
@@ -450,6 +461,60 @@
     renderTab(tab);
     refresh();
     els.newtabInput.focus();
+  }
+
+  // --- session: the tabs come back when the browser is opened again ----------------------------------
+
+  const SESSION_KEY = "browserSession";
+  let saveTimer = 0;
+  let restoring = false;
+
+  function scheduleSave() {
+    if (restoring) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveSession, 500);
+  }
+
+  /** Remember the open tabs (only pages, not blank tabs). Kept on this device, like history. */
+  function saveSession() {
+    clearTimeout(saveTimer);
+    if (restoring) return;
+    const open = tabs.filter((tab) => tab.url);
+    if (!open.length) { SnStore.remove(SESSION_KEY); return; }
+    const session = {
+      v: 1,
+      active: Math.max(0, open.findIndex((tab) => tab.id === activeId)),
+      tabs: open.slice(0, MAX_TABS).map((tab) => ({ url: tab.url, title: tab.title === "Loading\u2026" ? hostOf(tab.url) : tab.title, pinned: Boolean(tab.pinned) })),
+    };
+    SnStore.set(SESSION_KEY, JSON.stringify(session));
+  }
+  window.addEventListener("pagehide", saveSession);
+  window.addEventListener("beforeunload", saveSession);
+
+  /** The saved tabs, as tabs that load when you first open them. Returns whether there were any. */
+  function restoreSession() {
+    if (!SnStore.flag("browserRestore")) return false;
+    let session;
+    try { session = JSON.parse(SnStore.get(SESSION_KEY) || "null"); } catch { return false; }
+    const saved = Array.isArray(session?.tabs) ? session.tabs.filter((t) => typeof t?.url === "string" && /^https?:\/\//i.test(t.url)).slice(0, MAX_TABS) : [];
+    if (!saved.length) return false;
+    restoring = true;
+    try {
+      for (const entry of saved) {
+        const tab = addTab({ title: String(entry.title || hostOf(entry.url) || "Page").slice(0, 120), pinned: entry.pinned });
+        tab.url = entry.url;
+        tab.sleeping = true;
+        renderTab(tab);
+      }
+      sortPinned();
+      const pick = tabs.find((tab) => tab.url === saved[Math.min(Math.max(Number(session.active) || 0, 0), saved.length - 1)].url) ?? tabs[0];
+      activate(pick.id);
+    } finally {
+      restoring = false;
+    }
+    toast(`Brought back ${saved.length} tab${saved.length === 1 ? "" : "s"} from last time`);
+    scheduleSave();
+    return true;
   }
 
   // --- history and bookmarks --------------------------------------------------------------
@@ -743,6 +808,7 @@
       menuItem("Bookmark this page", { icon: "star", kbd: "Alt+D", disabled: !tab.url, onClick: () => toggleBookmark(tab) }),
       menuItem("Add to desktop", { icon: "plus", disabled: !tab.url || !desktop(), onClick: () => desktop().openAddApp(tab.title, tab.url) }),
       menuItem(SnStore.flag("bookmarkbar") ? "Hide bookmarks bar" : "Show bookmarks bar", { icon: "star", kbd: "Alt+B", onClick: toggleBookmarkBar }),
+      menuItem(SnStore.flag("browserRestore") ? "Don't bring tabs back next time" : "Bring tabs back next time", { icon: "undo", onClick: () => { SnStore.set("browserRestore", SnStore.flag("browserRestore") ? "0" : "1"); toast(SnStore.flag("browserRestore") ? "Your tabs will come back when you open the browser" : "The browser will start with a new tab"); } }),
       menuItem("Clear history", { icon: "trash", note: `${readList("history").length} pages`, disabled: !readList("history").length, onClick: () => { writeList("history", []); toast("History cleared"); } }),
     );
     const rect = els.menuButton.getBoundingClientRect();
@@ -941,6 +1007,7 @@
 
   // Settings can change the engine, transport, search options or bookmarks while we are open.
   SnStore.onChange((key) => {
+    if (key === "browserSession") return; // our own saving
     if (key === "bookmarks" || key === "bookmarkbar" || key === "*") renderBookmarks();
     refresh();
   });
@@ -948,9 +1015,12 @@
   buildTiles();
   renderBookmarks();
 
-  // Opened with ?q=... (from the taskbar search) or ?url=...
+  // The tabs from last time come back (when that is turned on in the menu), each loading only when you open it. Something
+  // opened with ?q=... (from the taskbar search) or ?url=... goes in a new tab beside them.
   const params = new URLSearchParams(location.search);
-  createTab(params.get("q") ?? params.get("url") ?? undefined);
+  const wanted = params.get("q") ?? params.get("url") ?? undefined;
+  if (!restoreSession()) createTab(wanted);
+  else if (wanted) createTab(wanted);
 
   // Start the proxy warming up so the first navigation is quick.
   SnProxy.ready().catch(() => { /* surfaced when a page is requested */ });

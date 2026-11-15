@@ -28,7 +28,7 @@
   var PUSH_DELAY = 1500;
 
   var store = window.SnStore;
-  var deviceOnly = (window.SnBackup && SnBackup.DEVICE_ONLY) || ["history", "visited-before", "welcome-popup"];
+  var deviceOnly = (window.SnBackup && SnBackup.DEVICE_ONLY) || ["history", "visited-before", "welcome-popup", "browserSession"];
 
   function syncable(key) {
     return typeof key === "string" && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(key) && deviceOnly.indexOf(key) === -1;

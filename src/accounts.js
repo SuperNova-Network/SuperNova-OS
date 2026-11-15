@@ -41,7 +41,7 @@ const AVATAR_MAX_PIXELS = 1024;
 
 // Settings: the same rules as a backup file (public/proxy/backup.js).
 const KEY = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
-const DEVICE_ONLY = new Set(["history", "visited-before", "welcome-popup"]);
+const DEVICE_ONLY = new Set(["history", "visited-before", "welcome-popup", "browserSession"]);
 const MAX_KEYS = 500;
 const MAX_VALUE = 200_000;
 const MAX_SETTINGS_BYTES = 512 * 1024;

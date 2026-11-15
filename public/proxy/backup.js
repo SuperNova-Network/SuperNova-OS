@@ -25,7 +25,7 @@
 
   // Stay on this device: browsing history is private and not a setting, and the
   // first-visit flags describe this browser, not the person.
-  var DEVICE_ONLY = ["history", "visited-before", "welcome-popup"];
+  var DEVICE_ONLY = ["history", "visited-before", "welcome-popup", "browserSession"];
 
   function deviceOnly(key) {
     return DEVICE_ONLY.indexOf(key) !== -1;
