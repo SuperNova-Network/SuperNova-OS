@@ -583,6 +583,12 @@ input[type="color"].swatch-custom {
   padding-bottom: 2px;
 }
 
+/* The message under the pointer is lit, so you know which "..." is yours; it stays lit while its menu is open. */
+.msg:hover,
+.msg.menu-open {
+  background: rgb(255 255 255 / 5%);
+}
+
 .msg .spacer-avatar {
   flex: none;
   width: 36px;
@@ -626,22 +632,6 @@ input[type="color"].swatch-custom {
   margin-top: 4px;
   color: var(--faint);
   font-style: italic;
-}
-
-.tools {
-  display: flex;
-  flex: none;
-  align-self: flex-start;
-  gap: 4px;
-}
-
-.tools button {
-  padding: 0 7px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--dim);
-  font-size: 11.5px;
-  line-height: 20px;
 }
 
 .jump {
@@ -1207,16 +1197,6 @@ a.url:hover {
   white-space: nowrap;
 }
 
-/* Reply is on every message, but only shows while the pointer is over it (moderators' tools are always there) */
-.tools.hover-only {
-  visibility: hidden;
-}
-
-.msg:hover .tools.hover-only,
-.msg:focus-within .tools.hover-only {
-  visibility: visible;
-}
-
 .msg.flash {
   background: rgb(255 255 255 / 12%);
 }
@@ -1533,4 +1513,91 @@ a.url:hover {
 .react-pop button:hover,
 .react-pop button:focus-visible {
   background: var(--raised);
+}
+
+/* --- The "..." on a message and its menu ----------------------------------------------------------------- */
+
+.more-btn {
+  position: absolute;
+  top: -12px;
+  right: 14px;
+  z-index: 2;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--dim);
+}
+
+.more-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  stroke: none;
+}
+
+.msg:hover .more-btn,
+.msg:focus-within .more-btn,
+.msg.menu-open .more-btn {
+  display: flex;
+}
+
+.more-btn:hover,
+.more-btn:focus-visible {
+  background: var(--raised);
+  color: var(--text);
+}
+
+@media (hover: none) {
+  .more-btn {
+    display: flex;
+    top: 2px;
+    border-color: transparent;
+    background: transparent;
+  }
+}
+
+.msg-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 170px;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.msg-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.msg-menu button:hover,
+.msg-menu button:focus-visible {
+  background: var(--accent, #7b4aa8);
+  color: #fff;
+}
+
+.msg-menu button.danger {
+  color: #ff8c7a;
+}
+
+.msg-menu button.danger:hover,
+.msg-menu button.danger:focus-visible {
+  background: var(--red);
+  color: #fff;
+}
+
+.msg-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
 }

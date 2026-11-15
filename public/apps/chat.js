@@ -495,43 +495,62 @@
     if (message.reactions?.length) content.append(reactionsNode(message));
     row.append(content);
 
-    // Everyone can reply (the button shows when the pointer is over the message); moderators also get Delete and Moderate.
-    const tools = el("div", canModerate() ? "tools" : "tools hover-only");
-    const react = el("button", "react-btn", "React");
-    react.type = "button";
-    react.title = "Add a reaction";
-    react.setAttribute("aria-haspopup", "menu");
-    react.addEventListener("click", () => openReactPop(message, react));
-    tools.append(react);
-    const reply = el("button", "reply-btn", "Reply");
-    reply.type = "button";
-    reply.title = `Reply to ${message.user.username}`;
-    reply.addEventListener("click", () => startReply(message));
-    tools.append(reply);
-    if (message.user.username !== state.me.username) {
-      const flag = el("button", "report-btn", "Report");
-      flag.type = "button";
-      flag.title = "Tell the admins about this message";
-      flag.addEventListener("click", () => window.SnProfile?.report({ kind: "message", id: message.id, username: message.user.username }));
-      tools.append(flag);
-    }
-    if (canModerate()) {
-      const del = el("button", "", "Delete");
-      del.type = "button";
-      del.title = "Delete this message";
-      del.addEventListener("click", () => deleteMessage(message, del));
-      tools.append(del);
-      if (canModeratePerson(message.user)) {
-        const mod = el("button", "", "Moderate…");
-        mod.type = "button";
-        mod.title = `Time out or ban ${message.user.username}`;
-        mod.addEventListener("click", () => openModerate(message.user));
-        tools.append(mod);
-      }
-    }
-    row.append(tools);
+    // One small "..." button shows while the pointer is over the message; it opens a short menu of what you can do with it.
+    const more = el("button", "more-btn");
+    more.type = "button";
+    more.title = "More";
+    more.setAttribute("aria-label", `More about this message from ${message.user.username}`);
+    more.setAttribute("aria-haspopup", "menu");
+    more.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+    more.addEventListener("click", (event) => { event.stopPropagation(); openMsgMenu(message, row, more); });
+    row.append(more);
     return row;
   }
+
+  // --- the "..." menu on a message ---------------------------------------------------------------------
+
+  let msgMenu = null;   // { node, row, id }
+  function closeMsgMenu() {
+    if (!msgMenu) return;
+    msgMenu.node.remove();
+    msgMenu.row.classList.remove("menu-open");
+    msgMenu = null;
+  }
+
+  function openMsgMenu(message, row, anchor) {
+    const same = msgMenu && msgMenu.id === message.id;
+    closeMsgMenu();
+    closeReactPop();
+    if (same) return;
+    const menu = el("div", "msg-menu");
+    menu.setAttribute("role", "menu");
+    const item = (label, onClick, kind = "") => {
+      const button = el("button", kind, label);
+      button.type = "button";
+      button.setAttribute("role", "menuitem");
+      button.addEventListener("click", () => { closeMsgMenu(); onClick(button); });
+      menu.append(button);
+    };
+    item("Add reaction", () => openReactPop(message, anchor));
+    item("Reply", () => startReply(message));
+    if (message.user.username !== state.me.username) item("Report message", () => window.SnProfile?.report({ kind: "message", id: message.id, username: message.user.username }));
+    if (canModerate()) {
+      menu.append(el("div", "msg-menu-sep"));
+      item("Delete message", (button) => deleteMessage(message, button), "danger");
+      if (canModeratePerson(message.user)) item(`Moderate ${message.user.username}\u2026`, () => openModerate(message.user));
+    }
+    document.body.append(menu);
+    row.classList.add("menu-open"); // the message stays highlighted while its menu is open
+    const box = anchor.getBoundingClientRect();
+    const left = Math.min(Math.max(4, box.right - menu.offsetWidth), window.innerWidth - menu.offsetWidth - 4);
+    const below = box.bottom + 4 + menu.offsetHeight <= window.innerHeight - 4;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${below ? box.bottom + 4 : Math.max(4, box.top - menu.offsetHeight - 4)}px`;
+    msgMenu = { node: menu, row, id: message.id };
+    menu.querySelector("button")?.focus();
+  }
+  document.addEventListener("mousedown", (event) => { if (msgMenu && !msgMenu.node.contains(event.target) && !event.target.closest?.(".more-btn")) closeMsgMenu(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeMsgMenu(); });
 
   // --- reactions -----------------------------------------------------------------------------------
 
@@ -595,7 +614,7 @@
     pop.style.top = `${box.top - pop.offsetHeight - 4 < 4 ? box.bottom + 4 : box.top - pop.offsetHeight - 4}px`;
     reactPop = pop;
   }
-  document.addEventListener("mousedown", (event) => { if (reactPop && !reactPop.contains(event.target) && !event.target.closest?.(".react-btn")) closeReactPop(); });
+  document.addEventListener("mousedown", (event) => { if (reactPop && !reactPop.contains(event.target) && !event.target.closest?.(".more-btn")) closeReactPop(); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeReactPop(); });
 
   function mediaNode(media) {
@@ -733,6 +752,7 @@
     $("jump").hidden = true;
   }
   scroller.addEventListener("scroll", () => {
+    closeMsgMenu();
     state.atBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 40;
     if (state.atBottom) $("jump").hidden = true;
   });
