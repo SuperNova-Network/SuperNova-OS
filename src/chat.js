@@ -50,7 +50,7 @@ const CACHE_BYTES = 24 * 1024 * 1024;
  *   db, site, userFor, isAdmin, sessionActive, onBan, onSiteChange, onAvatarChange   from createAccounts()
  *   giphy  { key, apiUrl, mediaUrl }: GIF search is available when there is a key
  */
-export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, onSiteChange, onAvatarChange, giphy = {} }) {
+export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, onSiteChange, onAvatarChange, giphy = {}, achieve = () => {} }) {
   const giphyKey = giphy.key || "";
   const giphyApi = (giphy.apiUrl || "https://api.giphy.com").replace(/\/+$/, "");
   const giphyMedia = (giphy.mediaUrl || "https://media.giphy.com").replace(/\/+$/, "");
@@ -385,6 +385,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     if (!bypass) spam.record(user.id, fingerprint);
     const message = shapeMessages([row])[0];
     broadcastToChannel(channel, "message", message);
+    achieve(user.id);
     res.status(201).json({ message });
   }));
 
@@ -405,6 +406,8 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     const mine = store.setReaction(db, { messageId: row.id, userId: user.id, emoji, on });
     const reactions = store.reactionsFor(db, [row.id]).get(row.id) ?? [];
     broadcastToChannel(channel, "reaction", { id: row.id, channel: row.channel_id, reactions });
+    achieve(user.id);
+    achieve(row.user_id); // the author may have earned one for being reacted to
     res.json({ id: row.id, mine, reactions });
   }));
 
@@ -692,6 +695,8 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
       sendChannels(); // roles open and close channels
       schedulePresence();
     },
+    /** Tell one person's open pages something (the desktop's quiet connection hears it too). */
+    notifyUser: (userId, event, data) => sendToUser(userId, event, data),
     /** How many people are in the chat (counting each once) and how many quiet notification streams are open. */
     stats() {
       const loud = [...streams].filter((stream) => !stream.quiet);
@@ -709,5 +714,5 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
 export function disabledChat() {
   const router = express.Router();
   router.use((_req, res) => res.status(404).json({ error: "Chat needs accounts, which aren't available on this site." }));
-  return { router, rolesChanged() {}, close() {} };
+  return { router, rolesChanged() {}, notifyUser() {}, close() {} };
 }

@@ -75,7 +75,11 @@
     foot.appendChild(ok);
     box.appendChild(bar); box.appendChild(body); box.appendChild(foot);
     overlay.appendChild(box);
-    var done = function () { close(); document.removeEventListener("keydown", onKey); };
+    var done = function () {
+      close();
+      document.removeEventListener("keydown", onKey);
+      try { if (global.SnAchieve) global.SnAchieve.event("whatsnew"); } catch (e) { /* optional */ }
+    };
     var onKey = function (event) { if (event.key === "Escape" || event.key === "Enter") done(); };
     x.addEventListener("click", done);
     ok.addEventListener("click", done);

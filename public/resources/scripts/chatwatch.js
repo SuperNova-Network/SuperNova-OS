@@ -137,6 +137,10 @@
     stream.addEventListener("read", function (event) {
       try { setUnread(JSON.parse(event.data).total); } catch (e) { setUnread(0); }
     });
+    // You unlocked an achievement (the desktop's trophy announces it).
+    stream.addEventListener("achievement", function (event) {
+      try { if (global.SnAchieve) global.SnAchieve.onUnlocked(JSON.parse(event.data)); } catch (e) { /* keep listening */ }
+    });
     // Channels were made, removed or opened to you.
     stream.addEventListener("channels", function (event) {
       try { channels = JSON.parse(event.data).channels || []; var total = 0; channels.forEach(function (c) { total += c.unread || 0; }); setUnread(total); } catch (e) { /* keep the old ones */ }

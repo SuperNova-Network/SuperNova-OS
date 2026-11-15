@@ -131,6 +131,8 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   const banListeners = [];
   const siteListeners = [];
   const avatarListeners = [];
+  const activityListeners = []; // told when someone signs in, or changes their picture, bio or name (achievements)
+  const activity = (userId) => { for (const listener of activityListeners) listener(userId); };
 
   // Site settings: the server's configuration wins, then the admin panel's choice.
   // Read from the database at most every few seconds, so a change made with the
@@ -240,6 +242,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     sql.deleteExpired.run(now);
     sql.insertSession.run(sha256(token), userId, now, now + SESSION_DAYS * DAY, req.ip ?? null, String(req.get("user-agent") ?? "").slice(0, 200) || null);
     setCookie(req, res, token, SESSION_DAYS * DAY);
+    activity(userId);
     return token;
   }
 
@@ -465,6 +468,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
       throw err;
     }
     for (const listener of banListeners) listener(user.id); // other tabs' live connections start over under the new name
+    activity(user.id);
     logAdmin(db, wanted, "renamed", wanted, `was ${user.username}`);
     res.json({ user: { ...publicUser({ ...user, username: wanted }) } });
   }));
@@ -506,6 +510,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     const word = bio && createWordFilter(getChatSettings(db).words)(bio);
     if (word) throw new HttpError(400, "That bio has a word that isn't allowed here.");
     db.prepare("UPDATE users SET bio = ? WHERE id = ?").run(bio, user.id);
+    activity(user.id);
     res.json({ bio });
   }));
 
@@ -709,6 +714,8 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     onSiteChange: (fn) => siteListeners.push(fn),
     /** fn(userId) is called after someone sets or removes their profile picture. */
     onAvatarChange: (fn) => avatarListeners.push(fn),
+    /** fn(userId) is called when someone signs in or up, or changes their bio or username. */
+    onActivity: (fn) => activityListeners.push(fn),
     close: () => db.close(),
   };
 }

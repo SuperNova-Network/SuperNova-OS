@@ -25,6 +25,7 @@ import { createLive } from "./src/live.js";
 import { readBuildInfo } from "./src/buildinfo.js";
 import { createWhatsNew } from "./src/whatsnew.js";
 import { createSiteCheck } from "./src/sitecheck.js";
+import { createAchievements, disabledAchievements } from "./src/achievements.js";
 import * as roles from "./src/roles.js";
 import { createSuggest, cleanQuery } from "./src/suggest.js";
 import { createLimiter } from "./src/ratelimit.js";
@@ -41,8 +42,17 @@ const buildPolicy = (custom) => createPolicy({
 });
 let policy = buildPolicy({ hosts: [], keywords: [], queryWords: [] });
 const accounts = await createAccounts({ ...config.accounts, authPass: config.auth.pass });
+// Achievements: worked out from what people do, and told to them through the chat's quiet connection (chat is made next).
+const achievements = accounts.database
+  ? createAchievements({ db: accounts.database, userFor: accounts.userFor, site: accounts.site, notify: (userId, achievement) => chat.notifyUser(userId, "achievement", achievement) })
+  : disabledAchievements();
+const achieve = (userId) => achievements.touch(userId);
+accounts.onAvatarChange(achieve);
+accounts.onActivity?.(achieve);
+
 const chat = accounts.database
   ? createChat({
+    achieve,
     db: accounts.database,
     site: accounts.site,
     userFor: accounts.userFor,
@@ -60,6 +70,7 @@ const live = createLive({ state: () => ({ announcement: admin.announcement(), ma
 
 const admin = accounts.database
   ? createAdmin({
+    achieve,
     onChange: (key, value) => {
       live.broadcast(key, key === "maintenance" ? { on: value.on, message: value.message } : key === "terms" ? { enabled: value.enabled } : value);
       if (key === "maintenance" && value.on) endProxySocketsOfNonAdmins();
@@ -83,11 +94,11 @@ const admin = accounts.database
 
 // The App Store checks every submission against the live policy (admins can change it any time).
 const store = accounts.database
-  ? createStore({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy, can: (user, permission) => roles.can(accounts.database, user, permission), isAdmin: accounts.isAdmin })
+  ? createStore({ achieve, db: accounts.database, site: accounts.site, userFor: accounts.userFor, policy: () => policy, can: (user, permission) => roles.can(accounts.database, user, permission), isAdmin: accounts.isAdmin })
   : disabledStore();
 
 const friends = accounts.database
-  ? createFriends({ db: accounts.database, site: accounts.site, userFor: accounts.userFor, isAdmin: accounts.isAdmin })
+  ? createFriends({ achieve, db: accounts.database, site: accounts.site, userFor: accounts.userFor, isAdmin: accounts.isAdmin })
   : disabledFriends();
 
 /** Make the admins' extra blocked sites live: the policy, and the list Wisp checks on each connection. */
@@ -199,6 +210,7 @@ app.use("/api/admin", admin.router);
 app.use("/api/chat", chat.router);
 app.use("/api/store", store.router);
 app.use("/api/friends", friends.router);
+app.use("/api/achievements", achievements.router);
 
 // Search suggestions for the taskbar's web search: the server asks the engine, so the visitor never does.
 const suggestions = createSuggest({ policy: () => policy });
@@ -534,6 +546,7 @@ function shutdown(signal) {
   friends.close();
   live.close();
   siteCheck.stop();
+  achievements.close();
   server.close(() => { accounts.close(); process.exit(0); });
   server.closeAllConnections?.();
 }

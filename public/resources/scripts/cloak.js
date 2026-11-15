@@ -277,6 +277,8 @@
 
   store.onChange(function (key) {
     if (key === "*" || /^cloak/.test(key)) apply();
+    // Turning cloaking on counts for an achievement.
+    try { if (/^cloak/.test(key) && store.get(key) && store.get(key) !== "0" && global.SnAchieve) global.SnAchieve.event("cloak"); } catch (e) { /* optional */ }
   });
 
   global.addEventListener("beforeunload", onBeforeUnload);

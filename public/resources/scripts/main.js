@@ -448,9 +448,15 @@ function factoryReset() {
   }, 1000);
 }
 
+// Tell the achievements (a trophy in the taskbar) that something happened. Never gets in the way.
+function achieved(name) {
+  try { if (window.SnAchieve) { SnAchieve.event(name); } } catch (e) { /* achievements are optional */ }
+}
+
 function addWindow(id, title, contStr, w, h, type) {
   oftenUsed[id]++;
   saveOftenUsed();
+  if (id == 0) { achieved("browser_opened"); } else if (id == consoleID) { achieved("terminal"); }
 
   // The Browser app (id 0) receives its first address or search as contStr.
   // contStr: the Browser (id 0) gets its first query, Settings (setID) the section to show.
@@ -1578,7 +1584,7 @@ function contextPin(type) {
   document.getElementById("context").style.display = "none";
   var id = document.getElementById("context").getAttribute("target");
   var index = document.getElementById("context").getAttribute("targetIndex");
-  if (isEssential(id)) { pinEssential(Number(id)); return; }
+  if (isEssential(id)) { pinEssential(Number(id)); achieved("pin"); return; }
   for (var i = 0; i < taskArr.length; i++) {
     if (id == taskArr[i]) { return; }
   }
@@ -1593,6 +1599,7 @@ function contextPin(type) {
   }
   taskArr.push(id);
   saveTaskArr();
+  achieved("pin");
 }
 
 function contextUnpin() {
@@ -1674,12 +1681,14 @@ function selCol(id) {
   colId = id;
   SnStore.set("colId", id);
   setCols();
+  achieved("accent");
 }
 
 function selIco(id) {
   backId = id;
   SnStore.set("backId", id);
   setCols();
+  achieved("wallpaper");
 }
 
 function toggleClock() {
@@ -1796,11 +1805,11 @@ window.SnOS = {
   // Choosing a picture or an address replaces a solid colour.
   setWallpaper: function (id) { SnStore.remove("solidColor"); selIco(id); },
   setCustomBackground: function (url) {
-    if (url) { SnStore.set("backgroundUrl", url); SnStore.remove("solidColor"); } else { SnStore.remove("backgroundUrl"); }
+    if (url) { SnStore.set("backgroundUrl", url); SnStore.remove("solidColor"); achieved("wallpaper"); } else { SnStore.remove("backgroundUrl"); }
     setCols();
   },
   setSolidColor: function (color) {
-    if (/^#[0-9a-fA-F]{6}$/.test(String(color))) { SnStore.set("solidColor", String(color).toLowerCase()); } else { SnStore.remove("solidColor"); }
+    if (/^#[0-9a-fA-F]{6}$/.test(String(color))) { SnStore.set("solidColor", String(color).toLowerCase()); achieved("wallpaper"); } else { SnStore.remove("solidColor"); }
     setCols();
   },
   setWindowSize: setWindowSize,
@@ -1926,6 +1935,7 @@ function addApp(name, address, picture, color) {
     programData[id] = customAppEntry(list[slot]);
     oftenUsed[id] = 0;
     addDesktopIcon(id);
+    achieved("shortcut");
     return { id: id };
   });
 }

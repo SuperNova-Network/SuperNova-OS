@@ -20,7 +20,7 @@ import * as reportsdb from "./reportsdb.js";
 const ONLINE_MS = 150_000;
 
 /** options: db, site(), userFor, isAdmin(row) */
-export function createFriends({ db, site, userFor, isAdmin }) {
+export function createFriends({ db, site, userFor, isAdmin, achieve = () => {} }) {
   const seen = new Map(); // user id -> time of the last ping
   const sweep = setInterval(() => { const cutoff = Date.now() - ONLINE_MS * 4; for (const [id, at] of seen) if (at < cutoff) seen.delete(id); }, 5 * 60_000);
   sweep.unref();
@@ -138,7 +138,9 @@ export function createFriends({ db, site, userFor, isAdmin }) {
   router.post("/request", handle((req, res) => {
     const user = requireUser(req);
     limit(limits.ask, `u${user.id}`);
-    const result = db_.request(db, user, target(req));
+    const other = target(req);
+    const result = db_.request(db, user, other);
+    if (result === "accepted") { achieve(user.id); achieve(other.id); }
     res.status(201).json({ result });
   }));
 
@@ -148,7 +150,7 @@ export function createFriends({ db, site, userFor, isAdmin }) {
     fn(user, target(req));
     res.json({ ok: true });
   }));
-  action("accept", (user, other) => db_.accept(db, user, other));
+  action("accept", (user, other) => { db_.accept(db, user, other); achieve(user.id); achieve(other.id); });
   action("decline", (user, other) => db_.drop(db, user, other));
   action("cancel", (user, other) => db_.drop(db, user, other));
   action("remove", (user, other) => db_.drop(db, user, other));

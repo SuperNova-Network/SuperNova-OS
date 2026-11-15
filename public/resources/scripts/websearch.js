@@ -134,6 +134,7 @@
     if (!query) return;
     input.value = '';
     hideSearch();
+    try { if (window.SnAchieve) { SnAchieve.event('web_search'); } } catch (e) { /* achievements are optional */ }
     addWindow(0, null, query, DEF_WIN_W, DEF_WIN_H);
   });
 })();

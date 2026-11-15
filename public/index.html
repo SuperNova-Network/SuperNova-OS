@@ -206,11 +206,15 @@
     <script src="./resources/scripts/chatwatch.js"></script>
     <script src="./resources/scripts/siteinfo.js"></script>
     <script src="./resources/scripts/whatsnew.js"></script>
+    <script src="./resources/scripts/achievements.js"></script>
     <script src="./resources/scripts/health.js"></script>
     <script src="./resources/scripts/netgraph.js"></script>
     <script src="./resources/scripts/buildinfo.js"></script>
 
     <div id="infocorner">
+      <div id="achieve" role="button" tabindex="0" title="Achievements" aria-label="Achievements" style="display:none" onclick="SnAchieve.toggle(event)" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); SnAchieve.toggle(event); }">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"></path><path d="M8 6H5a3 3 0 0 0 3 4"></path><path d="M16 6h3a3 3 0 0 1-3 4"></path><path d="M12 13v4"></path><path d="M9 20h6"></path><path d="M10 17h4"></path></svg>
+      </div>
       <div id="batterywrapper">
         <div id="battery" charging="true">
           <svg width="160" height="90" viewBox="0 0 160 90">

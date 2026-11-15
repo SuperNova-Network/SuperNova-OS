@@ -181,6 +181,7 @@
       render();
       check();
       loadSites();
+      try { if (global.SnAchieve) global.SnAchieve.event("health"); } catch (e) { /* optional */ }
     }
     if (evt) evt.stopPropagation();
   }

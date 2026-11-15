@@ -222,6 +222,7 @@
   function createTab(input, options = {}) {
     if (tabs.length >= MAX_TABS) { toast(`You can have up to ${MAX_TABS} tabs open`); return null; }
     const tab = addTab(options);
+    if (tabs.length >= 10) { try { window.parent?.SnAchieve?.event("tabs10"); } catch { /* not inside the desktop */ } }
     if (tab.pinned) sortPinned();
     renderTab(tab);
     activate(tab.id);

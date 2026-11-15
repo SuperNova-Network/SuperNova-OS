@@ -24,7 +24,7 @@ const ICON_MIMES = new Set(["image/png", "image/jpeg", "image/webp"]);
 /**
  * options: db, site(), userFor, policy() -> the live content policy (checkHost, checkQuery).
  */
-export function createStore({ db, site, userFor, policy, can = () => false, isAdmin = null }) {
+export function createStore({ db, site, userFor, policy, can = () => false, isAdmin = null, achieve = () => {} }) {
   /** An app as pages get it, with its maker's highest role. */
   const pub = (row, options = {}) => apps.publicApp(row, { ...options, isAdmin });
   const limits = {
@@ -145,6 +145,7 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     const live = user.admin || current.approval === "auto" || can(user, "store.instant_publish");
     const id = apps.insertApp(db, { ownerId: user.id, ...fields, status: live ? "approved" : "pending", by: user.admin ? user.username : "automatic", icon });
     if (user.admin) logAdmin(db, user.username, "published a store app", fields.name);
+    achieve(user.id);
     res.status(201).json({ app: pub(apps.getApp(db, id), { forOwner: true }), live });
   }));
 
@@ -177,6 +178,8 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     const row = apps.getApp(db, req.params.id);
     if (!row || row.status !== "approved") throw new HttpError(404, "That app isn't in the store.");
     apps.addInstall(db, row.id, user.id);
+    achieve(user.id);
+    achieve(db.prepare("SELECT owner_id FROM store_apps WHERE id = ?").get(row.id)?.owner_id); // their app may have reached a number
     res.json({ app: { ...pub(apps.getApp(db, row.id)), installed: true } });
   }));
 
@@ -198,6 +201,7 @@ export function createStore({ db, site, userFor, policy, can = () => false, isAd
     limit(limits.install, `u${user.id}`);
     const stars = typeof req.body?.stars === "number" ? req.body.stars : NaN; // anything else is refused, never read as "take it back"
     const row = apps.setRating(db, { appId: req.params.id, userId: user.id, stars });
+    achieve(user.id);
     res.json({ app: { ...pub(row), installed: true, ...(stars ? { mine: stars } : {}) } });
   }));
 

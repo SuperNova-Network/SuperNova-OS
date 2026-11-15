@@ -31,7 +31,7 @@ const INVITES_BULK_MAX = 50;
  *   maintenance change (the live channel tells every open page).
  * Returns { router, announcement(), maintenance(), blocklist() }: the settings are cached for a few seconds.
  */
-export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick, runtime, applyBlocklist, onChange = () => {} }) {
+export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick, runtime, applyBlocklist, onChange = () => {}, achieve = () => {} }) {
   const cache = {};
   function cached(key) {
     const hit = cache[key];
@@ -433,6 +433,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     const row = appOf(req);
     apps.decide(db, row.id, { status: "approved", by: admin.username });
     logAdmin(db, admin.username, "approved a store app", row.name, `by ${row.owner}`);
+    achieve(rowOf(row.owner)?.id); // an approved app is a published one
     res.json({ app: adminApp(apps.getApp(db, row.id)), counts: apps.countByStatus(db) });
   }));
 

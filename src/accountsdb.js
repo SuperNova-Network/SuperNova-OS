@@ -405,6 +405,21 @@ const MIGRATIONS = [
     );
     CREATE INDEX IF NOT EXISTS announcement_schedule_due ON announcement_schedule(sent_at, starts_at);
   `),
+  // 21: achievements. What each person has unlocked, and the counters the desktop reports (events and the daily streak).
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS user_achievements (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      achievement TEXT NOT NULL,
+      unlocked_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, achievement)
+    );
+    CREATE TABLE IF NOT EXISTS user_stats (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      value INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, key)
+    );
+  `),
 ];
 
 /** The schema version this build upgrades a database to. */
