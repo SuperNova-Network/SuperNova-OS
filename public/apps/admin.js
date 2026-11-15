@@ -705,7 +705,7 @@
         h("label", { class: "check" }, mOn, h("span", { text: "Maintenance mode is on" })),
         h("label", { class: "labeled" }, h("span", { text: "What people see" }), mMsg), h("div", { class: "row" }, mSave)),
       h("div", { class: "card section stack" }, h("h3", { text: "Acceptable use screen" }),
-        h("p", { class: "dim small", text: "A big bright red notice, like a terms of service, saying this site is only for education and open source learning and must not be used during school or to get past school filters. Everyone who is not signed in has to tick the box and press I agree once; it is remembered on their device, even after they close the site. People who are signed in never see it. It appears and disappears on open pages the moment you save." }),
+        h("p", { class: "dim small", text: "A full-screen legal notice in the desktop's own look, like a terms of service, saying this site is only for education and open source learning and must not be used during school or to get past school filters. Everyone who is not signed in has to tick the box and press I agree once; it is remembered on their device, even after they close the site. People who are signed in never see it. It appears and disappears on open pages the moment you save." }),
         h("label", { class: "check" }, tOn, h("span", { text: "Show the acceptable use screen" })),
         h("div", { class: "row" }, tSave, tPreview)),
       h("div", { class: "card section stack" }, h("h3", { text: "Announcement" }),

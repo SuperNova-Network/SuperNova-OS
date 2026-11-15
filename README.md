@@ -54,7 +54,7 @@ SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has 
 - Roles: create, edit, reorder and delete roles with colours and permissions, and give them from a role's page or from an account.
 - An approval queue for App Store apps (approve, reject with a reason, take down, delete), a Reported tab, and a switch between approving each app and approving automatically.
 - Announcements and maintenance mode that reach every open page at once. An Important announcement opens as a window to close, and maintenance mode sends everyone but admins to a "back soon" page straight away.
-- An optional bright red acceptable use screen, like a terms of service, that people who aren't signed in must agree to once. It says the site is for education and open source learning only and must not be used during school or to get past school filters.
+- An optional acceptable use screen, a full-screen legal notice in the desktop's own dark look with a red warning, like a terms of service, that people who aren't signed in must agree to once. It says the site is for education and open source learning only and must not be used during school or to get past school filters.
 - Chat moderation from the Chat window: delete messages, time out or ban people, lock or clear the chat, and tune the blocked words, links and slow mode. What each person can do comes from their roles.
 - The first admin is created from a setup link the server prints on its first start.
 
