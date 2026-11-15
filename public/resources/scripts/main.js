@@ -1648,7 +1648,7 @@ function openSettings(section) {
 // The live chat: one window, opened from the taskbar or the start menu.
 function openChat() {
   hideSearch();
-  return addWindow(chatID, null, null, 58, 40);
+  return addWindow(chatID, null, null, 70, 40);
 }
 
 // The App Store: one window, opened from the taskbar, the start menu or by searching.
