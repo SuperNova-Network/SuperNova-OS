@@ -19,6 +19,15 @@
   justify-content: flex-end;
 }
 
+/* notifications of different widths line up against the screen edge, not all on the left of the stack */
+.sn-toasts[data-pos$="right"] {
+  align-items: flex-end;
+}
+
+.sn-toasts[data-pos$="left"] {
+  align-items: flex-start;
+}
+
 .sn-toast {
   --sn-bg: #1f1f1f;
   --sn-fg: #ffffff;
