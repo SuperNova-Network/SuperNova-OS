@@ -35,9 +35,7 @@
   var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   function parseDay(text) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text || ""); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; }
-  // A week starts on Saturday: the weekend already belongs to the coming week, the way people talk ("see you Monday" is
-  // the next one, and on a Sunday "Thursday" was last week).
-  function mondayOf(date) { var d = startOfDay(date); d.setDate(d.getDate() - ((d.getDay() + 1) % 7)); return d; }
+  function mondayOf(date) { var d = startOfDay(date); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }
   function startOfDay(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
 
   /** The items as days, newest first: [{ key, label, sub, items }]. Items with no date go last, as "All updates". */
