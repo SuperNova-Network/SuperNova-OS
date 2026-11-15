@@ -138,6 +138,10 @@ The desktop shows small pop-ups in the style of Windows 10's. Each person sets t
 
 The Chat is the first sender, called "Messaging app". Its notifications are **off until turned on**, either in the Chat's own settings (the Notifications button in its header) or in Settings > Notifications. Each one shows the sender's picture, their name and what they said, and clicking it opens the Chat. They don't show while the Chat window is in front and being looked at, and a person's own messages never notify them. This needs no setting on the server.
 
+## Profile cards
+
+Click someone's name or picture in the Chat (a message, the Online list or an @mention), in Friends, or the maker's name in an App Store listing, and a card opens with their picture, roles, when they joined, their **bio**, the friends you have in common and what you can do: add them as a friend, accept, decline or cancel a request, remove or unblock them, **Mention** them (in the Chat, it puts @name in your message box) and, for moderators, **Moderate…**. A friend's status (online, away, offline) shows on the card; a stranger's never does, and someone who blocked you isn't there at all. It comes from `GET /api/friends/profile/:username`. The bio is up to 160 characters of plain text that people write in Settings > Account (`POST /api/account/bio`, database version 17) and the chat's blocked words apply to it.
+
 ## App Store
 
 The **App Store** is a taskbar app, pinned by default after Chat, where people publish apps for each other. It needs accounts and goes through `/api/store`.

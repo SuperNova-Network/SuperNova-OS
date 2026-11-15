@@ -297,7 +297,7 @@
   function details(app, reload) {
     const id = () => desktopId(app);
     const body = h("div", {},
-      h("div", { class: "detail-head" }, icon(app, "big"), h("div", {}, h("h2", { text: app.name }), h("div", { class: "dim" }, `by ${app.owner}`, app.ownerRole && roleTag(app.ownerRole)),
+      h("div", { class: "detail-head" }, icon(app, "big"), h("div", {}, h("h2", { text: app.name }), h("div", { class: "dim" }, "by ", h("a", { href: "#", "data-profile": app.owner, text: app.owner, style: "color:inherit;text-decoration:underline", onclick: (e) => { e.preventDefault(); window.SnProfile?.open(app.owner, { anchor: e.currentTarget }); } }), app.ownerRole && roleTag(app.ownerRole)),
         h("div", { style: "margin-top:6px" }, chip(meta.categories.find((c) => c.id === app.category)?.label ?? app.category), chip(`${number(app.installs)} ${app.installs === 1 ? "install" : "installs"}`)))),
       h("p", { class: "detail-text", text: app.description }),
       h("dl", { class: "kv" }, h("dt", { text: "Opens" }), h("dd", { text: hostOf(app.url) }), h("dt", { text: "Added" }), h("dd", { text: ago(app.created) })),

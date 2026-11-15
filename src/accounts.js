@@ -21,6 +21,8 @@ import {
 } from "./accountsdb.js";
 import { logAdmin } from "./admindb.js";
 import { HttpError, guardWrites } from "./http.js";
+import { getChatSettings } from "./chatdb.js";
+import { createWordFilter, normalizeText } from "./chatfilter.js";
 import { checkPassword, hashPassword } from "./passwords.js";
 import { imageInfo } from "./imageinfo.js";
 
@@ -226,7 +228,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
 
   // `avatar` is the picture's version (0 = none): the page asks for the image only when
   // there is one, and the version in the address makes each new picture a new URL.
-  const publicUser = (user) => ({ username: user.username, ...(isAdmin(user) ? { admin: true } : {}), ...(user.is_owner ? { owner: true } : {}), avatar: user.avatar_version ?? 0 });
+  const publicUser = (user) => ({ username: user.username, ...(isAdmin(user) ? { admin: true } : {}), ...(user.is_owner ? { owner: true } : {}), avatar: user.avatar_version ?? 0, ...(user.bio ? { bio: user.bio } : {}) });
 
   function bannedError(user) {
     return new HttpError(403, `This account has been suspended.${user.ban_reason ? ` Reason: ${user.ban_reason}` : ""}`);
@@ -489,6 +491,22 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     const { json } = mergeSettings(JSON.parse(user.settings), req.body);
     const { revision } = sql.setSettings.get(json, Date.now(), user.id);
     res.json({ revision });
+  }));
+
+  // --- bio ------------------------------------------------------------------------------
+
+  const BIO_MAX = 160;
+  // A line or two about yourself, shown on your profile card. Plain text; the chat's blocked words apply.
+  router.post("/bio", handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.sync, String(user.id));
+    const raw = typeof req.body?.bio === "string" ? req.body.bio : "";
+    const bio = Array.from(normalizeText(raw).replace(/\s+/g, " ").trim()).slice(0, BIO_MAX).join("");
+    if (Array.from(raw.trim()).length > BIO_MAX * 4) throw new HttpError(400, `A bio can be up to ${BIO_MAX} characters.`);
+    const word = bio && createWordFilter(getChatSettings(db).words)(bio);
+    if (word) throw new HttpError(400, "That bio has a word that isn't allowed here.");
+    db.prepare("UPDATE users SET bio = ? WHERE id = ?").run(bio, user.id);
+    res.json({ bio });
   }));
 
   // --- profile pictures ----------------------------------------------------------------

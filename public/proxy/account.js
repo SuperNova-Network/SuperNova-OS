@@ -258,6 +258,13 @@
     return call("POST", "/password", { currentPassword: currentPassword, newPassword: newPassword });
   }
 
+  function setBio(bio) {
+    return call("POST", "/bio", { bio: bio }).then(function (result) {
+      if (user) user.bio = result.bio;
+      return result;
+    });
+  }
+
   function rename(username, password) {
     return call("POST", "/rename", { username: username, password: password }).then(function (result) {
       if (result && result.user) user = result.user;
@@ -383,6 +390,7 @@
     logout: logout,
     changePassword: changePassword,
     rename: rename,
+    setBio: setBio,
     deleteAccount: deleteAccount,
     setAvatar: setAvatar,
     uploadAvatar: uploadAvatar,

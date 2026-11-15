@@ -14,6 +14,7 @@ import { AdminError } from "./accountsdb.js";
 import { HttpError, guardWrites } from "./http.js";
 import { createLimiter } from "./ratelimit.js";
 import * as db_ from "./friendsdb.js";
+import * as roles from "./roles.js";
 
 const ONLINE_MS = 150_000;
 
@@ -70,6 +71,36 @@ export function createFriends({ db, site, userFor, isAdmin }) {
       incoming: db_.listIncoming(db, user.id).map((f) => person(f, { at: f.at })),
       outgoing: db_.listOutgoing(db, user.id).map((f) => person(f, { at: f.at })),
       blocked: db_.listBlocked(db, user.id).map((f) => person(f)),
+    });
+  }));
+
+  // A profile card: who someone is, to anyone signed in. Their status shows only to their friends, and someone who
+  // blocked you is not there at all.
+  router.get("/profile/:username", handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.read, `u${user.id}`);
+    const row = db.prepare("SELECT id, username, is_admin, is_owner, avatar_version, banned_at, created_at, bio FROM users WHERE username = ?").get(String(req.params.username ?? "").trim());
+    if (!row || row.banned_at) throw new HttpError(404, "There's no one with that name.");
+    const self = row.id === user.id;
+    const rel = self ? { friends: false, pending: null, blockedByMe: false, blockedByThem: false } : db_.relation(db, user.id, row.id);
+    if (rel.blockedByThem) throw new HttpError(404, "There's no one with that name.");
+    let mutual = [];
+    if (!self) {
+      const theirs = new Set(db_.listFriends(db, row.id).map((f) => f.id));
+      mutual = db_.listFriends(db, user.id).filter((f) => theirs.has(f.id));
+    }
+    res.json({
+      username: row.username,
+      avatar: row.avatar_version ?? 0,
+      ...(isAdmin(row) ? { admin: true } : {}),
+      ...(row.is_owner ? { owner: true } : {}),
+      roles: roles.rolesOf(db, row.id).slice(0, 8).map(({ name, color, slug }) => ({ name, color, slug })),
+      joinedAt: row.created_at,
+      bio: row.bio || "",
+      self,
+      relation: { friends: rel.friends, pending: rel.pending, blockedByMe: rel.blockedByMe },
+      ...(rel.friends ? { status: state(row.id, db_.getMode(db, row.id)) } : {}),
+      mutual: { count: mutual.length, people: mutual.slice(0, 8).map((f) => person(f)) },
     });
   }));
 

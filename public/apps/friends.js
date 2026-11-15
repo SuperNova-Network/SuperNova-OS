@@ -149,9 +149,16 @@
   const STATUS_TEXT = { online: "Online", away: "Away", offline: "Offline" };
 
   function personRow(person, text, actions, { status = null } = {}) {
+    const pic = h("div", { class: "pic" }, avatar(person), status && h("span", { class: "dot", "data-status": status, title: STATUS_TEXT[status] }));
+    const name = h("div", { class: "name", text: person.username }, person.admin && chip("ADMIN", "admin"));
+    // Click the picture or the name for their profile card.
+    for (const target of [pic, name]) {
+      target.dataset.profile = person.username;
+      target.addEventListener("click", () => window.SnProfile?.open(person.username, { anchor: target }));
+    }
     return h("div", { class: `person${status === "offline" ? " offline" : ""}` },
-      h("div", { class: "pic" }, avatar(person), status && h("span", { class: "dot", "data-status": status, title: STATUS_TEXT[status] })),
-      h("div", { class: "text" }, h("div", { class: "name", text: person.username }, person.admin && chip("ADMIN", "admin")), h("div", { class: "sub", text: text })),
+      pic,
+      h("div", { class: "text" }, name, h("div", { class: "sub", text: text })),
       h("div", { class: "actions" }, actions));
   }
 

@@ -516,6 +516,8 @@
       text($("account-name"), user.username);
       paintAvatar(user.username, user.avatar);
       $("avatar-remove").disabled = !user.avatar;
+      $("bio-text").value = user.bio || "";
+      status($("bio-status"), "");
       text($("account-tile"), `Signed in as ${user.username}`);
       status($("account-status"), "");
       show("in");
@@ -663,6 +665,20 @@
       await SnAccount.changePassword(f.current.value, f.password.value);
       $("form-password").reset();
       formStatus($("form-password"), "Password changed. Other browsers have been signed out.", "ok");
+    });
+
+    $("bio-save").addEventListener("click", async () => {
+      const button = $("bio-save");
+      button.disabled = true;
+      try {
+        const saved = await SnAccount.setBio($("bio-text").value);
+        $("bio-text").value = saved.bio;
+        status($("bio-status"), saved.bio ? "Saved. It shows on your profile card." : "Bio removed.", "ok");
+      } catch (err) {
+        status($("bio-status"), err.message, "error");
+      } finally {
+        button.disabled = false;
+      }
     });
 
     submitting($("form-rename"), async (f) => {

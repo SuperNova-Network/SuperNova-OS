@@ -255,6 +255,7 @@
         pill.style.setProperty("--mc", roleBySlug(slug)?.color ?? "#99aab5");
         if (state.me?.roles?.includes(slug)) pill.classList.add("me");
       } else if (kind === "special" || label.toLowerCase() === state.me?.username.toLowerCase()) pill.classList.add("me");
+      if (kind === "user") profileLink(pill, { username: label });
       box.append(pill);
     }
   }
@@ -444,18 +445,45 @@
     styleName($("me-name"), state.me);
   }
 
+  /** Clicking a name or picture opens that person's profile card (with Mention, and Moderate for moderators). */
+  function profileLink(node, user) {
+    node.dataset.profile = user.username;
+    node.addEventListener("click", (event) => {
+      event.stopPropagation();
+      window.SnProfile?.open(user.username, {
+        anchor: node,
+        onMention: mentionInComposer,
+        onModerate: state.me && user.username !== state.me.username && canModeratePerson(user) ? () => openModerate(user) : undefined,
+      });
+    });
+  }
+
+  /** Put @name in the message box, ready to type after it. */
+  function mentionInComposer(name) {
+    if (text.disabled) return;
+    const start = text.selectionStart ?? text.value.length, end = text.selectionEnd ?? start;
+    const before = text.value.slice(0, start), insert = `${before && !/\s$/.test(before) ? " " : ""}@${name} `;
+    text.value = before + insert + text.value.slice(end);
+    text.selectionStart = text.selectionEnd = before.length + insert.length;
+    autosize();
+    updateCount();
+    text.focus();
+  }
+
   function messageNode(message, previous) {
     const grouped = !message.reply && previous && previous.user.username === message.user.username && message.at - previous.at < GROUP_MS && sameDay(previous.at, message.at);
     const row = el("li", `msg${message.user.admin ? " admin" : ""}${grouped ? " grouped" : ""}${pingsMe(message) ? " pinged" : ""}`);
     row.dataset.id = message.id;
 
-    row.append(grouped ? el("span", "spacer-avatar") : avatar(message.user));
+    if (grouped) row.append(el("span", "spacer-avatar"));
+    else { const face = avatar(message.user); profileLink(face, message.user); row.append(face); }
     const content = el("div", "content");
     if (message.reply) content.append(replyRef(message.reply));
     if (!grouped) {
       const head = el("div", "head");
       const name = el("span", "name", message.user.username);
       styleName(name, message.user);
+      profileLink(name, message.user);
       head.append(name);
       const tag = tagFor(message.user);
       if (tag) head.append(tag);
@@ -627,11 +655,9 @@
       row.append(avatar(person, "small"), who);
       const tag = tagFor(person);
       if (tag) row.append(tag);
-      if (state.me && canModeratePerson(person)) {
-        row.dataset.action = "moderate";
-        row.title = `Moderate ${person.username}`;
-        row.addEventListener("click", () => openModerate(person));
-      }
+      row.dataset.action = "profile";
+      row.title = `${person.username}'s profile`;
+      profileLink(row, person);
       item.append(row);
       list.append(item);
     }

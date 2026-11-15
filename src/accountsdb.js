@@ -353,6 +353,10 @@ const MIGRATIONS = [
     );
     CREATE INDEX IF NOT EXISTS chat_reactions_message ON chat_reactions(message_id, created_at);
   `),
+  // 17: a short bio on each profile (shown on the profile card).
+  (db) => {
+    if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === "bio")) db.exec("ALTER TABLE users ADD COLUMN bio TEXT NOT NULL DEFAULT ''");
+  },
 ];
 
 /** The schema version this build upgrades a database to. */
