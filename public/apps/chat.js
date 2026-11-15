@@ -387,6 +387,7 @@
       }
       addMessage(message);
     });
+    on("reaction", ({ id, channel, reactions }) => { if (channel === state.channel) applyReactions(id, reactions); });
     // The channels you can see changed (an admin made, moved or removed one, or your roles opened or closed a door).
     on("channels", ({ channels }) => {
       state.channels = channels.map((c) => ({ ...c, unread: c.id === state.channel ? 0 : c.unread }));
@@ -463,10 +464,17 @@
     }
     if (message.text) { const box = el("div", "text"); fillText(box, message); content.append(box); }
     if (message.media) content.append(mediaNode(message.media));
+    if (message.reactions?.length) content.append(reactionsNode(message));
     row.append(content);
 
     // Everyone can reply (the button shows when the pointer is over the message); moderators also get Delete and Moderate.
     const tools = el("div", canModerate() ? "tools" : "tools hover-only");
+    const react = el("button", "react-btn", "React");
+    react.type = "button";
+    react.title = "Add a reaction";
+    react.setAttribute("aria-haspopup", "menu");
+    react.addEventListener("click", () => openReactPop(message, react));
+    tools.append(react);
     const reply = el("button", "reply-btn", "Reply");
     reply.type = "button";
     reply.title = `Reply to ${message.user.username}`;
@@ -489,6 +497,71 @@
     row.append(tools);
     return row;
   }
+
+  // --- reactions -----------------------------------------------------------------------------------
+
+  const QUICK_REACTIONS = ["\u{1F44D}", "\u2764\uFE0F", "\u{1F602}", "\u{1F62E}", "\u{1F622}", "\u{1F621}", "\u{1F389}", "\u{1F525}", "\u{1F440}", "\u2705", "\u274C", "\u{1F64F}", "\u{1F4AF}", "\u{1F914}", "\u{1F60D}", "\u{1F44F}"];
+
+  function reactionsNode(message) {
+    const box = el("div", "reactions");
+    for (const reaction of message.reactions) {
+      const mine = reaction.users.includes(state.me.username);
+      const pill = el("button", "reaction");
+      pill.type = "button";
+      pill.setAttribute("aria-pressed", String(mine));
+      const shown = reaction.users.slice(0, 10).join(", ") + (reaction.count > 10 ? ` and ${reaction.count - 10} more` : "");
+      pill.title = `${shown} reacted with ${reaction.emoji}`;
+      pill.append(el("span", "emo", reaction.emoji), el("span", "n", String(reaction.count)));
+      pill.addEventListener("click", () => react(message, reaction.emoji));
+      box.append(pill);
+    }
+    return box;
+  }
+
+  async function react(message, emoji) {
+    try {
+      const result = await api("POST", `/messages/${message.id}/reactions`, { emoji });
+      applyReactions(message.id, result.reactions);
+    } catch (err) {
+      showNotice(err.message);
+    }
+  }
+
+  /** Show a message's reactions as they are now (from our own click or from the live event): only that message is redrawn. */
+  function applyReactions(id, reactions) {
+    const message = state.messages.find((m) => m.id === id);
+    if (!message) return;
+    if (reactions.length) message.reactions = reactions; else delete message.reactions;
+    const node = $("list").querySelector(`li.msg[data-id="${id}"]`);
+    if (!node) return;
+    node.replaceWith(messageNode(message, state.messages[state.messages.indexOf(message) - 1] ?? null));
+    if (state.atBottom) scrollToEnd();
+  }
+
+  let reactPop = null;
+  function closeReactPop() { if (reactPop) { reactPop.remove(); reactPop = null; } }
+  function openReactPop(message, anchor) {
+    const same = reactPop && reactPop.dataset.id === String(message.id);
+    closeReactPop();
+    if (same) return;
+    const pop = el("div", "react-pop");
+    pop.setAttribute("role", "menu");
+    pop.dataset.id = String(message.id);
+    for (const emoji of QUICK_REACTIONS) {
+      const button = el("button", "", emoji);
+      button.type = "button";
+      button.setAttribute("role", "menuitem");
+      button.addEventListener("click", () => { closeReactPop(); react(message, emoji); });
+      pop.append(button);
+    }
+    document.body.append(pop);
+    const box = anchor.getBoundingClientRect();
+    pop.style.left = `${Math.min(Math.max(4, box.right - pop.offsetWidth), window.innerWidth - pop.offsetWidth - 4)}px`;
+    pop.style.top = `${box.top - pop.offsetHeight - 4 < 4 ? box.bottom + 4 : box.top - pop.offsetHeight - 4}px`;
+    reactPop = pop;
+  }
+  document.addEventListener("mousedown", (event) => { if (reactPop && !reactPop.contains(event.target) && !event.target.closest?.(".react-btn")) closeReactPop(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeReactPop(); });
 
   function mediaNode(media) {
     const src = media.kind === "giphy" ? `${API}/giphy/${encodeURIComponent(media.id)}/full` : `${API}/media/${encodeURIComponent(media.id)}`;

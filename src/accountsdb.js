@@ -342,6 +342,17 @@ const MIGRATIONS = [
     // Where everyone had read up to carries over to #general.
     db.exec("INSERT OR IGNORE INTO chat_channel_reads (user_id, channel_id, last_id, at) SELECT user_id, 1, last_id, at FROM chat_reads");
   },
+  // 16: reactions on chat messages (one row per person, message and emoji).
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_reactions (
+      message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      emoji TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (message_id, user_id, emoji)
+    );
+    CREATE INDEX IF NOT EXISTS chat_reactions_message ON chat_reactions(message_id, created_at);
+  `),
 ];
 
 /** The schema version this build upgrades a database to. */

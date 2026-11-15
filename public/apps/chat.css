@@ -1479,3 +1479,58 @@ a.url:hover {
     border-bottom-color: var(--accent);
   }
 }
+
+/* --- Reactions ------------------------------------------------------------------------------------------ */
+
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.reaction .emo {
+  font-size: 15px;
+}
+
+.reaction[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--raised));
+  color: var(--text);
+}
+
+.react-pop {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: repeat(8, 32px);
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.react-pop button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  line-height: 32px;
+  text-align: center;
+}
+
+.react-pop button:hover,
+.react-pop button:focus-visible {
+  background: var(--raised);
+}

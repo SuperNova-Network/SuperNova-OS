@@ -9,7 +9,7 @@
  * can never leave the page with a gap or a message that was since deleted.
  *
  * Events (server -> page): ready, message, delete, clear, presence, settings, sanction,
- * sanction-lifted, channels, read, closed.
+ * sanction-lifted, channels, read, reaction, closed.
  *
  * The chat has channels (src/channels.js). A message belongs to one, and only people who may read that channel are
  * sent it; each person's "ready" lists the channels they can see and carries the history of one of them.
@@ -61,6 +61,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     connect: createLimiter({ limit: 40, windowMs: 60_000 }),
     search: createLimiter({ limit: 30, windowMs: 60_000 }),
     read: createLimiter({ limit: 120, windowMs: 60_000 }),
+    react: createLimiter({ limit: 60, windowMs: 60_000 }),
   };
   const limit = (limiter, key, message = "Slow down a little.") => {
     const wait = limiter.hit(key);
@@ -178,9 +179,12 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     const originals = store.messagesById(db, rows.map((row) => row.reply_to).filter(Boolean));
     const ids = [...new Set([...rows.map((row) => row.user_id), ...[...originals.values()].map((row) => row.user_id)])];
     const map = roles.rolesOfUsers(db, ids);
+    const reactions = store.reactionsFor(db, rows.map((row) => row.id));
     return rows.map((row) => {
       const original = row.reply_to ? originals.get(row.reply_to) : null;
-      return store.publicMessage(row, isAdmin, roles.topRole(map.get(row.user_id)), original ? store.replyPreview(original, isAdmin, roles.topRole(map.get(original.user_id))) : null);
+      const message = store.publicMessage(row, isAdmin, roles.topRole(map.get(row.user_id)), original ? store.replyPreview(original, isAdmin, roles.topRole(map.get(original.user_id))) : null);
+      if (reactions.has(row.id)) message.reactions = reactions.get(row.id);
+      return message;
     });
   }
 
@@ -380,6 +384,26 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     const message = shapeMessages([row])[0];
     broadcastToChannel(channel, "message", message);
     res.status(201).json({ message });
+  }));
+
+  // React to a message, or take a reaction back: { emoji, on? } (no `on` flips it). Anyone who can read the channel can react,
+  // also where only some roles can post, unless they are timed out or banned from the chat.
+  router.post("/messages/:id/reactions", express.json({ limit: "2kb" }), handle((req, res) => {
+    const user = requireUser(req);
+    limit(limits.react, String(user.id));
+    if (!settings().enabled) throw new HttpError(403, "The chat is turned off.");
+    const sanction = store.activeSanction(db, user.id);
+    if (sanction) throw new HttpError(403, wait(sanction), { sanction });
+    const row = store.getMessage(db, req.params.id);
+    const channel = row && channels.getChannel(db, row.channel_id);
+    if (!row || !channel || !channels.mayRead(channel, user, channels.heldRoleIds(db, user.id))) throw new HttpError(404, "That message is gone.");
+    const emoji = req.body?.emoji;
+    if (!store.isEmoji(emoji)) throw new HttpError(400, "Pick an emoji to react with.");
+    const on = typeof req.body?.on === "boolean" ? req.body.on : undefined;
+    const mine = store.setReaction(db, { messageId: row.id, userId: user.id, emoji, on });
+    const reactions = store.reactionsFor(db, [row.id]).get(row.id) ?? [];
+    broadcastToChannel(channel, "reaction", { id: row.id, channel: row.channel_id, reactions });
+    res.json({ id: row.id, mine, reactions });
   }));
 
   // "I've read this channel" (or, with no channel named, all of them): the number on the Chat icon drops on every

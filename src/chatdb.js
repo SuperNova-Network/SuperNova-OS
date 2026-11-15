@@ -227,6 +227,55 @@ export function getMedia(db, id) {
   return db.prepare("SELECT mime, data FROM chat_media WHERE id = ?").get(String(id)) ?? null;
 }
 
+// --- reactions ----------------------------------------------------------------------
+
+export const REACTIONS = { perPerson: 10, kinds: 20, names: 100 };
+const SEGMENTER = new Intl.Segmenter();
+// One emoji, and nothing else: a picture (with a skin tone or joined pictures), a flag, a keycap or a regional flag.
+const EMOJI = /^(?:\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?)*|\p{Regional_Indicator}{2}|[0-9#*]\uFE0F?\u20E3|\u{1F3F4}[\u{E0020}-\u{E007E}]+\u{E007F})$/u;
+export function isEmoji(text) {
+  if (typeof text !== "string" || !text || text.length > 32) return false;
+  return EMOJI.test(text) && [...SEGMENTER.segment(text)].length === 1;
+}
+
+/** The reactions of these messages: a Map of message id to [{ emoji, count, users }], in the order they were first used. */
+export function reactionsFor(db, ids) {
+  const out = new Map();
+  const list = [...new Set(ids.map(Number).filter(Number.isInteger))];
+  if (!list.length) return out;
+  const rows = db.prepare(`SELECT chat_reactions.message_id, chat_reactions.emoji, users.username FROM chat_reactions JOIN users ON users.id = chat_reactions.user_id
+    WHERE chat_reactions.message_id IN (${list.map(() => "?").join(",")}) ORDER BY chat_reactions.created_at, chat_reactions.rowid`).all(...list);
+  for (const row of rows) {
+    if (!out.has(row.message_id)) out.set(row.message_id, new Map());
+    const kinds = out.get(row.message_id);
+    if (!kinds.has(row.emoji)) kinds.set(row.emoji, { emoji: row.emoji, count: 0, users: [] });
+    const kind = kinds.get(row.emoji);
+    kind.count++;
+    if (kind.users.length < REACTIONS.names) kind.users.push(row.username);
+  }
+  return new Map([...out].map(([id, kinds]) => [id, [...kinds.values()]]));
+}
+
+/**
+ * Add (on), remove (off) or flip (on undefined) someone's reaction. Returns whether it is there now.
+ * A person has up to `perPerson` reactions on a message, and a message up to `kinds` different emoji.
+ */
+export function setReaction(db, { messageId, userId, emoji, on }) {
+  return transaction(db, () => {
+    const has = Boolean(db.prepare("SELECT 1 FROM chat_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?").get(messageId, userId, emoji));
+    const want = on === undefined ? !has : Boolean(on);
+    if (want && !has) {
+      if (db.prepare("SELECT COUNT(*) AS n FROM chat_reactions WHERE message_id = ? AND user_id = ?").get(messageId, userId).n >= REACTIONS.perPerson) throw new AdminError(400, `You can react to a message ${REACTIONS.perPerson} times.`);
+      const used = db.prepare("SELECT 1 FROM chat_reactions WHERE message_id = ? AND emoji = ?").get(messageId, emoji);
+      if (!used && db.prepare("SELECT COUNT(DISTINCT emoji) AS n FROM chat_reactions WHERE message_id = ?").get(messageId).n >= REACTIONS.kinds) throw new AdminError(400, "That message has as many different reactions as it can hold.");
+      db.prepare("INSERT INTO chat_reactions (message_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?)").run(messageId, userId, emoji, Date.now());
+    } else if (!want && has) {
+      db.prepare("DELETE FROM chat_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?").run(messageId, userId, emoji);
+    }
+    return want;
+  });
+}
+
 // --- sanctions (timeouts and chat bans) ---------------------------------------------
 
 /** The sanction that stops this person posting right now, or null. A ban beats a timeout. */
