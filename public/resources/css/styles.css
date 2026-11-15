@@ -2944,3 +2944,175 @@ div[data-title]:hover:before {
 @media (max-width: 700px) {
   #whatsnew .wn-week strong, #whatsnew .wn-week small, #whatsnew .wn-tag, #whatsnew .wn-back { font-size: 14px; }
 }
+
+/* --- The friends indicator beside the trophy, and the menu it opens (friendsmenu.js) ------------------------------ */
+
+#friendsbtn {
+  position: relative;
+  float: left;
+  width: 1.2em;
+  height: 1.15em;
+  margin-top: 0.92em;
+  margin-right: 1em;
+  cursor: pointer;
+}
+
+#friendsbtn svg {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* a small green number: how many friends are online */
+#friendsbtn[data-online]::after {
+  content: attr(data-online);
+  position: absolute;
+  top: -0.45em;
+  right: -0.55em;
+  min-width: 1.15em;
+  height: 1.15em;
+  padding: 0 0.22em;
+  box-sizing: border-box;
+  border-radius: 0.6em;
+  background: #2fb35a;
+  color: #fff;
+  font-size: 0.62em;
+  font-weight: 700;
+  line-height: 1.15em;
+  text-align: center;
+  box-shadow: 0 0 0 0.12em #1a1a1a;
+}
+
+#friendsmenu {
+  position: fixed;
+  z-index: 10002;
+  display: flex;
+  flex-direction: column;
+  width: clamp(270px, 22vw, 380px);
+  max-height: min(60vh, 520px);
+  background: #2b2b2b;
+  color: #fff;
+  font-size: clamp(12px, 0.95vw, 15px);
+  box-shadow: 0 0.3vw 1vw rgba(0, 0, 0, 0.55);
+}
+
+#friendsmenu .fm-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9em 1.1em 0.6em;
+  font-size: 1.15em;
+}
+
+#friendsmenu .fm-count {
+  min-width: 1.6em;
+  padding: 0 0.5em;
+  background: #2fb35a;
+  color: #fff;
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1.6em;
+  text-align: center;
+}
+
+#friendsmenu .fm-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 0.4em;
+}
+
+#friendsmenu .fm-empty {
+  margin: 0;
+  padding: 0.8em 1.1em 1em;
+  color: #b8b8b8;
+}
+
+#friendsmenu .fm-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  width: 100%;
+  padding: 0.45em 1.1em;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+#friendsmenu .fm-pic {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.3em;
+  height: 2.3em;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 600;
+}
+
+#friendsmenu .fm-pic img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+#friendsmenu .fm-pic::after {
+  content: "";
+  position: absolute;
+  right: -0.1em;
+  bottom: -0.1em;
+  width: 0.75em;
+  height: 0.75em;
+  border: 2px solid #2b2b2b;
+  border-radius: 50%;
+  background: #2fb35a;
+}
+
+#friendsmenu .fm-pic[data-status="away"]::after {
+  background: #e0a800;
+}
+
+#friendsmenu .fm-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#friendsmenu .fm-state {
+  color: #a8a8a8;
+  font-size: 0.85em;
+}
+
+#friendsmenu .fm-requests {
+  flex: none;
+  padding: 0.7em 1.1em;
+  border: 0;
+  border-top: 1px solid #444;
+  background: transparent;
+  color: #ffc83d;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+#friendsmenu .fm-open {
+  flex: none;
+  padding: 0.85em 1em;
+  border: 0;
+  border-top: 1px solid #444;
+  background: var(--accent, #7b4aa8);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
