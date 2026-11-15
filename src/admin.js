@@ -11,8 +11,8 @@ import { tmpdir, loadavg, cpus, totalmem, freemem } from "node:os";
 import { join } from "node:path";
 import { AdminError, USERNAME_PATTERN, createInvite, nameHeldByOther, ownerRow, renameUser, setBanned } from "./accountsdb.js";
 import {
-  backupTo, databaseInfo, deleteUser, getAdminSetting, listAudit, listSessions, listUsersPage, logAdmin, overview, prune,
-  revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, saveTerms, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
+  backupTo, cancelScheduled, databaseInfo, deleteUser, getAdminSetting, listAudit, listScheduled, listSessions, listUsersPage, liveAnnouncement, logAdmin, overview, prune,
+  revokeSession, saveAnnouncement, scheduleAnnouncement, setAdminSetting, takeDueAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, saveTerms, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
 } from "./admindb.js";
 import * as apps from "./storedb.js";
 import * as roles from "./roles.js";
@@ -257,7 +257,19 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
 
   // --- announcement, maintenance and the blocked sites ---------------------------------------------------
 
-  router.get("/announcement", handle((req, res) => { requireAdmin(req); res.json(getAdminSetting(db, "announcement")); }));
+  router.get("/announcement", handle((req, res) => { requireAdmin(req); res.json({ ...liveAnnouncement(getAdminSetting(db, "announcement")), scheduled: listScheduled(db) }); }));
+  router.post("/announcement/schedule", handle((req, res) => {
+    const admin = requireAdmin(req);
+    const item = scheduleAnnouncement(db, req.body, admin.username);
+    logAdmin(db, admin.username, "scheduled an announcement", null, `${new Date(item.startsAt).toISOString().slice(0, 16).replace("T", " ")} UTC: ${item.text.slice(0, 80)}`);
+    res.status(201).json({ item, scheduled: listScheduled(db) });
+  }));
+  router.post("/announcement/schedule/:id/delete", handle((req, res) => {
+    const admin = requireAdmin(req);
+    cancelScheduled(db, req.params.id);
+    logAdmin(db, admin.username, "cancelled a scheduled announcement", `#${Number(req.params.id)}`);
+    res.json({ scheduled: listScheduled(db) });
+  }));
   router.post("/announcement", handle((req, res) => {
     const admin = requireAdmin(req);
     const saved = saveAnnouncement(db, req.body, admin.username);
@@ -535,7 +547,29 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
 
   return {
     router,
-    announcement: () => cached("announcement"),
+    announcement: () => liveAnnouncement(cached("announcement")),
+    /**
+     * Called every few seconds: a scheduled announcement whose time has come goes out, and one whose end time has
+     * come comes down, for everyone at once.
+     */
+    tick() {
+      const now = Date.now();
+      const due = takeDueAnnouncement(db, now);
+      if (due) {
+        const saved = saveAnnouncement(db, { text: due.text, level: due.level, active: true, endsAt: due.endsAt }, due.by, now);
+        forget("announcement");
+        onChange("announcement", saved);
+        logAdmin(db, due.by ?? "schedule", "a scheduled announcement went out", null, saved.text.slice(0, 100));
+        return;
+      }
+      const current = getAdminSetting(db, "announcement");
+      if (current.active && current.endsAt && current.endsAt <= now) {
+        const saved = setAdminSetting(db, "announcement", { ...current, id: now, active: false, endsAt: null }, "schedule");
+        forget("announcement");
+        onChange("announcement", saved);
+        logAdmin(db, "schedule", "an announcement came down by itself", null, current.text.slice(0, 100));
+      }
+    },
     maintenance: () => cached("maintenance"),
     blocklist: () => cached("blocklist"),
     terms: () => cached("terms"),
@@ -547,5 +581,5 @@ export function disabledAdmin() {
   const router = express.Router();
   router.use((_req, res) => res.status(404).json({ error: "The admin panel needs accounts, which aren't available on this site." }));
   const off = { on: false, message: "" };
-  return { router, announcement: () => ({ id: 0, text: "", level: "info", active: false }), maintenance: () => off, blocklist: () => ({ hosts: [], keywords: [], queryWords: [] }), terms: () => ({ enabled: false }) };
+  return { router, tick() {}, announcement: () => ({ id: 0, text: "", level: "info", active: false }), maintenance: () => off, blocklist: () => ({ hosts: [], keywords: [], queryWords: [] }), terms: () => ({ enabled: false }) };
 }

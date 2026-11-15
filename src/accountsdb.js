@@ -391,6 +391,20 @@ const MIGRATIONS = [
     if (!columns.includes("featured_at")) db.exec("ALTER TABLE store_apps ADD COLUMN featured_at INTEGER");
     if (!columns.includes("featured_by")) db.exec("ALTER TABLE store_apps ADD COLUMN featured_by TEXT");
   },
+  // 20: announcements written ahead of time, to go out at a chosen moment (and optionally come down at another).
+  (db) => db.exec(`
+    CREATE TABLE IF NOT EXISTS announcement_schedule (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      level TEXT NOT NULL,
+      starts_at INTEGER NOT NULL,
+      ends_at INTEGER,
+      created_by TEXT,
+      created_at INTEGER NOT NULL,
+      sent_at INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS announcement_schedule_due ON announcement_schedule(sent_at, starts_at);
+  `),
 ];
 
 /** The schema version this build upgrades a database to. */

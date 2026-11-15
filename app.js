@@ -257,6 +257,11 @@ app.get("/api/announcement", (_req, res) => {
   res.set("Cache-Control", "no-store").json({ announcement: active ? { id, text, level } : null });
 });
 
+// Announcements written ahead of time go out (and come down) on their own: checked every few seconds.
+setInterval(() => {
+  try { admin.tick(); } catch (error) { console.error("Scheduled announcements:", error.message); }
+}, 5_000).unref();
+
 // Whether the red acceptable use screen is on (Admin Panel > Site). Public: signed-out visitors see it too.
 app.get("/api/terms", (_req, res) => {
   res.set("Cache-Control", "no-store").json({ enabled: admin.terms().enabled });

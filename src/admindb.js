@@ -44,7 +44,7 @@ export function listAudit(db, { q = "", actor = "", source = "", before = null, 
 // --- settings the panel manages -------------------------------------------------------------
 
 export const ADMIN_DEFAULTS = {
-  announcement: { id: 0, text: "", level: "info", active: false },
+  announcement: { id: 0, text: "", level: "info", active: false, endsAt: null },
   maintenance: { on: false, message: "SuperNova OS is being updated. Please check back in a few minutes." },
   blocklist: { hosts: [], keywords: [], queryWords: [] },
   // The red "Acceptable use" screen everyone who isn't signed in must agree to once (off by default).
@@ -68,13 +68,78 @@ export function setAdminSetting(db, key, value, by = null) {
 
 const LEVELS = ["info", "warning", "danger"];
 
-/** Validate and save the announcement. Every change gets a new id, so people see it again. */
-export function saveAnnouncement(db, input, by) {
+/** An announcement as it is right now: one whose end time has passed counts as taken down, even before the timer notices. */
+export const liveAnnouncement = (announcement, now = Date.now()) => ({ ...announcement, active: Boolean(announcement.active) && !(announcement.endsAt && announcement.endsAt <= now) });
+
+const SCHEDULE_MAX = 20;
+const YEAR = 365 * DAY;
+
+/** A time sent by a page: a number of milliseconds, or nothing. */
+function cleanTime(value, what) {
+  if (value === undefined || value === null || value === "") return null;
+  if (!Number.isFinite(Number(value))) throw new AdminError(400, `${what} isn't a time.`);
+  return Math.round(Number(value));
+}
+
+function cleanAnnouncementText(input, level = input?.level) {
   const text = String(input?.text ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
-  const level = LEVELS.includes(input?.level) ? input.level : "info";
+  return { text, level: LEVELS.includes(level) ? level : "info" };
+}
+
+/**
+ * Validate and save the announcement. Every change gets a new id, so people see it again.
+ * `endsAt` (optional) takes it down by itself at that time.
+ */
+export function saveAnnouncement(db, input, by, now = Date.now()) {
+  const { text, level } = cleanAnnouncementText(input);
   const active = Boolean(input?.active) && text.length > 0;
   if (input?.active && !text) throw new AdminError(400, "Write the announcement first.");
-  return setAdminSetting(db, "announcement", { id: Date.now(), text, level, active }, by);
+  const endsAt = active ? cleanTime(input?.endsAt, "The end time") : null;
+  if (endsAt !== null && endsAt <= now) throw new AdminError(400, "The end time has to be in the future.");
+  return setAdminSetting(db, "announcement", { id: now, text, level, active, endsAt }, by);
+}
+
+/** Write an announcement now to go out later: { text, level, startsAt, endsAt? }. Returns it as listed. */
+export function scheduleAnnouncement(db, input, by, now = Date.now()) {
+  const { text, level } = cleanAnnouncementText(input);
+  if (!text) throw new AdminError(400, "Write the announcement first.");
+  const startsAt = cleanTime(input?.startsAt, "The start time");
+  const endsAt = cleanTime(input?.endsAt, "The end time");
+  if (startsAt === null) throw new AdminError(400, "Pick when it should go out.");
+  if (startsAt < now - 60_000) throw new AdminError(400, "That start time has already passed.");
+  if (startsAt > now + YEAR) throw new AdminError(400, "Schedule it within a year.");
+  if (endsAt !== null && endsAt <= startsAt) throw new AdminError(400, "It has to come down after it goes out.");
+  if (db.prepare("SELECT COUNT(*) AS n FROM announcement_schedule WHERE sent_at IS NULL").get().n >= SCHEDULE_MAX) throw new AdminError(400, `There can be ${SCHEDULE_MAX} waiting. Cancel one first.`);
+  const { lastInsertRowid } = db.prepare("INSERT INTO announcement_schedule (text, level, starts_at, ends_at, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(text, level, startsAt, endsAt, by, now);
+  return listScheduled(db).find((item) => item.id === Number(lastInsertRowid));
+}
+
+/** The announcements waiting to go out (soonest first), then the last few that did. */
+export function listScheduled(db) {
+  const shape = (r) => ({ id: r.id, text: r.text, level: r.level, startsAt: r.starts_at, endsAt: r.ends_at, by: r.created_by, sentAt: r.sent_at });
+  return [
+    ...db.prepare("SELECT * FROM announcement_schedule WHERE sent_at IS NULL ORDER BY starts_at, id").all().map(shape),
+    ...db.prepare("SELECT * FROM announcement_schedule WHERE sent_at IS NOT NULL ORDER BY sent_at DESC, id DESC LIMIT 5").all().map(shape),
+  ];
+}
+
+/** Cancel one that hasn't gone out. */
+export function cancelScheduled(db, id) {
+  const { changes } = db.prepare("DELETE FROM announcement_schedule WHERE id = ? AND sent_at IS NULL").run(Number(id));
+  if (!changes) throw new AdminError(404, "That one has already gone out, or isn't there.");
+}
+
+/**
+ * Whatever is due by `now`: marks every waiting announcement whose time has come as sent and returns the one to
+ * show (the latest of them, unless its own end time has also passed), or null.
+ */
+export function takeDueAnnouncement(db, now = Date.now()) {
+  const due = db.prepare("SELECT * FROM announcement_schedule WHERE sent_at IS NULL AND starts_at <= ? ORDER BY starts_at, id").all(now);
+  if (!due.length) return null;
+  db.prepare(`UPDATE announcement_schedule SET sent_at = ? WHERE id IN (${due.map(() => "?").join(",")})`).run(now, ...due.map((r) => r.id));
+  const last = due.at(-1);
+  if (last.ends_at && last.ends_at <= now) return null;
+  return { text: last.text, level: last.level, endsAt: last.ends_at, by: last.created_by };
 }
 
 export function saveTerms(db, input, by) {

@@ -763,8 +763,45 @@
     const preview = h("div", { class: "announce", "data-level": announcement.level }, h("strong", { text: "Announcement" }), h("div", { class: "dim" }));
     const draw = () => { preview.dataset.level = aLevel.value; preview.lastChild.textContent = aText.value.trim() || "(nothing yet)"; };
     aText.addEventListener("input", draw); aLevel.addEventListener("change", draw); draw();
-    const post = h("button", { class: "btn primary", type: "button", text: announcement.active ? "Update announcement" : "Post announcement", onclick: () => act(post, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: true }); views.site(); }, "Posted. Everyone sees it now: Important as a window to close, the rest as a notification at the bottom right.") });
+    // When it goes out: now, or at a time chosen here (in your own time zone). It can also come down by itself.
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const localValue = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+    const nextHour = () => { const d = new Date(Date.now() + 3_600_000); d.setMinutes(0, 0, 0); return d.getTime(); };
+    const when = h("div", { class: "radios", role: "radiogroup" });
+    const whenNow = h("input", { type: "radio", name: "ann-when", value: "now", checked: true });
+    const whenLater = h("input", { type: "radio", name: "ann-when", value: "later" });
+    when.append(h("label", {}, whenNow, h("span", { text: "Now" })), h("label", {}, whenLater, h("span", { text: "Later, at a time I choose" })));
+    const startInput = h("input", { class: "field", type: "datetime-local", value: localValue(nextHour()), style: "width:220px" });
+    const startRow = h("label", { class: "labeled", hidden: true }, h("span", { text: "Goes out at" }), startInput);
+    const endInput = h("input", { class: "field", type: "datetime-local", value: announcement.active && announcement.endsAt ? localValue(announcement.endsAt) : "", style: "width:220px" });
+    const timeOf = (input) => (input.value ? new Date(input.value).getTime() : null);
+    const post = h("button", { class: "btn primary", type: "button" });
+    const redrawWhen = () => {
+      const later = whenLater.checked;
+      startRow.hidden = !later;
+      post.textContent = later ? "Schedule it" : announcement.active ? "Update announcement" : "Post announcement";
+    };
+    whenNow.addEventListener("change", redrawWhen); whenLater.addEventListener("change", redrawWhen); redrawWhen();
+    post.addEventListener("click", () => act(post, async () => {
+      if (whenLater.checked) {
+        const startsAt = timeOf(startInput);
+        if (!startsAt) throw new Error("Pick when it should go out.");
+        await A("POST", "/announcement/schedule", { text: aText.value, level: aLevel.value, startsAt, endsAt: timeOf(endInput) });
+      } else {
+        await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: true, endsAt: timeOf(endInput) });
+      }
+      views.site();
+    }, "Done. A scheduled one goes out by itself; one posted now is on everyone's desktop already (Important ones as a window to close, the others as a notification)."));
     const clear = h("button", { class: "btn", type: "button", text: "Take it down", disabled: !announcement.active, onclick: () => act(clear, async () => { await A("POST", "/announcement", { text: aText.value, level: aLevel.value, active: false }); views.site(); }, "Taken down.") });
+    const waiting = (announcement.scheduled ?? []).filter((item) => item.sentAt === null);
+    const sentBefore = (announcement.scheduled ?? []).filter((item) => item.sentAt !== null);
+    const scheduledBox = (announcement.scheduled ?? []).length ? h("div", { class: "stack", style: "margin-top:6px" },
+      h("h4", { text: waiting.length ? `Waiting to go out (${waiting.length})` : "Nothing is waiting to go out", style: "margin:6px 0 2px" }),
+      ...waiting.map((item) => h("div", { class: "row", style: "gap:8px;align-items:flex-start" },
+        h("span", { class: "dim", style: "min-width:150px", title: `Goes out ${dateTime(item.startsAt)}`, text: dateTime(item.startsAt) }),
+        h("span", { class: "wrap", style: "flex:1" }, h("strong", { text: ({ info: "Information", warning: "Warning", danger: "Important" })[item.level] }), `: ${item.text}`, item.endsAt ? h("span", { class: "dim", text: ` (comes down ${dateTime(item.endsAt)})` }) : null),
+        h("button", { class: "btn small", type: "button", text: "Cancel", onclick: (e) => act(e.target, async () => { await A("POST", `/announcement/schedule/${item.id}/delete`, {}); views.site(); }, "Cancelled.") }))),
+      sentBefore.length ? h("p", { class: "dim small", style: "margin:6px 0 0", text: `Went out recently: ${sentBefore.map((item) => `"${item.text.slice(0, 40)}${item.text.length > 40 ? "\u2026" : ""}" ${ago(item.sentAt)}`).join(" \u00b7 ")}` }) : null) : null;
 
     const tOn = h("input", { type: "checkbox", checked: terms.enabled });
     const tSave = h("button", { class: "btn primary", type: "button", text: "Save", onclick: () => act(tSave, async () => { const saved = await A("POST", "/terms", { enabled: tOn.checked }); terms.enabled = saved.enabled; }, tOn.checked ? "On. Everyone who isn't signed in sees it now, and must agree once." : "Off.") });
@@ -789,7 +826,12 @@
       h("div", { class: "card section stack" }, h("h3", { text: "Announcement" }),
         h("p", { class: "dim small", text: "Shown to everyone on their desktop the moment you post it, once each time you change it: Important ones as a window to close, the others as a notification." }),
         h("label", { class: "labeled" }, h("span", { text: "Message" }), aText), h("label", { class: "labeled" }, h("span", { text: "Kind" }), aLevel),
-        preview, h("div", { class: "row" }, post, clear)));
+        preview,
+        h("div", {}, h("span", { class: "dim small", text: "When" }), when),
+        startRow,
+        h("label", { class: "labeled" }, h("span", { text: "Take it down by itself at (optional)" }), endInput),
+        h("div", { class: "row" }, post, clear),
+        scheduledBox));
   };
 
   // ---------------------------------------------------------------------------------------
