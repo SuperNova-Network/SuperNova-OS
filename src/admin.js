@@ -16,6 +16,7 @@ import {
 } from "./admindb.js";
 import * as apps from "./storedb.js";
 import * as roles from "./roles.js";
+import * as channels from "./channels.js";
 import { HttpError, guardWrites } from "./http.js";
 import { hashPassword } from "./passwords.js";
 
@@ -266,6 +267,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
   router.post("/roles/:id/delete", handle((req, res) => {
     const admin = requireAdmin(req);
     const role = roles.deleteRole(db, roleOf(req).id);
+    channels.forgetRole(db, role.id); // a channel that was for this role never opens to everyone
     onChange("roles", role);
     logAdmin(db, admin.username, "deleted a role", role.name, `${role.members} member${role.members === 1 ? "" : "s"}`);
     res.json({ roles: roles.listRoles(db) });

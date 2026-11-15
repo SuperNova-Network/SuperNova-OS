@@ -116,7 +116,7 @@ export function setChatSettings(db, patch, by = null) {
 
 const MESSAGE_SELECT = `
   SELECT chat_messages.id, chat_messages.user_id, chat_messages.body, chat_messages.media_kind, chat_messages.media_ref,
-         chat_messages.created_at, chat_messages.mentions, chat_messages.reply_to, users.username, users.is_admin, users.avatar_version
+         chat_messages.created_at, chat_messages.mentions, chat_messages.reply_to, chat_messages.channel_id, users.username, users.is_admin, users.avatar_version
   FROM chat_messages JOIN users ON users.id = chat_messages.user_id`;
 
 /**
@@ -149,6 +149,7 @@ export function publicMessage(row, isAdmin, role = null, reply = null) {
   try { mentions = row.mentions ? JSON.parse(row.mentions) : null; } catch { /* an old or damaged value: no mentions */ }
   return {
     id: row.id,
+    channel: row.channel_id,
     at: row.created_at,
     user: { username: row.username, ...(isAdmin(row) ? { admin: true } : {}), ...(role ? { role } : {}), avatar: row.avatar_version ?? 0 },
     text: row.body,
@@ -158,29 +159,8 @@ export function publicMessage(row, isAdmin, role = null, reply = null) {
   };
 }
 
-/**
- * How many messages from other people came since this person last read the chat (the number on the Chat icon).
- * Someone who has never read it starts at "everything so far is read", not with the whole history unread.
- */
-export function unreadCount(db, userId) {
-  try {
-    const row = db.prepare("SELECT last_id FROM chat_reads WHERE user_id = ?").get(userId);
-    if (!row) { markRead(db, userId); return 0; }
-    return db.prepare("SELECT COUNT(*) AS n FROM chat_messages WHERE id > ? AND user_id <> ? AND deleted_at IS NULL").get(row.last_id, userId).n;
-  } catch (error) {
-    console.error("Chat: could not count unread messages:", error.message); // never stop the chat from opening
-    return 0;
-  }
-}
-
-/** This person has now read everything in the chat. */
-export function markRead(db, userId) {
-  const latest = db.prepare("SELECT COALESCE(MAX(id), 0) AS id FROM chat_messages").get().id;
-  db.prepare("INSERT INTO chat_reads (user_id, last_id, at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET last_id = excluded.last_id, at = excluded.at").run(userId, latest, Date.now());
-}
-
 /** Add a message, keep the history to HISTORY_LIMIT, and return its row. */
-export function insertMessage(db, { userId, text = "", media = null, mentions = null, replyTo = null }) {
+export function insertMessage(db, { userId, channelId = 1, text = "", media = null, mentions = null, replyTo = null }) {
   return transaction(db, () => {
     const now = Date.now();
     let mediaRef = media?.ref ?? null;
@@ -188,21 +168,22 @@ export function insertMessage(db, { userId, text = "", media = null, mentions = 
       mediaRef = randomBytes(12).toString("hex");
       db.prepare("INSERT INTO chat_media (id, user_id, mime, data, created_at) VALUES (?, ?, ?, ?, ?)").run(mediaRef, userId, media.upload.mime, media.upload.data, now);
     }
-    const { lastInsertRowid } = db.prepare("INSERT INTO chat_messages (user_id, body, media_kind, media_ref, created_at, mentions, reply_to) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(userId, text, media ? (media.upload ? "upload" : media.kind) : null, mediaRef, now, mentions ? JSON.stringify(mentions) : null, replyTo);
+    const { lastInsertRowid } = db.prepare("INSERT INTO chat_messages (user_id, body, media_kind, media_ref, created_at, mentions, reply_to, channel_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(userId, text, media ? (media.upload ? "upload" : media.kind) : null, mediaRef, now, mentions ? JSON.stringify(mentions) : null, replyTo, channelId);
     const id = Number(lastInsertRowid);
-    db.prepare("DELETE FROM chat_messages WHERE id <= ?").run(id - HISTORY_LIMIT);
+    // Each channel keeps its own HISTORY_LIMIT newest messages, so a busy one can't push out a quiet one.
+    db.prepare("DELETE FROM chat_messages WHERE channel_id = ? AND id <= (SELECT id FROM chat_messages WHERE channel_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?)").run(channelId, channelId, HISTORY_LIMIT);
     db.prepare(ORPHANED_MEDIA).run();
     return db.prepare(`${MESSAGE_SELECT} WHERE chat_messages.id = ?`).get(id);
   });
 }
 
-/** The newest `limit` messages (older than `before`, if given), oldest first. */
-export function listMessages(db, { before = null, limit = 60 } = {}) {
+/** The newest `limit` messages of a channel (older than `before`, if given), oldest first. */
+export function listMessages(db, { channelId = 1, before = null, limit = 60 } = {}) {
   limit = Math.min(Math.max(Number(limit) || 60, 1), 200);
   const rows = before
-    ? db.prepare(`${MESSAGE_SELECT} WHERE chat_messages.deleted_at IS NULL AND chat_messages.id < ? ORDER BY chat_messages.id DESC LIMIT ?`).all(Number(before), limit)
-    : db.prepare(`${MESSAGE_SELECT} WHERE chat_messages.deleted_at IS NULL ORDER BY chat_messages.id DESC LIMIT ?`).all(limit);
+    ? db.prepare(`${MESSAGE_SELECT} WHERE chat_messages.channel_id = ? AND chat_messages.deleted_at IS NULL AND chat_messages.id < ? ORDER BY chat_messages.id DESC LIMIT ?`).all(channelId, Number(before), limit)
+    : db.prepare(`${MESSAGE_SELECT} WHERE chat_messages.channel_id = ? AND chat_messages.deleted_at IS NULL ORDER BY chat_messages.id DESC LIMIT ?`).all(channelId, limit);
   return rows.reverse();
 }
 
@@ -231,10 +212,13 @@ export function deleteRecentMessages(db, userId, minutes, by) {
   });
 }
 
-export function clearMessages(db, by) {
+/** Remove every message, or only those of one channel. Returns how many. */
+export function clearMessages(db, by, channelId = null) {
   return transaction(db, () => {
-    const { changes } = db.prepare("UPDATE chat_messages SET deleted_at = ?, deleted_by = ? WHERE deleted_at IS NULL").run(Date.now(), by);
-    db.prepare("DELETE FROM chat_media").run();
+    const { changes } = channelId === null
+      ? db.prepare("UPDATE chat_messages SET deleted_at = ?, deleted_by = ? WHERE deleted_at IS NULL").run(Date.now(), by)
+      : db.prepare("UPDATE chat_messages SET deleted_at = ?, deleted_by = ? WHERE deleted_at IS NULL AND channel_id = ?").run(Date.now(), by, channelId);
+    db.prepare(ORPHANED_MEDIA).run();
     return changes;
   });
 }

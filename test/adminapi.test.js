@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startServer } from "./helpers.js";
 import { toCsv } from "../src/admindb.js";
+import { SCHEMA_VERSION } from "../src/accountsdb.js";
 
 // The admin API behind the Admin Panel app.
 const hasSqlite = await import("node:sqlite").then(() => true, () => false);
@@ -356,7 +357,7 @@ test("server health, tidying and a database backup", options, async () => {
   assert.match(sys.process.node, /^v\d+/);
   assert.ok(sys.database.counts.users >= 1);
   assert.ok(sys.database.bytes.database > 0);
-  assert.equal(sys.database.schemaVersion, 14);
+  assert.equal(sys.database.schemaVersion, SCHEMA_VERSION);
   assert.equal(sys.host.fly, null, "not on Fly here");
   const pruned = await boss.post("/api/admin/system/prune");
   assert.equal(pruned.status, 200);

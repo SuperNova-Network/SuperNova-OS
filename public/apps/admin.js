@@ -560,8 +560,8 @@
   views.chat = async () => {
     const body = h("div");
     const tabs = h("div", { class: "tabs", role: "tablist" });
-    const pick = (tab) => { chatState.tab = tab; for (const t of tabs.children) t.setAttribute("aria-selected", String(t.dataset.tab === tab)); (tab === "messages" ? chatMessages : chatModeration)(body); };
-    for (const [tab, text] of [["messages", "Messages"], ["moderation", "Rules and timeouts"]]) tabs.append(h("button", { class: "tab", type: "button", role: "tab", "data-tab": tab, text, onclick: () => pick(tab) }));
+    const pick = (tab) => { chatState.tab = tab; for (const t of tabs.children) t.setAttribute("aria-selected", String(t.dataset.tab === tab)); ({ messages: chatMessages, channels: chatChannels, moderation: chatModeration })[tab](body); };
+    for (const [tab, text] of [["messages", "Messages"], ["channels", "Channels"], ["moderation", "Rules and timeouts"]]) tabs.append(h("button", { class: "tab", type: "button", role: "tab", "data-tab": tab, text, onclick: () => pick(tab) }));
     main.replaceChildren(head("Chat", h("a", { class: "btn", href: "/api/admin/export/chat.csv", text: "Export recent messages" })), tabs, body);
     pick(chatState.tab);
   };
@@ -595,6 +595,70 @@
     deleted.addEventListener("change", go);
     body.replaceChildren(h("div", { class: "toolbar" }, q, user, h("label", { class: "check" }, deleted, h("span", { text: "Show deleted" })), h("button", { class: "btn primary", type: "button", text: "Search", onclick: go })), list);
     await load(true);
+  }
+
+  /** Channels: make, order and restrict them by role. */
+  async function chatChannels(body) {
+    const data = await api("GET", "/api/chat/admin/channels");
+    const reload = () => chatChannels(body);
+    const roleName = (id) => data.roles.find((r) => r.id === id);
+    const who = (channel, key, locked) => {
+      const ids = channel[key];
+      if (locked) return h("span", { class: "dim", text: "Admins only (its role was deleted)" });
+      if (!ids.length) return h("span", { class: "dim", text: "Everyone" });
+      return h("span", {}, ids.map((id) => { const r = roleName(id); return r ? h("span", { class: "chip", style: `border:1px solid ${r.color};color:${r.color};background:transparent;margin-right:4px`, text: r.name }) : null; }));
+    };
+    const rows = data.channels.map((channel, i) => h("tr", {},
+      h("td", {}, h("strong", { text: `# ${channel.name}` })),
+      h("td", { class: "wrap dim", text: channel.description || "" }),
+      h("td", {}, who(channel, "readRoles", channel.readLocked)),
+      h("td", {}, who(channel, "postRoles", channel.postLocked)),
+      h("td", {}, h("div", { class: "row end" },
+        h("button", { class: "btn small", type: "button", text: "Up", disabled: i === 0, onclick: (e) => act(e.target, async () => { await api("POST", `/api/chat/admin/channels/${channel.id}/move`, { direction: -1 }); await reload(); }) }),
+        h("button", { class: "btn small", type: "button", text: "Down", disabled: i === data.channels.length - 1, onclick: (e) => act(e.target, async () => { await api("POST", `/api/chat/admin/channels/${channel.id}/move`, { direction: 1 }); await reload(); }) }),
+        h("button", { class: "btn small primary", type: "button", text: "Edit", onclick: () => channelDialog(channel) }),
+        h("button", { class: "btn small danger", type: "button", text: "Delete", disabled: data.channels.length < 2, onclick: async (e) => {
+          if (!(await confirmBox(`Delete #${channel.name}?`, "Everything said in it is deleted too.", { confirm: "Delete", danger: true }))) return;
+          act(e.target, async () => { await api("POST", `/api/chat/admin/channels/${channel.id}/delete`, {}); await reload(); }, `#${channel.name} was deleted.`);
+        } })))));
+
+    function channelDialog(channel) {
+      const name = h("input", { class: "field", maxlength: String(data.limits.name), value: channel?.name ?? "", autocomplete: "off", spellcheck: "false", placeholder: "for example: art" });
+      const description = h("input", { class: "field", maxlength: String(data.limits.description), value: channel?.description ?? "", autocomplete: "off", placeholder: "What it is for" });
+      const readRoles = new Set(channel?.readRoles ?? []), postRoles = new Set(channel?.postRoles ?? []);
+      const roleBoxes = (set) => h("div", { class: "stack" }, data.roles.map((r) => {
+        const box = h("input", { type: "checkbox", checked: set.has(r.id) });
+        box.addEventListener("change", () => { if (box.checked) set.add(r.id); else set.delete(r.id); });
+        return h("label", { class: "check" }, box, h("span", { style: `color:${r.color}`, text: r.name }));
+      }));
+      const note = h("p", { class: "status" });
+      const body2 = h("div", { class: "stack" },
+        h("label", { class: "labeled" }, h("span", { text: "Name" }), name),
+        h("label", { class: "labeled" }, h("span", { text: "Description" }), description),
+        h("div", { class: "cols" },
+          h("div", {}, h("h3", { text: "Who can read it", style: "margin:4px 0 6px" }), h("p", { class: "dim small", text: "Tick none for everyone. Admins can always read." }), roleBoxes(readRoles)),
+          h("div", {}, h("h3", { text: "Who can post in it", style: "margin:4px 0 6px" }), h("p", { class: "dim small", text: "Tick none for everyone who can read it." }), roleBoxes(postRoles))),
+        note);
+      showDialog({
+        title: channel ? `Edit #${channel.name}` : "Create a channel", body: body2, wide: true,
+        actions: [
+          { label: "Cancel" },
+          { label: channel ? "Save" : "Create", kind: "primary", onClick: async () => {
+            try {
+              await api("POST", channel ? `/api/chat/admin/channels/${channel.id}` : "/api/chat/admin/channels", { name: name.value, description: description.value, readRoles: [...readRoles], postRoles: [...postRoles] });
+              toast(channel ? "Saved." : "Channel created.", "ok"); reload();
+            } catch (err) { note.textContent = err.message; note.dataset.state = "error"; return false; }
+          } },
+        ],
+      });
+      name.focus();
+    }
+
+    body.replaceChildren(
+      h("div", { class: "row section", style: "justify-content:space-between" },
+        h("p", { class: "dim", style: "margin:0;flex:1", text: "People pick a channel in the Chat. A channel can be limited to some roles to read and to post: announcements everyone reads but only moderators write, or a private room for staff. The order here is the order in the Chat." }),
+        h("button", { class: "btn primary", type: "button", text: "Create a channel", onclick: () => channelDialog(null) })),
+      table(["Channel", "About", "Who can read", "Who can post", ""], rows, "There are no channels."));
   }
 
   async function chatModeration(body) {

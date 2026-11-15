@@ -27,13 +27,19 @@
     moderating: null,    // the person the Moderate dialog is about
     roles: [],           // [{ slug, name, color, position, mentionable }]: the roles as they are now
     replying: null,      // { id, user, text, ping }: the message the next one will answer
+    channels: [],        // [{ id, name, description, canPost, unread }]: the ones you can see
+    channel: null,       // id of the one on screen
   };
+  const channelById = (id) => state.channels.find((c) => c.id === id) ?? null;
+  const currentChannel = () => channelById(state.channel);
+  const CHANNEL_KEY = "chatChannel";
+  const rememberedChannel = () => { try { return Number(SnStore.get(CHANNEL_KEY)) || null; } catch { return null; } };
 
   /** Tell the server this person has read the chat: the number on the Chat icon goes away everywhere. */
   let readTimer = 0;
   function markRead() {
     clearTimeout(readTimer);
-    readTimer = setTimeout(() => { api("POST", "/read", {}).catch(() => {}); }, 300);
+    readTimer = setTimeout(() => { api("POST", "/read", { channel: state.channel }).catch(() => {}); }, 300);
   }
   window.addEventListener("focus", markRead);
   /** Is the chat being looked at? Its page has focus, or (inside the desktop) its window is the one in front. */
@@ -324,7 +330,8 @@
   function connect() {
     if (state.source) state.source.close();
     setConn("connecting", "Connecting…");
-    const source = new EventSource(`${API}/stream`);
+    const wanted = state.channel ?? rememberedChannel();
+    const source = new EventSource(`${API}/stream${wanted ? `?channel=${wanted}` : ""}`);
     state.source = source;
 
     source.addEventListener("open", () => setConn("online", "Connected"));
@@ -345,6 +352,10 @@
       state.settings = data.settings;
       state.roles = data.roles ?? [];
       applyAdminLook(data.settings.adminLook);
+      state.channels = data.channels ?? [];
+      state.channel = data.channel;
+      if (currentChannel()) currentChannel().unread = 0;
+      if (state.channel) { try { SnStore.set(CHANNEL_KEY, String(state.channel)); } catch { /* not remembered */ } }
       state.messages = data.messages;
       state.online = data.online;
       state.hasOlder = data.messages.length >= 60;
@@ -352,6 +363,7 @@
       $("gate").hidden = true;
       $("app").hidden = false;
       renderMe();
+      renderChannels();
       renderAll();
       renderOnline();
       renderComposerState();
@@ -366,7 +378,27 @@
     // An admin changed the roles: new names and colours show at once, and so do new permissions.
     on("roles", (list) => { state.roles = list; renderAll(); renderOnline(); renderMe(); });
     on("me", (about) => { if (!state.me) return; Object.assign(state.me, about); applyPermissions(); renderAll(); renderOnline(); renderMe(); renderComposerState(); });
-    on("message", (message) => addMessage(message));
+    on("message", (message) => {
+      if (message.channel !== state.channel) {
+        // Said somewhere else: it only adds to that channel's number.
+        const other = channelById(message.channel);
+        if (other && message.user.username !== state.me?.username) { other.unread = (other.unread ?? 0) + 1; renderChannels(); }
+        return;
+      }
+      addMessage(message);
+    });
+    // The channels you can see changed (an admin made, moved or removed one, or your roles opened or closed a door).
+    on("channels", ({ channels }) => {
+      state.channels = channels.map((c) => ({ ...c, unread: c.id === state.channel ? 0 : c.unread }));
+      if (!currentChannel()) { const next = state.channels[0]?.id ?? null; state.channel = null; if (next) selectChannel(next); else { state.messages = []; renderAll(); } }
+      renderChannels();
+      renderComposerState();
+    });
+    // You read some channels (here or on another computer).
+    on("read", (report) => {
+      for (const c of state.channels) if (report.unread && report.unread[c.id] !== undefined) c.unread = c.id === state.channel ? 0 : report.unread[c.id];
+      renderChannels();
+    });
     on("delete", ({ id }) => {
       const before = state.messages.length;
       state.messages = state.messages.filter((message) => message.id !== id);
@@ -375,7 +407,12 @@
       if (state.replying?.id === id) cancelReply();
       if (changed) renderAll();
     });
-    on("clear", () => { state.messages = []; state.hasOlder = false; renderAll(); });
+    on("clear", ({ channel } = {}) => {
+      if (channel == null) for (const c of state.channels) c.unread = 0;
+      else { const gone = channelById(channel); if (gone) gone.unread = 0; }
+      renderChannels();
+      if (channel == null || channel === state.channel) { state.messages = []; state.hasOlder = false; renderAll(); }
+    });
     on("presence", ({ online }) => {
       state.online = online;
       renderOnline();
@@ -527,6 +564,60 @@
     }
   }
 
+  // --- channels ------------------------------------------------------------------------------------
+
+  function renderChannels() {
+    const list = $("channel-list");
+    list.textContent = "";
+    for (const channel of state.channels) {
+      const item = el("li");
+      const button = el("button", "channel");
+      button.type = "button";
+      button.dataset.id = channel.id;
+      button.setAttribute("aria-current", String(channel.id === state.channel));
+      const unread = channel.id === state.channel ? 0 : channel.unread || 0;
+      if (unread) button.dataset.unread = "true";
+      button.title = channel.description || `#${channel.name}`;
+      button.append(el("span", "hash", "#"), el("span", "cname", channel.name));
+      if (unread) button.append(el("span", "badge", unread > 99 ? "99+" : String(unread)));
+      else if (!channel.canPost) { const lock = el("span", "lock", "read only"); button.append(lock); }
+      button.addEventListener("click", () => selectChannel(channel.id));
+      item.append(button);
+      list.append(item);
+    }
+    const current = currentChannel();
+    $("chan-name").textContent = current ? `# ${current.name}` : "No channels";
+    $("chan-desc").textContent = current?.description || "";
+    $("channels").hidden = state.channels.length < 2 && !state.me?.perms?.includes("chat.manage");
+  }
+
+  /** Show another channel: its history comes from the server, and it counts as read. */
+  async function selectChannel(id) {
+    const channel = channelById(id);
+    if (!channel || id === state.channel) return;
+    state.channel = id;
+    try { SnStore.set(CHANNEL_KEY, String(id)); } catch { /* not remembered */ }
+    cancelReply(); // a reply stays inside its channel
+    channel.unread = 0;
+    state.messages = [];
+    state.hasOlder = false;
+    state.atBottom = true;
+    renderChannels();
+    renderAll();
+    renderComposerState();
+    try {
+      const { messages } = await api("GET", `/messages?channel=${id}&limit=60`);
+      if (state.channel !== id) return; // they moved on while it loaded
+      state.messages = messages;
+      state.hasOlder = messages.length >= 60;
+      renderAll();
+      scrollToEnd();
+      markRead();
+    } catch (err) {
+      showNotice(err.message);
+    }
+  }
+
   // --- scrolling ---------------------------------------------------------------------------------
 
   const scroller = $("messages");
@@ -546,7 +637,7 @@
     if (!oldest) return;
     $("older").disabled = true;
     try {
-      const { messages } = await api("GET", `/messages?before=${oldest}&limit=60`);
+      const { messages } = await api("GET", `/messages?channel=${state.channel}&before=${oldest}&limit=60`);
       const height = scroller.scrollHeight;
       state.messages = messages.concat(state.messages);
       state.hasOlder = messages.length >= 60;
@@ -589,6 +680,8 @@
     if (state.sanction && (state.sanction.kind === "ban" || state.sanction.until > Date.now())) return false;
     if (!state.settings.enabled && !state.me.admin) return false;
     if (state.settings.locked && !can("chat.bypass_limits")) return false;
+    const channel = currentChannel();
+    if (!channel || !channel.canPost) return false;
     return true;
   }
 
@@ -601,12 +694,13 @@
     if (active) { banner = sanctionText(state.sanction); kind = "danger"; }
     else if (!s.enabled) { banner = state.me.admin ? "The chat is turned off. Only admins can see it." : "The chat is turned off by an admin."; kind = "danger"; }
     else if (s.locked) { banner = state.me.admin ? "The chat is locked: only admins can post." : "The chat is locked: only admins can post right now."; }
+    else if (currentChannel() && !currentChannel().canPost) { banner = `You can read #${currentChannel().name} but only some roles can post in it.`; }
     showBanner(banner, kind);
     if (active) showNotice(""); // the banner says it better than an old error
 
     const allowed = canPost();
     $("text").disabled = !allowed;
-    $("text").placeholder = allowed ? "Message everyone" : "You can't post right now";
+    $("text").placeholder = allowed ? (currentChannel() ? `Message #${currentChannel().name}` : "Message everyone") : "You can't post right now";
     $("gif-btn").hidden = !s.gifs;
     $("emoji-btn").disabled = !allowed;
     $("gif-btn").disabled = !allowed;
@@ -891,6 +985,7 @@
     sending = true;
     updateSend();
     const replying = state.replying;
+    body = { ...body, channel: state.channel };
     if (replying) body = { ...body, replyTo: replying.id, ...(replying.ping ? {} : { pingReply: false }) };
     try {
       const { message } = await api("POST", "/messages", body);

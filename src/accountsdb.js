@@ -308,7 +308,44 @@ const MIGRATIONS = [
     const owner = byName ?? db.prepare("SELECT id FROM users WHERE is_admin = 1 AND banned_at IS NULL ORDER BY created_at, id LIMIT 1").get();
     if (owner) applyOwnership(db, owner.id);
   },
+  // 15: chat channels. Each has a name, an order, and which roles may read and post (none listed = everyone).
+  // Messages belong to one; what each person has read is kept per channel.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_channels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        description TEXT NOT NULL DEFAULT '',
+        position INTEGER NOT NULL,
+        read_roles TEXT NOT NULL DEFAULT '[]',
+        post_roles TEXT NOT NULL DEFAULT '[]',
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS chat_channel_reads (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        channel_id INTEGER NOT NULL REFERENCES chat_channels(id) ON DELETE CASCADE,
+        last_id INTEGER NOT NULL DEFAULT 0,
+        at INTEGER NOT NULL,
+        PRIMARY KEY (user_id, channel_id)
+      );
+    `);
+    if (!db.prepare("PRAGMA table_info(chat_messages)").all().some((c) => c.name === "channel_id")) db.exec("ALTER TABLE chat_messages ADD COLUMN channel_id INTEGER NOT NULL DEFAULT 1");
+    db.exec("CREATE INDEX IF NOT EXISTS chat_messages_channel ON chat_messages(channel_id, id)");
+    if (!db.prepare("SELECT 1 FROM chat_channels").get()) {
+      const now = Date.now();
+      const add = db.prepare("INSERT INTO chat_channels (name, slug, description, position, created_at) VALUES (?, ?, ?, ?, ?)");
+      add.run("general", "general", "Talk about anything.", 3, now); // id 1: where every old message already is
+      add.run("help", "help", "Ask for help with the site or a page that won't load.", 2, now);
+      add.run("off-topic", "off-topic", "Everything else.", 1, now);
+    }
+    // Where everyone had read up to carries over to #general.
+    db.exec("INSERT OR IGNORE INTO chat_channel_reads (user_id, channel_id, last_id, at) SELECT user_id, 1, last_id, at FROM chat_reads");
+  },
 ];
+
+/** The schema version this build upgrades a database to. */
+export const SCHEMA_VERSION = MIGRATIONS.length;
 
 /**
  * Make one account the Owner: the only one. They are an admin too, hold the Owner and Admin roles, and nobody

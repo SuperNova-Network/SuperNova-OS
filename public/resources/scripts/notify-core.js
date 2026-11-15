@@ -88,12 +88,13 @@
   }
 
   /** What a chat message looks like as a notification: { title, text }. */
-  function describeChat(message, preview) {
+  function describeChat(message, preview, channelName) {
     var name = String(message && message.user && message.user.username || "Someone");
-    if (!preview) return { title: name, text: "Sent a message" };
+    var title = channelName ? name + " in #" + channelName : name;
+    if (!preview) return { title: title, text: "Sent a message" };
     var text = String(message.text || "").replace(/\s+/g, " ").trim();
     if (message.media) text = text ? text + " (GIF)" : "Sent a GIF";
-    return { title: name, text: text || "Sent a message" };
+    return { title: title, text: text || "Sent a message" };
   }
 
   var COLORS = ["#d9534f", "#e8892e", "#c9a227", "#43a047", "#16a085", "#2b8cd6", "#5c6bc0", "#8e44ad", "#d6457a", "#6d7b8a"];

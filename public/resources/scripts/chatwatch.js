@@ -27,6 +27,7 @@
   var retryTimer = null;
   var signedIn = null; // null: not asked yet
   var unread = 0;
+  var channels = [];  // [{ id, name }]: the channels you can see (a name is shown with the message when there are several)
 
   // The connection is kept whenever someone is signed in (the badge needs it); the notification settings only
   // decide whether a pop-up is shown.
@@ -93,7 +94,8 @@
     var settings = core.settings();
     var ping = pingKind(message);
     if (!settings.chat && !(settings.mentions && ping)) return;
-    var what = core.describeChat(message, settings.preview);
+    var here = channels.filter(function (c) { return c.id === message.channel; })[0];
+    var what = core.describeChat(message, settings.preview, channels.length > 1 && here ? here.name : "");
     var name = message.user.username;
     var title = what.title;
     var answeredYou = message.reply && message.reply.user && message.reply.user.username === me.username;
@@ -127,11 +129,18 @@
       try {
         var ready = JSON.parse(event.data);
         me = { username: ready.me.username, roles: ready.me.roles || [] };
+        channels = ready.channels || [];
         setUnread(ready.unread);
       } catch (e) { /* keep listening */ }
     });
     // You read the chat (here or on another computer).
-    stream.addEventListener("read", function () { setUnread(0); });
+    stream.addEventListener("read", function (event) {
+      try { setUnread(JSON.parse(event.data).total); } catch (e) { setUnread(0); }
+    });
+    // Channels were made, removed or opened to you.
+    stream.addEventListener("channels", function (event) {
+      try { channels = JSON.parse(event.data).channels || []; var total = 0; channels.forEach(function (c) { total += c.unread || 0; }); setUnread(total); } catch (e) { /* keep the old ones */ }
+    });
     // Your roles changed (an admin gave or took one): pings for them follow.
     stream.addEventListener("me", function (event) {
       try { var about = JSON.parse(event.data); if (me) me.roles = about.roles || []; } catch (e) { /* keep the old ones */ }

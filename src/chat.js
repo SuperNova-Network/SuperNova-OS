@@ -9,7 +9,10 @@
  * can never leave the page with a gap or a message that was since deleted.
  *
  * Events (server -> page): ready, message, delete, clear, presence, settings, sanction,
- * sanction-lifted, closed.
+ * sanction-lifted, channels, read, closed.
+ *
+ * The chat has channels (src/channels.js). A message belongs to one, and only people who may read that channel are
+ * sent it; each person's "ready" lists the channels they can see and carries the history of one of them.
  *
  * A "quiet" stream (?quiet=1) is for the desktop's notifications while the Chat window is
  * closed: it hears the same events but isn't counted as being in the chat, and its "ready"
@@ -28,6 +31,7 @@ import { hasMentions, parseMentions } from "./mentions.js";
 import { createLimiter } from "./ratelimit.js";
 import { LIMITS, checkMessage, createSpamTracker, createWordFilter, normalizeText } from "./chatfilter.js";
 import * as store from "./chatdb.js";
+import * as channels from "./channels.js";
 
 const UPLOAD_MAX_BYTES = 2 * 1024 * 1024;     // an uploaded GIF
 const UPLOAD_MAX_PIXELS = 2000;
@@ -87,6 +91,28 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     try { stream.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch { /* the close handler cleans up */ }
   }
   const broadcast = (event, data) => { for (const stream of streams) write(stream, event, data); };
+  /** Send to everyone who may read this channel (a role check per person, once per broadcast). */
+  function broadcastToChannel(channel, event, data) {
+    const held = new Map();
+    for (const stream of streams) {
+      let roleIds = held.get(stream.user.id);
+      if (!roleIds) { roleIds = channels.heldRoleIds(db, stream.user.id); held.set(stream.user.id, roleIds); }
+      if (channels.mayRead(channel, stream.user, roleIds)) write(stream, event, data);
+    }
+  }
+  /** The channels a person sees, each with their unread count and whether they can post. */
+  function describeChannels(user) {
+    const visible = channels.visibleChannels(db, user);
+    const unread = channels.unreadByChannel(db, user.id, visible.map((c) => c.id));
+    return visible.map((c) => ({ ...channels.publicChannel(c), unread: unread.get(c.id) ?? 0 }));
+  }
+  /** Everyone's channel list again (after channels or roles changed, so doors open and close at once). */
+  const sendChannels = () => { for (const stream of streams) write(stream, "channels", { channels: describeChannels(stream.user) }); };
+  /** The channel this person asked for, if they may read it, else the first one they can. */
+  function pickChannel(user, wanted) {
+    const visible = channels.visibleChannels(db, user);
+    return visible.find((c) => c.id === Number(wanted)) ?? (wanted === undefined || wanted === null || wanted === "" ? visible[0] ?? null : null);
+  }
   const sendToUser = (userId, event, data) => { for (const stream of streams) if (stream.user.id === userId) write(stream, event, data); };
 
   function closeStreams(match, reason) {
@@ -236,21 +262,27 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     });
 
     const s = settings();
+    const list = describeChannels(user);
+    const current = list.find((c) => c.id === Number(req.query.channel)) ?? list[0] ?? null;
     write(stream, "ready", {
       me: { ...user, ...aboutMe(user), sanction: store.activeSanction(db, user.id) },
       settings: publicSettings(s),
       roles: publicRoles(),
-      unread: store.unreadCount(db, user.id),
-      messages: !quiet && (s.enabled || user.admin) ? shapeMessages(store.listMessages(db, { limit: 60 })) : [],
+      channels: list,
+      channel: current?.id ?? null,
+      unread: list.reduce((sum, c) => sum + c.unread, 0),
+      messages: !quiet && current && (s.enabled || user.admin) ? shapeMessages(store.listMessages(db, { channelId: current.id, limit: 60 })) : [],
       online: quiet ? [] : presence(),
     });
     if (!quiet) schedulePresence();
   }));
 
   router.get("/messages", handle((req, res) => {
-    requireUser(req);
+    const user = requireUser(req);
+    const channel = pickChannel(user, req.query.channel);
+    if (!channel) throw new HttpError(404, "There's no such channel.");
     const s = settings();
-    const messages = s.enabled ? store.listMessages(db, { before: req.query.before, limit: req.query.limit }) : [];
+    const messages = s.enabled ? store.listMessages(db, { channelId: channel.id, before: req.query.before, limit: req.query.limit }) : [];
     res.json({ messages: shapeMessages(messages) });
   }));
 
@@ -268,6 +300,9 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     const user = req.chatUser;
     const s = settings();
     if (!s.enabled) throw new HttpError(403, "The chat is turned off.");
+    const channel = pickChannel(user, req.body?.channel);
+    if (!channel) throw new HttpError(404, "There's no such channel.");
+    if (!channel.canPost) throw new HttpError(403, `Only some roles can post in #${channel.name}.`);
     const sanction = store.activeSanction(db, user.id);
     if (sanction) throw new HttpError(403, `${wait(sanction)}${sanction.reason ? ` Reason: ${sanction.reason}` : ""}`, { sanction });
     const bypass = can(user, "chat.bypass_limits"); // admins, and roles allowed to skip the chat's limits
@@ -324,7 +359,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     if (req.body?.replyTo !== undefined && req.body?.replyTo !== null) {
       if (!Number.isInteger(req.body.replyTo)) throw new HttpError(400, "That reply isn't valid.");
       replyTarget = store.getMessage(db, req.body.replyTo);
-      if (!replyTarget) throw new HttpError(404, "The message you are replying to is gone.");
+      if (!replyTarget || replyTarget.channel_id !== channel.id) throw new HttpError(404, "The message you are replying to is gone.");
     }
 
     // Who was pinged: only people and roles that exist, and only what this person may ping.
@@ -340,20 +375,25 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
       pings = pings ?? { users: [], roles: [], everyone: false, here: false };
       if (!pings.users.some((name) => name.toLowerCase() === replyTarget.username.toLowerCase())) pings.users.push(replyTarget.username);
     }
-    const row = store.insertMessage(db, { userId: user.id, text, media, mentions: hasMentions(pings) ? pings : null, replyTo: replyTarget?.id ?? null });
+    const row = store.insertMessage(db, { userId: user.id, channelId: channel.id, text, media, mentions: hasMentions(pings) ? pings : null, replyTo: replyTarget?.id ?? null });
     if (!bypass) spam.record(user.id, fingerprint);
     const message = shapeMessages([row])[0];
-    broadcast("message", message);
+    broadcastToChannel(channel, "message", message);
     res.status(201).json({ message });
   }));
 
-  // "I've read the chat": the number on the Chat icon goes to zero on every computer this person is on.
-  router.post("/read", handle((req, res) => {
+  // "I've read this channel" (or, with no channel named, all of them): the number on the Chat icon drops on every
+  // computer this person is on.
+  router.post("/read", express.json({ limit: "2kb" }), handle((req, res) => {
     const user = requireUser(req);
     limit(limits.read, String(user.id));
-    store.markRead(db, user.id);
-    sendToUser(user.id, "read", {});
-    res.json({ ok: true });
+    const visible = channels.visibleChannels(db, user);
+    const wanted = req.body?.channel;
+    for (const channel of wanted === undefined || wanted === null ? visible : visible.filter((c) => c.id === Number(wanted))) channels.markChannelRead(db, user.id, channel.id);
+    const unread = channels.unreadByChannel(db, user.id, visible.map((c) => c.id));
+    const report = { total: [...unread.values()].reduce((sum, n) => sum + n, 0), unread: Object.fromEntries(unread) };
+    sendToUser(user.id, "read", report);
+    res.json({ ok: true, ...report });
   }));
 
   // An uploaded GIF.
@@ -485,10 +525,48 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
 
   router.post("/admin/clear", handle((req, res) => {
     const admin = requireManage(req);
-    const removed = store.clearMessages(db, admin.username);
-    store.addLog(db, admin.username, "clear chat", null, `${removed} messages`);
-    broadcast("clear", {});
+    const only = req.body?.channel === undefined || req.body?.channel === null ? null : channels.getChannel(db, req.body.channel);
+    if (req.body?.channel !== undefined && req.body?.channel !== null && !only) throw new HttpError(404, "There's no such channel.");
+    const removed = store.clearMessages(db, admin.username, only?.id ?? null);
+    store.addLog(db, admin.username, "clear chat", only ? `#${only.name}` : null, `${removed} messages`);
+    broadcast("clear", { channel: only?.id ?? null });
     res.json({ removed });
+  }));
+
+  // --- channels (who manages the chat) -------------------------------------------------------------
+
+  const rolePicks = () => roles.listRoles(db).map(({ id, name, color }) => ({ id, name, color }));
+  router.get("/admin/channels", handle((req, res) => {
+    requireManage(req);
+    res.json({ channels: channels.listChannels(db), roles: rolePicks(), limits: channels.LIMITS });
+  }));
+  router.post("/admin/channels", handle((req, res) => {
+    const admin = requireManage(req);
+    const channel = channels.createChannel(db, req.body);
+    store.addLog(db, admin.username, "made a channel", `#${channel.name}`);
+    sendChannels();
+    res.status(201).json({ channel, channels: channels.listChannels(db) });
+  }));
+  router.post("/admin/channels/:id/delete", handle((req, res) => {
+    const admin = requireManage(req);
+    const channel = channels.deleteChannel(db, req.params.id);
+    store.addLog(db, admin.username, "deleted a channel", `#${channel.name}`);
+    broadcast("clear", { channel: channel.id });
+    sendChannels();
+    res.json({ channels: channels.listChannels(db) });
+  }));
+  router.post("/admin/channels/:id/move", handle((req, res) => {
+    requireManage(req);
+    channels.moveChannel(db, req.params.id, Number(req.body?.direction) < 0 ? -1 : 1);
+    sendChannels();
+    res.json({ channels: channels.listChannels(db) });
+  }));
+  router.post("/admin/channels/:id", handle((req, res) => {
+    const admin = requireManage(req);
+    const channel = channels.updateChannel(db, req.params.id, req.body);
+    store.addLog(db, admin.username, "changed a channel", `#${channel.name}`);
+    sendChannels();
+    res.json({ channel, channels: channels.listChannels(db) });
   }));
 
   function sanction(kind) {
@@ -572,6 +650,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     rolesChanged() {
       broadcast("roles", publicRoles());
       for (const stream of streams) write(stream, "me", aboutMe(stream.user));
+      sendChannels(); // roles open and close channels
       schedulePresence();
     },
     /** How many people are in the chat (counting each once) and how many quiet notification streams are open. */

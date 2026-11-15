@@ -47,7 +47,16 @@
     <div class="banner" id="banner" role="status" hidden></div>
 
     <div class="body">
+      <aside class="channels" id="channels" aria-label="Channels">
+        <h2>Channels</h2>
+        <ul class="channel-list" id="channel-list"></ul>
+      </aside>
+
       <main class="main">
+        <div class="chan-head" id="chan-head">
+          <strong id="chan-name"></strong>
+          <span id="chan-desc"></span>
+        </div>
         <div class="messages" id="messages" role="log" aria-live="polite" aria-label="Chat messages" tabindex="0">
           <button class="link" id="older" type="button" hidden>Load earlier messages</button>
           <ol class="list" id="list"></ol>

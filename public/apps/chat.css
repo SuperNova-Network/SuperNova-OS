@@ -1339,3 +1339,143 @@ a.url:hover {
 .ask-card.done p {
   color: var(--green);
 }
+
+/* --- Channels ---------------------------------------------------------------------------------------- */
+
+.channels {
+  flex: none;
+  width: 168px;
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.channels[hidden] {
+  display: none !important;
+}
+
+.channels h2 {
+  margin: 0;
+  padding: 10px 12px 6px;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.channel-list {
+  margin: 0;
+  padding: 0 0 8px;
+  list-style: none;
+}
+
+.channel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 12px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--dim);
+  text-align: left;
+}
+
+.channel .hash {
+  flex: none;
+  color: var(--faint);
+}
+
+.channel .cname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel[aria-current="true"] {
+  border-left-color: var(--accent);
+  background: var(--raised);
+  color: var(--text);
+}
+
+.channel[data-unread="true"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.channel .badge {
+  flex: none;
+  min-width: 18px;
+  margin-left: auto;
+  padding: 0 5px;
+  background: var(--red);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.channel .lock {
+  flex: none;
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.chan-head {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.chan-head strong {
+  flex: none;
+}
+
+.chan-head span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* On a narrow window the channels become a strip of buttons above the messages. */
+@media (max-width: 560px) {
+  .body {
+    flex-direction: column;
+  }
+  .channels {
+    display: flex;
+    width: auto;
+    overflow: auto hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .channels h2 {
+    display: none;
+  }
+  .channel-list {
+    display: flex;
+    padding: 0;
+  }
+  .channel {
+    width: auto;
+    border-left: 0;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  .channel[aria-current="true"] {
+    border-bottom-color: var(--accent);
+  }
+}
