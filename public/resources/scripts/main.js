@@ -160,6 +160,8 @@ function customAppEntry(app) {
   var name = cleanAppName(app.name) || host;
   var hash = 0;
   for (var i = 0; i < host.length; i++) { hash = (hash * 31 + host.charCodeAt(i)) >>> 0; }
+  // A shortcut from the list of popular sites keeps its brand colour (only a #rrggbb colour is ever used).
+  var brand = app && typeof app.color === "string" && /^#[0-9a-fA-F]{6}$/.test(app.color) ? app.color : null;
   // Apps from the App Store keep their picture: a store address only (nothing else is ever loaded as an icon).
   var picture = app && typeof app.icon === "string" && /^\/api\/store\/icon\/\d+\?v=\d+$/.test(app.icon) ? app.icon : null;
   return {
@@ -167,7 +169,7 @@ function customAppEntry(app) {
     url: "",
     proxy: url,
     custom: true,
-    icon: { letter: name.charAt(0).toUpperCase(), color: LETTER_COLORS[hash % LETTER_COLORS.length], src: picture },
+    icon: { letter: name.charAt(0).toUpperCase(), color: brand || LETTER_COLORS[hash % LETTER_COLORS.length], src: picture },
     keywords: host + ",app,web" // a hostname: safe to insert as search-result markup
   };
 }
@@ -1895,7 +1897,7 @@ function cancelPrompt(id) {
 
 // Resolves to { id } or { error }. The content filter is asked first so a blocked
 // site never lands on the desktop.
-function addApp(name, address, picture) {
+function addApp(name, address, picture, color) {
   var url = SnResolve.toUrl(address);
   if (!url) { return Promise.resolve({ error: "Enter a web address, like example.com." }); }
   var list = readCustomApps();
@@ -1918,6 +1920,7 @@ function addApp(name, address, picture) {
     if (slot === -1) { slot = list.length; }
     list[slot] = { name: unique, url: url };
     if (picture) { list[slot].icon = picture; }
+    if (typeof color === "string" && /^#[0-9a-fA-F]{6}$/.test(color)) { list[slot].color = color; }
     writeCustomApps(list);
     var id = builtinCount + slot;
     programData[id] = customAppEntry(list[slot]);
@@ -1962,8 +1965,33 @@ function confirmRemoveApp(id) {
   openPrompt("Remove app?", "Remove " + escapeHtml(programData[id].name) + " from your desktop?", "removeapp");
 }
 
+// Popular sites that can be put on the desktop in one click: each opens in its own window, like any app you add.
+var SITE_SHORTCUTS = [
+  { name: "YouTube", url: "https://www.youtube.com", color: "#e62117" },
+  { name: "Reddit", url: "https://www.reddit.com", color: "#ff4500" },
+  { name: "Discord", url: "https://discord.com/app", color: "#5865f2" },
+  { name: "Spotify", url: "https://open.spotify.com", color: "#1db954" },
+  { name: "Twitch", url: "https://www.twitch.tv", color: "#9146ff" },
+  { name: "GitHub", url: "https://github.com", color: "#2b3137" },
+  { name: "Wikipedia", url: "https://en.wikipedia.org", color: "#5b6573" },
+  { name: "Khan Academy", url: "https://www.khanacademy.org", color: "#14bf96" },
+  { name: "Google Docs", url: "https://docs.google.com", color: "#4285f4" },
+  { name: "Quizlet", url: "https://quizlet.com", color: "#4257b2" },
+  { name: "Duolingo", url: "https://www.duolingo.com", color: "#58cc02" },
+  { name: "Pinterest", url: "https://www.pinterest.com", color: "#e60023" },
+  { name: "X", url: "https://x.com", color: "#14171a" },
+  { name: "Instagram", url: "https://www.instagram.com", color: "#c13584" },
+  { name: "SoundCloud", url: "https://soundcloud.com", color: "#ff5500" },
+  { name: "Canva", url: "https://www.canva.com", color: "#00a3b5" }
+];
+
+function siteOnDesktop(url) {
+  var wanted = SnResolve.toUrl(url);
+  return readCustomApps().some(function (app) { return app && SnResolve.toUrl(app.url) === wanted; });
+}
+
 // The "Add an app" window. Both fields can be filled in ahead (the Browser's
-// "Add to desktop" does that).
+// "Add to desktop" does that). Under the form is a grid of popular sites to add in one click.
 function openAddAppDialog(name, address) {
   hideSearch();
   programData[errID].icon.svg = "info_icon";
@@ -1972,7 +2000,9 @@ function openAddAppDialog(name, address) {
     "<label>Name<input name='name' autocomplete='off' maxlength='" + APP_NAME_MAX + "' placeholder='Optional'></label>" +
     "<p class='apperror' role='alert'></p>" +
     "<div class='appbuttons'><button class='promptbtn' type='submit'>Add</button><button class='promptbtn' type='button'>Cancel</button></div>" +
-    "</form>", 27, 13);
+    "<p class='sitehead'>Or pick a popular site</p><div class='sitegrid'></div><p class='sitenote' role='status'></p>" +
+    "</form>", 30, 27);
+  win.classList.add("appwin"); // room for the popular sites (an ordinary message box is short)
   var form = win.getElementsByClassName("appform")[0];
   var error = form.getElementsByClassName("apperror")[0];
   var submit = form.querySelector("button[type='submit']");
@@ -1992,6 +2022,36 @@ function openAddAppDialog(name, address) {
         closeWin(Number(win.id));
       }
     });
+  });
+  // Popular sites: one click puts one on the desktop, as its own app.
+  var grid = form.getElementsByClassName("sitegrid")[0];
+  var note = form.getElementsByClassName("sitenote")[0];
+  SITE_SHORTCUTS.forEach(function (site) {
+    var tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "sitetile";
+    var badge = document.createElement("span");
+    badge.className = "sitebadge";
+    badge.style.background = site.color;
+    badge.textContent = site.name.charAt(0);
+    var label = document.createElement("span");
+    label.className = "sitename";
+    label.textContent = site.name;
+    tile.appendChild(badge);
+    tile.appendChild(label);
+    if (siteOnDesktop(site.url)) { tile.classList.add("added"); tile.disabled = true; tile.title = site.name + " is on your desktop"; }
+    tile.addEventListener("click", function () {
+      tile.disabled = true;
+      note.textContent = "";
+      error.textContent = "";
+      addApp(site.name, site.url, null, site.color).then(function (result) {
+        if (result.error) { error.textContent = result.error; tile.disabled = false; return; }
+        tile.classList.add("added");
+        tile.title = site.name + " is on your desktop";
+        note.textContent = site.name + " is on your desktop. Open it from there, or pin it to the taskbar.";
+      });
+    });
+    grid.appendChild(tile);
   });
   setTimeout(function () { form.elements[address ? "name" : "url"].focus(); }, 250);
   return win;

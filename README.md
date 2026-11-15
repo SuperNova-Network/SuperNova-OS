@@ -22,7 +22,7 @@ SuperNova OS is a web proxy that runs inside a Windows 10 style desktop. It has 
 - Two transports, libcurl (default) and Epoxy, both over one [Wisp](https://github.com/MercuryWorkshop/wisp-protocol) WebSocket. You can point it at your own Wisp server.
 - Chrome style browser with draggable tabs, pinning, duplicate and reopen, fullscreen per tab, zoom, a bookmarks bar, address suggestions, real URLs in the address bar and an animated new tab page. Your tabs come back when you reopen it, each loading only when you open it.
 - Search with Brave, DuckDuckGo, Google, Bing, Startpage, Ecosia or a custom URL, with optional safe search.
-- 13 games on the desktop that run through the proxy: Bloxd.io, Slither.io, Diep.io, Krunker, Paper.io 2, Skribbl.io, Zombs.io, 2048, Survev.io, Minecraft, Cookie Clicker, Smash Karts and MooMoo.io. You can also add your own apps to the desktop.
+- 13 games on the desktop that run through the proxy: Bloxd.io, Slither.io, Diep.io, Krunker, Paper.io 2, Skribbl.io, Zombs.io, 2048, Survev.io, Minecraft, Cookie Clicker, Smash Karts and MooMoo.io. You can also add your own apps to the desktop, or put popular sites like YouTube, Reddit, Discord and Spotify on it in one click, each opening in its own window.
 
 ### The desktop
 

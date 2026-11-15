@@ -475,6 +475,81 @@ body.scaling .content {
   opacity: 0.6;
 }
 
+.appwin .errmsg {
+  max-height: none;
+  width: 24em;
+}
+
+.appwin .errimg {
+  align-self: flex-start;
+  margin-top: 1.4em;
+}
+
+/* The popular sites in "Add an app": flat tiles, a brand coloured letter and the name. */
+.appform .sitehead {
+  margin: 0.3em 0 0;
+  font-size: 0.85em;
+  color: #555;
+}
+
+.appform .sitegrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4em;
+}
+
+.appform .sitetile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.5em 0.2em;
+  border: 1px solid #d0d0d0;
+  background: #f4f4f4;
+  color: #222;
+  font: inherit;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+.appform .sitetile:hover:not(:disabled) {
+  background: #e6e6e6;
+}
+
+.appform .sitetile.added {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.appform .sitebadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  height: 2.2em;
+  color: #fff;
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.appform .sitename {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appform .sitetile.added .sitename::after {
+  content: " \2713";
+}
+
+.appform .sitenote {
+  min-height: 1.2em;
+  margin: 0;
+  font-size: 0.85em;
+  color: #2b7a34;
+}
+
 .letter_icon {
   stroke: none;
 }
