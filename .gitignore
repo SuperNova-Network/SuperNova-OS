@@ -15,3 +15,4 @@ node_modules
 
 # Written by `npm run build-info` before a deploy
 build-info.json
+whatsnew-dates.json

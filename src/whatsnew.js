@@ -7,7 +7,9 @@
  * and one that is reworded counts as new. Newest first (the changelog lists the newest first).
  */
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFileSync, statSync } from "node:fs";
+import { dirname } from "node:path";
 
 const MAX_ITEMS = 30;
 const MAX_FULL = 1200; // the whole description, for when an item is opened
@@ -81,13 +83,35 @@ export function parseWhatsNew(markdown) {
   return items;
 }
 
-/** A function returning the current items, re-read when the changelog file changes. */
-export function createWhatsNew(file) {
+/**
+ * When each item was written: the date of the commit that added its line to the changelog (from git), as { id: "2026-11-15" }.
+ * Items git doesn't know are left out. The Docker image has no .git, so a deploy writes this beforehand (npm run build-info).
+ */
+export function datesOf(items, changelogFile) {
+  const out = {};
+  for (const item of items) {
+    try {
+      const first = execFileSync("git", ["log", "--reverse", "--format=%cs", `-S**${item.title}`, "--", changelogFile], { cwd: dirname(changelogFile), timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }).toString().split("\n")[0].trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(first)) out[item.id] = first;
+    } catch { /* no git, or not a repository: no dates */ }
+  }
+  return out;
+}
+
+/** A function returning the current items (with their dates), re-read when the changelog file changes. */
+export function createWhatsNew(file, datesFile = null) {
   let stamp = null, items = [];
   return () => {
     try {
       const mtime = statSync(file).mtimeMs;
-      if (mtime !== stamp) { items = parseWhatsNew(readFileSync(file, "utf8")); stamp = mtime; }
+      if (mtime !== stamp) {
+        const parsed = parseWhatsNew(readFileSync(file, "utf8"));
+        let dates = {};
+        try { dates = datesFile ? JSON.parse(readFileSync(datesFile, "utf8")) : {}; } catch { dates = null; }
+        if (!dates || !Object.keys(dates).length) dates = datesOf(parsed, file); // a checkout: ask git
+        items = parsed.map((item) => (dates[item.id] ? { ...item, date: dates[item.id] } : item));
+        stamp = mtime;
+      }
     } catch { items = []; }
     return items;
   };

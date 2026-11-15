@@ -32,6 +32,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Added
 
+- **What's new is organised by week.** The window opens on a list of weeks, newest first, with the latest marked LATEST and a count of what you haven't seen marked NEW. Click a week to see its updates, and "All weeks" to come back. Each update's date is when it was written into the changelog.
 - **Hold Shift for quick icons on chat messages.** Hover a message and hold Shift to see one-click icons in place of the "...": react, reply, report, and for moderators moderate and delete. Let go and they hide again.
 - **#channel references in the chat.** Type # and a list of channels you can see drops down (like @ does for people); pick one and it goes in your message. A #channel in a message is a pill that takes you to that channel when clicked. Channels you can't see stay plain text, and so do things like issue#3 or a link's #section.
 - **Achievements.** A trophy beside the battery in the taskbar opens an animated window with 35 achievements, from sending your first message and making a friend to publishing an app and keeping a daily streak, showing what you have unlocked, how far along the rest are and your points. A gold dot says when something new unlocked, and each unlock shows a notification. Nothing is ever taken away.

@@ -280,7 +280,7 @@ app.get("/api/sites", (_req, res) => {
 });
 
 // What's new after an update, from the changelog: public, like the version label.
-const whatsNew = createWhatsNew(fileURLToPath(new URL("./CHANGELOG.md", import.meta.url)));
+const whatsNew = createWhatsNew(fileURLToPath(new URL("./CHANGELOG.md", import.meta.url)), fileURLToPath(new URL("./whatsnew-dates.json", import.meta.url)));
 app.get("/api/whatsnew", (_req, res) => {
   res.set("Cache-Control", "no-cache").json({ items: whatsNew() });
 });

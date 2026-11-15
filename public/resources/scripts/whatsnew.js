@@ -9,8 +9,7 @@
   "use strict";
 
   var SEEN = "whatsNewSeen";
-  var SHOWN = 30;     // everything new since they last looked (the window scrolls)
-  var KEEP = 80;      // how many seen ids are remembered
+    var KEEP = 80;      // how many seen ids are remembered
   var items = [];
 
   // A device that has never opened SuperNova (this runs before main.js marks it as visited): remember that, because the
@@ -31,9 +30,73 @@
     if (old) old.parentNode.removeChild(old);
   }
 
-  /** Open the window with these items. `others` says how many more there are that this one doesn't list. */
-  function show(list, others) {
+  // --- grouping by week ---------------------------------------------------------------------------------
+
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function parseDay(text) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text || ""); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; }
+  function mondayOf(date) { var d = new Date(date.getFullYear(), date.getMonth(), date.getDate()); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; }
+  function dayLabel(d) { return MONTHS[d.getMonth()] + " " + d.getDate(); }
+
+  /** The items as weeks, newest first: [{ key, label, sub, items }]. Items with no date go last, as "Earlier". */
+  function weeksOf(list) {
+    var map = {}, order = [];
+    list.forEach(function (item) {
+      var day = parseDay(item.date), key = day ? mondayOf(day).getTime() : 0;
+      if (!map[key]) { map[key] = { key: key, items: [] }; order.push(key); }
+      map[key].items.push(item);
+    });
+    order.sort(function (a, b) { return (b || -1) - (a || -1); });
+    var thisWeek = mondayOf(new Date()).getTime();
+    return order.map(function (key) {
+      var week = map[key];
+      if (!key) { week.label = "Earlier"; week.sub = "Before these were dated"; return week; }
+      var start = new Date(key), end = new Date(key); end.setDate(end.getDate() + 6);
+      var diff = Math.round((thisWeek - key) / (7 * 86400000));
+      week.label = diff === 0 ? "This week" : diff === 1 ? "Last week" : "Week of " + dayLabel(start);
+      week.sub = dayLabel(start) + " \u2013 " + dayLabel(end);
+      return week;
+    });
+  }
+
+  function itemRow(item) {
+    var row = document.createElement("div");
+    row.className = "wn-item";
+    var name = document.createElement("strong");
+    name.textContent = item.title;
+    row.appendChild(name);
+    var text = document.createElement("p");
+    text.textContent = item.text || "";
+    if (item.text || item.full) row.appendChild(text);
+    if (item.full) {
+      // Click an item to read all of it.
+      row.className += " wn-more-info";
+      row.tabIndex = 0;
+      row.setAttribute("role", "button");
+      row.setAttribute("aria-expanded", "false");
+      var hint = document.createElement("small");
+      hint.className = "wn-hint";
+      hint.textContent = "Click for details";
+      row.appendChild(hint);
+      var toggle = function () {
+        var open = row.getAttribute("aria-expanded") === "true";
+        row.setAttribute("aria-expanded", String(!open));
+        text.textContent = open ? item.text : item.full;
+        hint.textContent = open ? "Click for details" : "Click to show less";
+      };
+      row.addEventListener("click", toggle);
+      row.addEventListener("keydown", function (event) { if (event.key === " " || event.key === "Enter") { event.preventDefault(); event.stopPropagation(); toggle(); } });
+    }
+    return row;
+  }
+
+  /**
+   * Open the window: first the weeks (the newest marked LATEST, any with things you haven't seen marked NEW), then, on
+   * clicking one, its updates. `unseen` is a list of ids the person hasn't seen yet.
+   */
+  function show(list, unseen) {
     close();
+    unseen = unseen || [];
+    var weeks = weeksOf(list);
     var overlay = document.createElement("div");
     overlay.id = "whatsnew";
     overlay.setAttribute("role", "dialog");
@@ -44,7 +107,6 @@
     var bar = document.createElement("div");
     bar.className = "wn-bar";
     var title = document.createElement("span");
-    title.textContent = "What\u2019s new";
     var x = document.createElement("span");
     x.className = "wn-x";
     x.textContent = "\u2715";
@@ -52,56 +114,68 @@
     bar.appendChild(title); bar.appendChild(x);
     var body = document.createElement("div");
     body.className = "wn-body";
-    list.forEach(function (item) {
-      var row = document.createElement("div");
-      row.className = "wn-item";
-      var name = document.createElement("strong");
-      name.textContent = item.title;
-      row.appendChild(name);
-      var text = document.createElement("p");
-      text.textContent = item.text || "";
-      if (item.text || item.full) row.appendChild(text);
-      if (item.full) {
-        // Click an item to read all of it.
-        row.className += " wn-more-info";
-        row.tabIndex = 0;
-        row.setAttribute("role", "button");
-        row.setAttribute("aria-expanded", "false");
-        var hint = document.createElement("small");
-        hint.className = "wn-hint";
-        hint.textContent = "Click for details";
-        row.appendChild(hint);
-        var toggle = function () {
-          var open = row.getAttribute("aria-expanded") === "true";
-          row.setAttribute("aria-expanded", String(!open));
-          text.textContent = open ? item.text : item.full;
-          hint.textContent = open ? "Click for details" : "Click to show less";
-        };
-        row.addEventListener("click", toggle);
-        row.addEventListener("keydown", function (event) { if (event.key === " " || event.key === "Enter") { event.preventDefault(); event.stopPropagation(); toggle(); } });
-      }
-      body.appendChild(row);
-    });
-    if (others > 0) {
-      var more = document.createElement("p");
-      more.className = "wn-more";
-      more.textContent = "And " + others + " more. Click the version in the taskbar to see them again.";
-      body.appendChild(more);
-    }
     var foot = document.createElement("div");
     foot.className = "wn-foot";
+    var back = document.createElement("button");
+    back.type = "button";
+    back.className = "wn-back";
+    back.textContent = "\u2039 All weeks";
     var ok = document.createElement("button");
     ok.type = "button";
     ok.textContent = "Got it";
-    foot.appendChild(ok);
+    foot.appendChild(back); foot.appendChild(ok);
     box.appendChild(bar); box.appendChild(body); box.appendChild(foot);
     overlay.appendChild(box);
+
+    function showWeeks() {
+      title.textContent = "What\u2019s new";
+      back.hidden = true;
+      body.textContent = "";
+      body.scrollTop = 0;
+      weeks.forEach(function (week, index) {
+        var row = document.createElement("button");
+        row.type = "button";
+        row.className = "wn-week";
+        var left = document.createElement("span");
+        left.className = "wn-week-text";
+        var name = document.createElement("strong");
+        name.textContent = week.label;
+        var sub = document.createElement("small");
+        sub.textContent = week.sub + " \u00b7 " + week.items.length + (week.items.length === 1 ? " update" : " updates");
+        left.appendChild(name); left.appendChild(sub);
+        row.appendChild(left);
+        var tags = document.createElement("span");
+        tags.className = "wn-tags";
+        if (index === 0 && week.key) { var latest = document.createElement("em"); latest.className = "wn-tag wn-latest"; latest.textContent = "LATEST"; tags.appendChild(latest); }
+        var fresh = week.items.filter(function (i) { return unseen.indexOf(i.id) !== -1; }).length;
+        if (fresh) { var tag = document.createElement("em"); tag.className = "wn-tag wn-new"; tag.textContent = fresh + " NEW"; tags.appendChild(tag); }
+        var arrow = document.createElement("span");
+        arrow.className = "wn-arrow";
+        arrow.textContent = "\u203a";
+        tags.appendChild(arrow);
+        row.appendChild(tags);
+        if (index === 0) row.className += " wn-top";
+        row.addEventListener("click", function () { showWeek(week); });
+        body.appendChild(row);
+      });
+    }
+
+    function showWeek(week) {
+      title.textContent = "What\u2019s new \u00b7 " + week.label;
+      back.hidden = false;
+      body.textContent = "";
+      body.scrollTop = 0;
+      week.items.forEach(function (item) { body.appendChild(itemRow(item)); });
+    }
+
+    back.addEventListener("click", showWeeks);
+    showWeeks();
     var done = function () {
       close();
       document.removeEventListener("keydown", onKey);
       try { if (global.SnAchieve) global.SnAchieve.event("whatsnew"); } catch (e) { /* optional */ }
     };
-    var onKey = function (event) { if (event.key === "Escape" || event.key === "Enter") done(); };
+    var onKey = function (event) { if (event.key === "Escape") done(); else if (event.key === "Enter" && document.activeElement === ok) done(); };
     x.addEventListener("click", done);
     ok.addEventListener("click", done);
     overlay.addEventListener("mousedown", function (event) { if (event.target === overlay) done(); });
@@ -131,15 +205,14 @@
       }
       var fresh = all.filter(function (item) { return known.indexOf(item.id) === -1; });
       if (!fresh.length) return;
-      var shown = fresh.slice(0, SHOWN);
-      show(shown, fresh.length - shown.length);
+      show(all, fresh.map(function (item) { return item.id; }));
       remember(all.map(function (i) { return i.id; })); // everything counts as seen once the window has been shown
     });
   }
 
   global.SnWhatsNew = {
     /** Open the window on demand with the newest items, whether or not they were seen. */
-    open: function () { load().then(function (all) { if (all.length) show(all, 0); }); },
+    open: function () { load().then(function (all) { if (all.length) show(all, []); }); },
   };
 
   // Not while a full-screen notice or a sign-in is in the way, and not over the welcome message.

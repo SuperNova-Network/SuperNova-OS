@@ -2854,3 +2854,93 @@ div[data-title]:hover:before {
     stroke-dashoffset: 0;
   }
 }
+
+/* What's new, by week: a list of weeks first, the newest marked */
+#whatsnew .wn-week {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1vw;
+  width: 100%;
+  margin: 0.5vw 0;
+  padding: 0.9vw 1.1vw;
+  border: 0;
+  border-left: 3px solid #555;
+  background: #353535;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+#whatsnew .wn-week:hover {
+  background: #404040;
+}
+
+#whatsnew .wn-week.wn-top {
+  border-left-color: var(--accent, #7b4aa8);
+  background: #3b3447;
+}
+
+#whatsnew .wn-week-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2vw;
+}
+
+#whatsnew .wn-week strong {
+  font-size: 1.25vw;
+}
+
+#whatsnew .wn-week small {
+  color: #b8b8b8;
+  font-size: 0.95vw;
+}
+
+#whatsnew .wn-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.5vw;
+}
+
+#whatsnew .wn-tag {
+  padding: 0.1vw 0.5vw;
+  font-size: 0.8vw;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+#whatsnew .wn-latest {
+  background: var(--accent, #7b4aa8);
+  color: #fff;
+}
+
+#whatsnew .wn-new {
+  background: #ffc83d;
+  color: #1d1d1d;
+}
+
+#whatsnew .wn-arrow {
+  color: #b8b8b8;
+  font-size: 1.8vw;
+  line-height: 1;
+}
+
+#whatsnew .wn-back {
+  margin-right: auto;
+  padding: 0.5vw 1vw;
+  border: 0;
+  background: transparent;
+  color: #cfcfcf;
+  font-size: 1.05vw;
+  cursor: pointer;
+}
+
+#whatsnew .wn-back[hidden] {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  #whatsnew .wn-week strong, #whatsnew .wn-week small, #whatsnew .wn-tag, #whatsnew .wn-back { font-size: 14px; }
+}

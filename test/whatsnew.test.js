@@ -77,3 +77,31 @@ test("anyone can fetch the list", async () => {
   assert.ok(items.length >= 5);
   assert.ok(items[0].id && items[0].title);
 });
+
+test("each item is dated by the commit that added its line to the changelog", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { datesOf, createWhatsNew } = await import("../src/whatsnew.js");
+  const dir = mkdtempSync(join(tmpdir(), "sn-wn-dates-"));
+  try {
+    const file = join(dir, "CHANGELOG.md");
+    const git = (date, ...args) => execFileSync("git", args, { cwd: dir, env: { ...process.env, GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date, GIT_CONFIG_GLOBAL: "/dev/null" }, stdio: "ignore" });
+    const head = "# Changelog\n\n## Unreleased\n\n### Added\n\n";
+    git("2026-11-02T12:00:00", "init", "-q");
+    git("2026-11-02T12:00:00", "config", "user.email", "t@example.org");
+    git("2026-11-02T12:00:00", "config", "user.name", "t");
+    writeFileSync(file, `${head}- **Old thing.** It is old.\n`);
+    git("2026-11-02T12:00:00", "add", "."); git("2026-11-02T12:00:00", "commit", "-q", "-m", "one");
+    writeFileSync(file, `${head}- **New thing.** It is new.\n- **Old thing.** It is old.\n`);
+    git("2026-11-12T12:00:00", "add", "."); git("2026-11-12T12:00:00", "commit", "-q", "-m", "two");
+    const items = createWhatsNew(file)();
+    assert.deepEqual(items.map((i) => [i.title, i.date]), [["New thing", "2026-11-12"], ["Old thing", "2026-11-02"]]);
+    assert.deepEqual(Object.values(datesOf(items, file)).sort(), ["2026-11-02", "2026-11-12"]);
+    // with a dates file (a deploy, with no .git) it is used as it is
+    const written = join(dir, "dates.json");
+    writeFileSync(written, JSON.stringify({ [items[0].id]: "2026-01-01" }));
+    assert.equal(createWhatsNew(file, written)()[0].date, "2026-01-01");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
