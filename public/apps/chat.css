@@ -1388,14 +1388,17 @@ a.url:hover {
 
 .channel .badge {
   flex: none;
-  min-width: 18px;
+  box-sizing: border-box;
+  min-width: 20px;
+  height: 20px;
   margin-left: auto;
-  padding: 0 5px;
+  padding: 0 6px;
+  border-radius: 10px; /* a circle for one digit, a pill for more */
   background: var(--red);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
-  line-height: 18px;
+  line-height: 20px;
   text-align: center;
 }
 

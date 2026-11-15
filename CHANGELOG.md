@@ -8,6 +8,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Fixed
 
+- The unread number beside a channel is round now, not square.
 - **What's new never showed on the live site.** The changelog it is written from was left out of the Docker image, so the list was empty and clicking the version did nothing. It is in the image now.
 - **The Chat opens wider.** The window is about 20% wider by default, so the channel list, messages and online list fit comfortably.
 - **Pages stopped loading when a few tabs were open.** Every tab kept two live connections to the server, and a browser allows six per address over plain HTTP, so three tabs used them all and the Chat window, the health check and everything else waited forever. The tabs now share one connection through a SharedWorker (six tabs hold two connections instead of twelve); a browser that can't share just connects by itself, as before.
