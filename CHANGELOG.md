@@ -8,6 +8,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Fixed
 
+- **People were locked out of signing in and signing up for no reason.** The limits counted every try, including right passwords, taken usernames and everyone else sharing the same network (a school, a household, a phone carrier), so the whole group ran out together. Now only wrong passwords, wrong codes and failed sign-ups count, per person where possible, a blocked try counts nothing, the allowances are looser, and the message says how many minutes to wait. `TRUST_PROXY` turns on by itself on Fly.io, Render, Railway and Heroku, and the server warns when proxy headers show up without it.
 - Pin to taskbar from a desktop icon threw, and pinned nothing, whenever an unpinned window was open.
 - **The proxy returned a 404 the first time it was used** and worked on the second try. The service worker was registered but not yet active when the page navigated. Navigations now wait for activation, the worker takes control immediately, and a navigation that still arrives without it gets a page that starts the worker and reloads instead of a 404. Desktop apps (YouTube, Reddit, ...) never registered the worker at all.
 - About one fresh visit in five failed with `wasm not loaded yet` (libcurl's start-up race), a second "fails the first time" bug found by repeated fresh-profile testing.

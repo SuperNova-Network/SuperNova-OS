@@ -192,20 +192,60 @@ test("deleting the account needs the password and removes everything", options, 
   assert.equal((await client().post("/register", { username: name, password: "delete-me-1" })).status, 201, "the name is free again");
 });
 
-test("password guessing is rate limited", options, async () => {
+test("password guessing is rate limited, with the wait in the message", options, async () => {
   const name = unique("Brute");
   await client().post("/register", { username: name, password: "the-real-one" });
-  const attacker = client();
-  const statuses = [];
-  for (let i = 0; i < 12; i++) statuses.push((await attacker.post("/login", { username: name, password: `guess-${i}` })).status);
-  assert.deepEqual(statuses.slice(0, 10), Array(10).fill(401));
-  assert.equal(statuses[10], 429);
+  const attacker = client("192.0.2.20");
+  const replies = [];
+  for (let i = 0; i < 10; i++) replies.push(await attacker.post("/login", { username: name, password: `guess-${i}` }));
+  assert.deepEqual(replies.slice(0, 8).map((r) => r.status), Array(8).fill(401));
+  assert.equal(replies[8].status, 429);
+  assert.match(replies[8].data.error, /Too many wrong passwords\. Try again in about \d+ minutes?\./);
 });
 
-test("one address can only create a few accounts an hour", options, async () => {
+test("good sign-ins and other people on the same address never use up the allowance", options, async () => {
+  const shared = "192.0.2.30";
+  const names = [];
+  for (let i = 0; i < 3; i++) {
+    const name = unique("Shared");
+    names.push(name);
+    await client().post("/register", { username: name, password: "right-password-1" });
+  }
+  // many good sign-ins from one address
+  for (let i = 0; i < 40; i++) assert.equal((await client(shared).post("/login", { username: names[0], password: "right-password-1" })).status, 200);
+  // one person fumbles until they are held up ...
+  const fumbler = client(shared);
+  for (let i = 0; i < 8; i++) await fumbler.post("/login", { username: names[1], password: "nope" });
+  assert.equal((await fumbler.post("/login", { username: names[1], password: "nope" })).status, 429);
+  // ... but the others on that address still get in
+  assert.equal((await client(shared).post("/login", { username: names[2], password: "right-password-1" })).status, 200);
+  assert.equal((await client(shared).post("/login", { username: names[0], password: "right-password-1" })).status, 200);
+  // and the person who fumbled gets in with the right password once they are let back (a blocked try counts nothing)
+  assert.equal((await client("192.0.2.31").post("/login", { username: names[1], password: "right-password-1" })).status, 200);
+});
+
+test("signing up costs nothing when it fails, and an address may make plenty of accounts", options, async () => {
+  const address = "192.0.2.40";
+  const taken = unique("Taken");
+  await client().post("/register", { username: taken, password: "password123" });
+  for (let i = 0; i < 30; i++) assert.equal((await client(address).post("/register", { username: taken, password: "password123" })).status, 409);
   const statuses = [];
-  for (let i = 0; i < 6; i++) statuses.push((await client("203.0.113.9").post("/register", { username: unique("Spam"), password: "password123" })).status);
-  assert.deepEqual(statuses, [201, 201, 201, 201, 201, 429]);
+  for (let i = 0; i < 6; i++) statuses.push((await client(address).post("/register", { username: unique("Class"), password: "password123" })).status);
+  assert.deepEqual(statuses, Array(6).fill(201), "a classroom can sign up together");
+});
+
+test("one address can only create so many accounts an hour", options, async () => {
+  const address = "203.0.113.9";
+  let last;
+  let made = 0;
+  for (let i = 0; i < 45; i++) {
+    last = await client(address).post("/register", { username: unique("Spam"), password: "password123" });
+    if (last.status !== 201) break;
+    made++;
+  }
+  assert.equal(made, 40);
+  assert.equal(last.status, 429);
+  assert.match(last.data.error, /Try again in about \d+ minutes?\./);
   assert.equal((await client("203.0.113.10").post("/register", { username: unique("Fine"), password: "password123" })).status, 201, "other addresses are unaffected");
 });
 

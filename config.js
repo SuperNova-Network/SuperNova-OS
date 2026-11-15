@@ -22,11 +22,21 @@ function port() {
 // Express "trust proxy": how many proxies in front of this server to believe about the
 // client's address (X-Forwarded-For) and protocol. Needed behind Fly.io, Render, nginx
 // and the like, or rate limits see every visitor as the proxy.
-function trustProxy() {
-  const value = (env.TRUST_PROXY ?? "").trim();
-  if (!value || value === "0" || value === "false") return false;
+/**
+ * Not set at all on a host that is known to put a proxy in front (Fly.io, Render, Railway, Heroku): trust one hop,
+ * because without it every visitor looks like the same address and shared rate limits lock everybody out together.
+ * Setting TRUST_PROXY to 0 still turns it off.
+ */
+export function detectTrustProxy(vars) {
+  const value = (vars.TRUST_PROXY ?? "").trim();
+  if (value === "") return Boolean(vars.FLY_APP_NAME || vars.RENDER || vars.RAILWAY_ENVIRONMENT || vars.DYNO) ? 1 : false;
+  if (value === "0" || value === "false") return false;
   if (value === "true") return true;
   return /^\d+$/.test(value) ? Number(value) : value; // a hop count, or addresses/subnets
+}
+
+function trustProxy() {
+  return detectTrustProxy(env);
 }
 
 /** ACCOUNTS: "off" | "optional" | "required", or null when not set (the admin panel decides). */

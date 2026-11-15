@@ -187,18 +187,41 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   const dummyHash = await hashPassword(randomBytes(16).toString("hex"));
 
   const limits = {
-    loginIp: createLimiter({ limit: 20, windowMs: 10 * 60 * 1000 }),
-    loginUser: createLimiter({ limit: 10, windowMs: 10 * 60 * 1000 }),
-    signupIp: createLimiter({ limit: 5, windowMs: 60 * 60 * 1000 }),
-    recoverIp: createLimiter({ limit: 10, windowMs: 60 * 60 * 1000 }),
-    recoverUser: createLimiter({ limit: 5, windowMs: 60 * 60 * 1000 }),
+    // These count what goes wrong, not what happens: a good sign-in costs nothing, and many people sharing one
+    // address (a school, a household, a phone network) don't use each other's allowance up.
+    loginIp: createLimiter({ limit: 100, windowMs: 10 * 60 * 1000 }),    // wrong passwords from one address, whoever for
+    loginPair: createLimiter({ limit: 8, windowMs: 10 * 60 * 1000 }),    // wrong passwords for one name from one address
+    loginUser: createLimiter({ limit: 25, windowMs: 15 * 60 * 1000 }),   // wrong passwords for one name from anywhere
+    signupIp: createLimiter({ limit: 60, windowMs: 10 * 60 * 1000 }),    // sign-ups that fail (name taken, wrong invite code)
+    signupMade: createLimiter({ limit: 40, windowMs: 60 * 60 * 1000 }),  // accounts one address may make in an hour
+    recoverIp: createLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }),
+    recoverUser: createLimiter({ limit: 8, windowMs: 60 * 60 * 1000 }),
     sync: createLimiter({ limit: 120, windowMs: 60 * 1000 }),
     avatar: createLimiter({ limit: 10, windowMs: 60 * 60 * 1000 }),
   };
 
   function limit(limiter, key) {
     const wait = limiter.hit(key);
-    if (wait) throw new HttpError(429, "Too many attempts. Try again later.", { retryAfter: wait });
+    if (wait) throw tooMany(wait);
+  }
+
+  /** Say how long to wait ("about 4 minutes"), not just "later". */
+  function tooMany(seconds, what = "Too many attempts.") {
+    const minutes = Math.max(1, Math.ceil(seconds / 60));
+    return new HttpError(429, `${what} Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.`, { retryAfter: seconds });
+  }
+
+  /**
+   * Guard an attempt: refuse it if any of these [limiter, key] pairs is used up, otherwise count it against all of
+   * them (so a flood is stopped before the first one finishes) and return a function that gives the counts back,
+   * for when the attempt turns out to be fine. A refused attempt counts against nothing, so someone being blocked
+   * can't use up other people's allowance.
+   */
+  function guard(pairs, what) {
+    const wait = Math.max(0, ...pairs.map(([limiter, key]) => limiter.peek(key)));
+    if (wait) throw tooMany(wait, what);
+    for (const [limiter, key] of pairs) limiter.hit(key);
+    return () => { for (const [limiter, key] of pairs) limiter.refund(key); };
   }
 
   // `avatar` is the picture's version (0 = none): the page asks for the image only when
@@ -296,7 +319,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   // First run: create the first admin with the code from the server's log.
   router.post("/setup", handle(async (req, res) => {
     if (!setupCode || !needsSetup()) throw new HttpError(409, "This site is already set up. Sign in instead.");
-    limit(limits.recoverIp, req.ip);
+    guard([[limits.recoverIp, req.ip]]); // wrong guesses count; the real setup ends the setup anyway
     const { username, password } = readCredentials(req.body);
     const given = Buffer.from(sha256(normalizeCode(req.body?.code)));
     if (!timingSafeEqual(given, Buffer.from(sha256(normalizeCode(setupCode))))) throw new HttpError(403, "That setup code isn't right. It's in the server's log.");
@@ -325,8 +348,9 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     const { username, password } = readCredentials(req.body);
     if (!USERNAME.test(username)) throw new HttpError(400, "Usernames are 3 to 32 letters, numbers, dots, dashes or underscores.");
     checkNewPassword(password);
-    // Counted before the invite code is checked, so codes can't be guessed quickly.
-    limit(limits.signupIp, req.ip);
+    // Counted before the invite code is checked, so codes can't be guessed quickly; given back if the sign-up works.
+    if (limits.signupMade.peek(req.ip)) throw tooMany(limits.signupMade.peek(req.ip), "A lot of accounts were just made from your network.");
+    const releaseSignup = guard([[limits.signupIp, req.ip]]);
     const given = String(req.body?.inviteCode ?? "").trim();
     const fixedHash = fixedInviteHash();
     const fixedCode = Boolean(fixedHash && given) && timingSafeEqual(Buffer.from(sha256(given)), Buffer.from(fixedHash));
@@ -350,6 +374,8 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
         throw err;
       }
     });
+    releaseSignup();
+    limits.signupMade.hit(req.ip);
     startSession(req, res, id);
     res.status(201).json({ user: { username }, recoveryCode });
   }));
@@ -357,15 +383,17 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   router.post("/login", handle(async (req, res) => {
     const { username, password } = readCredentials(req.body);
     if (!username || !password) throw new HttpError(400, "Enter your username and password.");
-    limit(limits.loginIp, req.ip);
-    limit(limits.loginUser, username.toLowerCase());
+    const name = username.toLowerCase();
+    const releaseLogin = guard([[limits.loginIp, req.ip], [limits.loginPair, `${req.ip}|${name}`], [limits.loginUser, name]], "Too many wrong passwords.");
     const user = sql.userByName.get(username);
     const ok = await checkPassword(password, user ? user.password_hash : dummyHash);
     if (!user || !ok) throw new HttpError(401, "Wrong username or password.");
     // Only after the password: whether an account is banned isn't anyone else's business.
     if (user.banned_at) throw bannedError(user);
     if (site().mode === "off" && !isAdmin(user)) throw offError();
-    limits.loginUser.reset(username.toLowerCase());
+    releaseLogin(); // a right password costs nothing
+    limits.loginUser.reset(name);
+    limits.loginPair.reset(`${req.ip}|${name}`);
     sql.touch.run(Date.now(), user.id);
     startSession(req, res, user.id);
     res.json({ user: publicUser(user) });
@@ -386,14 +414,14 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     const password = req.body?.newPassword;
     if (!username || !code) throw new HttpError(400, "Enter your username and recovery code.");
     checkNewPassword(password);
-    limit(limits.recoverIp, req.ip);
-    limit(limits.recoverUser, username.toLowerCase());
+    const releaseRecover = guard([[limits.recoverIp, req.ip], [limits.recoverUser, username.toLowerCase()]], "Too many wrong recovery codes.");
     const user = sql.userByName.get(username);
     const expected = Buffer.from(user ? user.recovery_hash : sha256("no such user"));
     const given = Buffer.from(sha256(code));
     if (!user || !timingSafeEqual(expected, given)) throw new HttpError(401, "That username and recovery code don't match.");
     if (user.banned_at) throw bannedError(user);
     if (site().mode === "off" && !isAdmin(user)) throw offError();
+    releaseRecover();
     const recoveryCode = newRecoveryCode();
     sql.setRecovery.run(await hashPassword(password), sha256(normalizeCode(recoveryCode)), Date.now(), user.id);
     sql.deleteAllSessions.run(user.id);
@@ -403,8 +431,9 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
 
   router.post("/password", handle(async (req, res) => {
     const user = requireUser(req);
-    limit(limits.loginUser, user.username.toLowerCase());
+    const releasePassword = guard([[limits.loginUser, user.username.toLowerCase()]], "Too many wrong passwords.");
     if (!(await checkPassword(String(req.body?.currentPassword ?? ""), user.password_hash))) throw new HttpError(401, "Your current password is wrong.");
+    releasePassword();
     checkNewPassword(req.body?.newPassword);
     sql.setPassword.run(await hashPassword(req.body.newPassword), Date.now(), user.id);
     sql.deleteOtherSessions.run(user.id, req.sessionHash);
@@ -413,8 +442,9 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
 
   router.post("/delete", handle(async (req, res) => {
     const user = requireUser(req);
-    limit(limits.loginUser, user.username.toLowerCase());
+    const releaseDelete = guard([[limits.loginUser, user.username.toLowerCase()]], "Too many wrong passwords.");
     if (!(await checkPassword(String(req.body?.password ?? ""), user.password_hash))) throw new HttpError(401, "Your password is wrong.");
+    releaseDelete();
     sql.deleteUser.run(user.id); // sessions go with it (ON DELETE CASCADE)
     clearCookie(req, res);
     res.json({ ok: true });

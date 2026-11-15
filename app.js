@@ -144,6 +144,18 @@ applyBlocklist(admin.blocklist()); // plus anything admins added in the Admin Pa
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", config.trustProxy);
+// Behind a proxy without TRUST_PROXY every visitor looks like one address, and shared rate limits then lock
+// everybody out together. Say so once, loudly, instead of leaving people to wonder.
+if (!config.trustProxy) {
+  let warned = false;
+  app.use((req, _res, next) => {
+    if (!warned && req.headers["x-forwarded-for"]) {
+      warned = true;
+      console.warn("Requests arrive with X-Forwarded-For but TRUST_PROXY is not set: every visitor shares one address for rate limits. Set TRUST_PROXY=1 if this server is behind a proxy.");
+    }
+    next();
+  });
+}
 app.use(compression());
 
 // Health checks (Fly.io, Render, Docker) cannot send credentials, so this sits
