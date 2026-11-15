@@ -299,7 +299,6 @@
     arc.setAttribute("stroke", "url(#ach-grad)");
     ring.appendChild(track); ring.appendChild(arc);
     ringWrap.appendChild(ring);
-    ringWrap.appendChild(el("div", "ach-orbit"));
     var inner = el("div", "ach-ringtext");
     var number = el("strong", "", String(t.unlocked));
     inner.appendChild(number);
