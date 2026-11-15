@@ -2952,6 +2952,25 @@ div[data-title]:hover:before {
   stroke: url(#ach-grad);
 }
 
+#achievepanel .ach-orbit {
+  position: absolute;
+  inset: 0;
+  animation: ach-orbit 3.2s linear infinite;
+}
+
+#achievepanel .ach-orbit::after {
+  content: "";
+  position: absolute;
+  top: 2%;
+  left: 50%;
+  width: 0.55em;
+  height: 0.55em;
+  margin-left: -0.275em;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0.7em 0.15em rgba(255, 200, 90, 0.9);
+}
+
 #achievepanel .ach-ringtext strong {
   font-size: 2.1em;
   text-shadow: 0 0 0.6em rgba(255, 200, 90, 0.5);
@@ -3146,6 +3165,7 @@ div[data-title]:hover:before {
 }
 
 @keyframes ach-spin { to { --spin: 360deg; } }
+@keyframes ach-orbit { to { transform: rotate(360deg); } }
 @keyframes ach-drift-a { from { transform: translate(-8%, 0) scale(1); } to { transform: translate(14%, 12%) scale(1.25); } }
 @keyframes ach-drift-b { from { transform: translate(8%, 6%) scale(1.1); } to { transform: translate(-16%, -4%) scale(0.9); } }
 @keyframes ach-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.15em); } }
@@ -3161,6 +3181,7 @@ div[data-title]:hover:before {
 
 @media (prefers-reduced-motion: reduce) {
   #achievepanel::before,
+  #achievepanel .ach-orbit,
   #achievepanel .ach-aurora i {
     animation: none !important;
   }
