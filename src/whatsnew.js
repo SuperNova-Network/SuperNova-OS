@@ -12,6 +12,8 @@ import { readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 
 const MAX_ITEMS = 30;
+// A changelog line that starts with <!--quiet--> is for the record only (admin tools, small tweaks): people aren't told about it.
+const QUIET = /^\s*<!--\s*quiet\s*-->/;
 const MAX_FULL = 1200; // the whole description, for when an item is opened
 const MAX_FIXES = 3; // the newest few fixes with a bold title are worth telling people about too
 const MAX_TEXT = 220;
@@ -58,7 +60,7 @@ export function parseWhatsNew(markdown) {
   const items = [];
   for (let i = added + 1; i < section.length && !/^### /.test(section[i]); i++) {
     const bullet = /^- (.+)$/.exec(section[i]);
-    if (!bullet) continue;
+    if (!bullet || QUIET.test(bullet[1])) continue;
     const bold = /^\*\*(.+?)\*\*\s*(.*)$/.exec(bullet[1]);
     const title = plain((bold ? bold[1] : firstSentence(bullet[1])).replace(/[.:]+$/, ""));
     // "**Title** (where to find it). What it does." keeps the sentence about what it does, not just the signpost.
@@ -74,7 +76,7 @@ export function parseWhatsNew(markdown) {
   let taken = 0;
   for (let i = fixed + 1; fixed !== -1 && i < section.length && !/^### /.test(section[i]) && taken < MAX_FIXES; i++) {
     const bullet = /^- \*\*(.+?)\*\*\s*(.*)$/.exec(section[i]);
-    if (!bullet) continue;
+    if (!bullet) continue; // (a quiet line starts with a comment, so it never matches)
     const title = plain(bullet[1].replace(/[.:]+$/, ""));
     const text = short(firstSentence(bullet[2].replace(/^[.:\s]+/, "")));
     items.push({ id: createHash("sha1").update(title.toLowerCase()).digest("hex").slice(0, 10), title, text, ...fullOf(bullet[2], text) });

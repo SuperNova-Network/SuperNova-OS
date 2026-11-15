@@ -184,7 +184,7 @@ A browser keeps at most six connections to one address over plain HTTP, and the 
 
 ### What's new
 
-After an update the desktop shows a small **What's new** window listing the newest things, written from this repository's `CHANGELOG.md`: the bullets of the newest section's "Added" list, each a bold title and its first sentence (`GET /api/whatsnew`, public). Each item is shown once per person (it is remembered as the `whatsNewSeen` setting, so it follows their account), everything new since they last looked (the window scrolls), and a device that has never opened SuperNova before starts with everything seen. Clicking the version in the taskbar opens them again. So write each new changelog bullet as `- **Short title.** One friendly sentence saying what it is. Details after that.`, and it is what people read.
+After an update the desktop shows a small **What's new** window listing the newest things, written from this repository's `CHANGELOG.md`: the bullets of the newest section's "Added" list, each a bold title and its first sentence (`GET /api/whatsnew`, public). Each item is shown once per person (it is remembered as the `whatsNewSeen` setting, so it follows their account), everything new since they last looked (the window scrolls), and a device that has never opened SuperNova before starts with everything seen. Clicking the version in the taskbar opens them again. Only things that matter to people are listed: start a changelog line with `<!--quiet-->` (admin tools, tiny tweaks, internal changes) and it stays in the changelog but out of What's new. So write each new changelog bullet as `- **Short title.** One friendly sentence saying what it is. Details after that.`, and it is what people read.
 
 ### Scheduled announcements
 

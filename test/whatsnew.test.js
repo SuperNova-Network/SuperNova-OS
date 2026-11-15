@@ -23,6 +23,7 @@ Intro text.
 - **Chat channels.** The chat now has #general, #help and #off-topic, and admins can add more (Admin Panel > Chat). Each can be limited by role.
 - **Change your username** (Settings > Account, once a week). Admins see the old ones. More words here.
 - A bullet with no bold title at all. It still gets a title from its first sentence.
+- <!--quiet--> **Admin only thing.** Not for people.
 - **Links and \`code\`.** See [the docs](https://example.com/docs) for \`npm test\`.
 
 ### Changed
