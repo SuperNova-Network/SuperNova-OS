@@ -5,8 +5,14 @@
  * roles' permissions, their name takes the colour of their highest role, and they can only be moderated by
  * people whose highest role is above theirs.
  *
- * Site admins (the Admin Panel, ADMINS) always have every permission here, and can't be moderated by roles.
- * Holding a role does not make anyone a site admin: that stays Settings > Admin.
+ * The order of power, from the top:
+ *   Owner   the one account that did the first-run setup (or was handed the site since). Can do everything,
+ *           and is the only one who can make or remove admins, hand over ownership, or touch the Owner's account.
+ *   Admins  the Admin Panel (and ADMINS). Every permission here; they manage everyone below them, never each
+ *           other or the Owner.
+ *   Roles   by position, as above. Nobody can change a role, or give or take one, that isn't below them.
+ * The Owner and Admin roles belong to those two tiers: they follow the account, and can't be handed out,
+ * deleted or renamed. Holding any other role does not make anyone a site admin.
  */
 import { AdminError } from "./accountsdb.js";
 import { normalizeText } from "./chatfilter.js";
@@ -22,6 +28,9 @@ export const PERMISSIONS = [
 const PERMISSION_IDS = new Set(PERMISSIONS.map((p) => p.id));
 
 export const LIMITS = { roles: 50, name: 24 };
+/** Roles that follow the Owner and Admin tiers; nobody hands these out by hand. */
+export const SYSTEM_SLUGS = new Set(["owner", "admin"]);
+const ADMIN_RANK = 1_000_000;
 const RESERVED = new Set(["everyone", "here"]);
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -76,7 +85,8 @@ export function createRole(db, input) {
 export function updateRole(db, id, input) {
   const current = getRole(db, id);
   if (!current) throw new AdminError(404, "There's no such role.");
-  const role = cleanRole(input, current);
+  // The Owner and Admin roles keep their name and permissions; their colour and whether they can be pinged can change.
+  const role = cleanRole(SYSTEM_SLUGS.has(current.slug) ? { ...input, name: current.name, permissions: current.permissions } : input, current);
   if (db.prepare("SELECT 1 FROM roles WHERE slug = ? AND id <> ?").get(role.slug, current.id)) throw new AdminError(409, "There is already a role with that name.");
   db.prepare("UPDATE roles SET name = ?, slug = ?, color = ?, permissions = ?, mentionable = ? WHERE id = ?")
     .run(role.name, role.slug, role.color, JSON.stringify(role.permissions), role.mentionable ? 1 : 0, current.id);
@@ -86,6 +96,7 @@ export function updateRole(db, id, input) {
 export function deleteRole(db, id) {
   const current = getRole(db, id);
   if (!current) throw new AdminError(404, "There's no such role.");
+  if (SYSTEM_SLUGS.has(current.slug)) throw new AdminError(403, `The ${current.name} role goes with the ${current.name.toLowerCase()} account${current.slug === "admin" ? "s" : ""} and can't be deleted.`);
   db.prepare("DELETE FROM roles WHERE id = ?").run(current.id);
   renumber(db);
   return current;
@@ -93,11 +104,14 @@ export function deleteRole(db, id) {
 
 /** Swap a role with its neighbour: direction -1 moves it up (more important), 1 down. */
 export function moveRole(db, id, direction) {
-  const rows = db.prepare("SELECT id FROM roles ORDER BY position DESC, id").all().map((r) => r.id);
+  const all = db.prepare("SELECT id, slug FROM roles ORDER BY position DESC, id").all();
+  const rows = all.map((r) => r.id);
   const at = rows.indexOf(Number(id));
   if (at === -1) throw new AdminError(404, "There's no such role.");
   const to = at + (direction < 0 ? -1 : 1);
   if (to < 0 || to >= rows.length) return;
+  // The Owner and Admin roles keep the top places.
+  if (SYSTEM_SLUGS.has(all[at].slug) || SYSTEM_SLUGS.has(all[to].slug)) throw new AdminError(403, "The Owner and Admin roles stay at the top.");
   [rows[at], rows[to]] = [rows[to], rows[at]];
   rows.forEach((roleId, i) => db.prepare("UPDATE roles SET position = ? WHERE id = ?").run(rows.length - i, roleId));
 }
@@ -107,10 +121,21 @@ export function membersOf(db, roleId) {
     WHERE user_roles.role_id = ? ORDER BY users.username COLLATE NOCASE LIMIT 500`).all(Number(roleId));
 }
 
-export function setMember(db, roleId, username, on) {
-  const user = db.prepare("SELECT id, username FROM users WHERE username = ?").get(String(username ?? "").trim());
+/**
+ * Give a role to someone or take it away. `actor` ({ id, admin, owner }) is who is doing it: the role has to be
+ * below them, and so does the person (you can always change your own, below you).
+ */
+export function setMember(db, roleId, username, on, actor = null) {
+  const user = db.prepare("SELECT id, username, is_admin, is_owner FROM users WHERE username = ?").get(String(username ?? "").trim());
   if (!user) throw new AdminError(404, "There's no account with that name.");
-  if (!getRole(db, roleId)) throw new AdminError(404, "There's no such role.");
+  const role = getRole(db, roleId);
+  if (!role) throw new AdminError(404, "There's no such role.");
+  if (SYSTEM_SLUGS.has(role.slug)) throw new AdminError(403, role.slug === "owner" ? "The Owner role only goes with the owner's account." : "The Admin role goes with being an admin, which only the owner can change.");
+  if (actor) {
+    const mine = rank(db, actor);
+    if (role.position >= mine) throw new AdminError(403, "That role is as high as yours, so you can't give or take it.");
+    if (user.id !== actor.id && rank(db, { id: user.id, admin: Boolean(user.is_admin), owner: Boolean(user.is_owner) }) >= mine) throw new AdminError(403, "They are as high as you, so you can't change their roles.");
+  }
   if (on) db.prepare("INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)").run(user.id, Number(roleId));
   else db.prepare("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?").run(user.id, Number(roleId));
   return user;
@@ -147,11 +172,15 @@ export function permissionsOf(db, user) {
 
 export const can = (db, user, permission) => permissionsOf(db, user).has(permission);
 
-/** How high someone stands, for moderation: site admins above every role, others by their highest role. */
+/** How high someone stands: the Owner above everyone, then admins, then by highest role. `user` is { id, admin, owner }. */
 export function rank(db, user) {
-  if (user.admin) return Infinity;
+  if (user.owner) return Infinity;
+  if (user.admin) return ADMIN_RANK;
   return rolesOf(db, user.id)[0]?.position ?? 0;
 }
+
+/** Whether `actor` stands above `target` (equals can't act on each other). Both are { id, admin, owner }. */
+export const outranks = (db, actor, target) => rank(db, actor) > rank(db, target);
 
 /** The slugs someone answers to when pinged: their roles, and "admin" for every site admin. */
 export function mentionSlugs(db, user) {

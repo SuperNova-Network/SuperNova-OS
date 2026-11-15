@@ -9,7 +9,7 @@ import express from "express";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir, loadavg, cpus, totalmem, freemem } from "node:os";
 import { join } from "node:path";
-import { AdminError, USERNAME_PATTERN, createInvite, nameHeldByOther, renameUser, setBanned } from "./accountsdb.js";
+import { AdminError, USERNAME_PATTERN, createInvite, nameHeldByOther, ownerRow, renameUser, setBanned } from "./accountsdb.js";
 import {
   backupTo, databaseInfo, deleteUser, getAdminSetting, listAudit, listSessions, listUsersPage, logAdmin, overview, prune,
   revokeSession, saveAnnouncement, saveBlocklist, saveMaintenance, saveStoreSettings, saveTerms, searchChat, setUserPassword, signOutUser, toCsv, userDetail,
@@ -46,13 +46,30 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     if (!user.admin) throw new HttpError(403, "Only admins can do that.");
     return user;
   }
+  /** The owner (any admin on a site that has none, so nobody is locked out). */
+  function requireOwner(req) {
+    const user = requireAdmin(req);
+    if (user.owner || !ownerRow(db)) return user;
+    throw new HttpError(403, "Only the owner can do that.");
+  }
 
   const router = express.Router();
   router.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
   router.use(guardWrites());
   router.use(express.json({ limit: "64kb" }));
   const handle = (fn) => (req, res, next) => Promise.resolve().then(() => fn(req, res)).catch(next);
-  const rowOf = (name) => db.prepare("SELECT id, username, is_admin, banned_at FROM users WHERE username = ?").get(String(name ?? ""));
+  const rowOf = (name) => db.prepare("SELECT id, username, is_admin, is_owner, banned_at FROM users WHERE username = ?").get(String(name ?? ""));
+
+  /** Who stands above whom: the owner above admins above everyone else (and roles, in their order). */
+  const standing = (u) => ({ id: u.id, admin: Boolean(u.admin), owner: Boolean(u.owner) });
+  const standingOfRow = (row) => ({ id: row.id, admin: isAdmin(row), owner: Boolean(row.is_owner) });
+  /** Refuse unless the person asking stands above this account. Your own account is yours (unless `others`). */
+  function mustOutrank(req, row, { others = false } = {}) {
+    const me = userFor(req);
+    if (!others && row.id === me.id) return;
+    if (roles.outranks(db, standing(me), standingOfRow(row))) return;
+    throw new HttpError(403, row.is_owner ? "That's the owner's account; nobody else can do that to it." : "They stand as high as you, so you can't do that. Only the owner can change an admin.");
+  }
 
   // --- dashboard -------------------------------------------------------------------------------
 
@@ -79,11 +96,15 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     requireAdmin(req);
     const detail = userDetail(db, req.params.username, serverAdmins);
     if (!detail) throw new HttpError(404, "There's no account with that name.");
-    res.json(detail);
+    const target = rowOf(req.params.username);
+    // What this admin may do to the account, so the page offers only that.
+    res.json({ ...detail, canManage: roles.outranks(db, standing(userFor(req)), standingOfRow(target)), canRename: !serverAdmins.has(target.username.toLowerCase()), canGrantAdmin: Boolean(userFor(req).owner) || !ownerRow(db) });
   }));
 
   router.post("/users/:username/signout", handle((req, res) => {
     const admin = requireAdmin(req);
+    const target = rowOf(req.params.username);
+    if (target) mustOutrank(req, target);
     const { id, ended } = signOutUser(db, req.params.username);
     kick(id);
     logAdmin(db, admin.username, "signed out", req.params.username, `${ended} session${ended === 1 ? "" : "s"}`);
@@ -96,7 +117,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     if (typeof password !== "string" || password.length < 8 || password.length > 200) throw new HttpError(400, "Use a password of 8 to 200 characters.");
     const row = rowOf(req.params.username);
     if (!row) throw new HttpError(404, "There's no account with that name.");
-    if (isAdmin(row) && row.id !== userFor(req).id) throw new HttpError(403, "You can only change another admin's password by removing their admin role first.");
+    mustOutrank(req, row);
     const id = setUserPassword(db, req.params.username, await hashPassword(password));
     kick(id);
     logAdmin(db, admin.username, "set password", req.params.username, "signed out everywhere");
@@ -111,7 +132,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     const row = rowOf(req.params.username);
     if (!row) throw new HttpError(404, "There's no account with that name.");
     if (serverAdmins.has(row.username.toLowerCase())) throw new HttpError(403, "That admin is named in the server's ADMINS setting, so the name can't be changed here.");
-    if (isAdmin(row) && row.id !== userFor(req).id) throw new HttpError(403, "You can only rename another admin by removing their admin role first.");
+    mustOutrank(req, row);
     if (wanted === row.username) throw new HttpError(400, "That is already their username.");
     const other = rowOf(wanted);
     if ((other && other.id !== row.id) || nameHeldByOther(db, wanted, row.id)) throw new HttpError(409, "That username is taken, or was used by someone else recently.");
@@ -124,6 +145,8 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
   router.post("/users/:username/delete", handle((req, res) => {
     const admin = requireAdmin(req);
     if (req.body?.confirm !== req.params.username) throw new HttpError(400, "Type the username to confirm.");
+    const target = rowOf(req.params.username);
+    if (target) mustOutrank(req, target);
     const id = deleteUser(db, req.params.username, { by: admin.username, isAdminRow: isAdmin });
     kick(id);
     logAdmin(db, admin.username, "deleted account", req.params.username);
@@ -142,6 +165,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
         const row = rowOf(name);
         if (!row) throw new AdminError(404, "No such account.");
         if (row.id === userFor(req).id) throw new AdminError(400, "Not yourself.");
+        if (!roles.outranks(db, standing(userFor(req)), standingOfRow(row))) throw new AdminError(403, "They stand as high as you.");
         if (action === "ban") { setBanned(db, name, true, { reason, admins: serverAdmins }); kick(row.id); }
         else if (action === "unban") setBanned(db, name, false);
         else { signOutUser(db, name); kick(row.id); }
@@ -165,6 +189,8 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
 
   router.post("/sessions/:id/revoke", handle((req, res) => {
     const admin = requireAdmin(req);
+    const holder = db.prepare("SELECT users.id, users.username, users.is_admin, users.is_owner FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.rowid = ?").get(Number(req.params.id));
+    if (holder) mustOutrank(req, holder);
     const owner = revokeSession(db, req.params.id);
     if (!owner) throw new HttpError(404, "That session has already ended.");
     const row = rowOf(owner);
@@ -263,7 +289,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
     const admin = requireAdmin(req);
     const role = roleOf(req);
     const on = req.body?.add !== false;
-    const user = roles.setMember(db, role.id, req.body?.username, on);
+    const user = roles.setMember(db, role.id, req.body?.username, on, standing(userFor(req)));
     onChange("roles", role);
     logAdmin(db, admin.username, on ? "gave a role" : "took a role away", role.name, user.username);
     res.json({ members: roles.membersOf(db, role.id), roles: roles.listRoles(db) });
@@ -402,7 +428,7 @@ export function createAdmin({ db, dataDir, userFor, isAdmin, serverAdmins, kick,
 
   // A copy of the whole database (it holds password hashes: only admins can get it, and it is logged).
   router.get("/system/backup", handle((req, res, next) => {
-    const admin = requireAdmin(req);
+    const admin = requireOwner(req);
     const dir = mkdtempSync(join(tmpdir(), "sn-backup-"));
     const file = join(dir, "accounts.db");
     try { backupTo(db, file); } catch (err) { rmSync(dir, { recursive: true, force: true }); throw err; }

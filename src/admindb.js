@@ -203,7 +203,7 @@ export function listUsersPage(db, { q = "", filter = "all", sort = "created", or
   const orderBy = `${SORTS[sort] ?? SORTS.created} ${order === "asc" ? "ASC" : "DESC"}, users.id DESC`;
   const total = db.prepare(`SELECT COUNT(*) AS n FROM users WHERE ${where.join(" AND ")}`).get(...params).n;
   const rows = db.prepare(`
-    SELECT users.id, users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin, users.avatar_version,
+    SELECT users.id, users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin, users.is_owner, users.avatar_version,
            invites.label AS invite_label, invites.hint AS invite_hint,
            (SELECT COUNT(*) FROM chat_messages WHERE chat_messages.user_id = users.id AND chat_messages.deleted_at IS NULL) AS messages,
            (SELECT COUNT(*) FROM sessions WHERE sessions.user_id = users.id AND sessions.expires_at > ?) AS sessions
@@ -221,6 +221,7 @@ function publicRow(row, serverAdmins) {
     banned: Boolean(row.banned_at),
     banReason: row.ban_reason,
     admin: Boolean(row.is_admin) || serverAdmins.has(row.username.toLowerCase()),
+    owner: Boolean(row.is_owner),
     serverAdmin: serverAdmins.has(row.username.toLowerCase()),
     avatar: row.avatar_version ?? 0,
     invite: row.invite_label || (row.invite_hint ? `…${row.invite_hint}` : null),
@@ -232,7 +233,7 @@ function publicRow(row, serverAdmins) {
 /** Everything about one account, for the details window. Returns null if there is no such account. */
 export function userDetail(db, username, serverAdmins = new Set(), now = Date.now()) {
   const row = db.prepare(`
-    SELECT users.id, users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin, users.avatar_version, users.revision,
+    SELECT users.id, users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin, users.is_owner, users.avatar_version, users.revision,
            length(users.settings) AS settings_bytes, invites.label AS invite_label, invites.hint AS invite_hint,
            (SELECT COUNT(*) FROM chat_messages WHERE chat_messages.user_id = users.id AND chat_messages.deleted_at IS NULL) AS messages,
            (SELECT COUNT(*) FROM sessions WHERE sessions.user_id = users.id AND sessions.expires_at > ?) AS sessions

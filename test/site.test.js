@@ -83,7 +83,7 @@ test("only the code from the log creates the first admin, and only once", option
   owner = browser();
   const made = await owner.post("/api/account/setup", { code: setupCode().toLowerCase(), username: "owner", password: "password123" });
   assert.equal(made.status, 201);
-  assert.deepEqual(made.data.user, { username: "owner", admin: true });
+  assert.deepEqual(made.data.user, { username: "owner", admin: true, owner: true });
   assert.ok(made.data.recoveryCode);
 
   assert.equal((await browser().post("/api/account/setup", { code: setupCode(), username: "second", password: "password123" })).status, 409, "only once");
@@ -94,7 +94,7 @@ test("only the code from the log creates the first admin, and only once", option
 test("with accounts off, the admin is signed in and sees the site settings", options, async () => {
   const state = (await owner.get("/api/account")).data;
   assert.equal(state.mode, "off");
-  assert.deepEqual(state.user, { username: "owner", admin: true, avatar: 0 });
+  assert.deepEqual(state.user, { username: "owner", admin: true, owner: true, avatar: 0 });
   assert.deepEqual((await owner.get("/api/account/admin/site")).data, { mode: "off", signup: "invite", locked: { mode: false, signup: false } });
   assert.equal((await browser().post("/api/account/register", { username: "early", password: "password123" })).status, 403, "nobody else can sign up yet");
 });
@@ -149,12 +149,15 @@ test("with accounts off again, only admins stay signed in", options, async () =>
 });
 
 test("admins make other admins, and the last one can't be removed", options, async () => {
-  assert.equal((await owner.post("/api/account/admin/users/owner/unadmin")).status, 400, "the only admin");
+  assert.equal((await owner.post("/api/account/admin/users/owner/unadmin")).status, 403, "the owner stays an admin");
   assert.equal((await owner.post("/api/account/admin/users/pat/admin")).status, 200);
   const pat = browser();
   await pat.post("/api/account/login", { username: "pat", password: "password123" });
   assert.deepEqual((await pat.get("/api/account")).data.user, { username: "pat", admin: true, avatar: 0 });
   assert.equal((await pat.get("/api/account/admin/site")).status, 200);
+  assert.equal((await pat.post("/api/account/admin/site", { mode: "off" })).status, 403, "site settings are the owner's");
+  assert.equal((await pat.post("/api/account/admin/users/owner/unadmin")).status, 403, "an admin can't remove the owner");
+  assert.equal((await pat.post("/api/account/admin/users/pat/unadmin")).status, 403, "nor make or remove admins at all");
   const people = (await owner.get("/api/account/admin/users")).data.users;
   assert.deepEqual(people.filter((p) => p.admin).map((p) => p.username).sort(), ["owner", "pat"]);
   assert.equal((await owner.post("/api/account/admin/users/pat/ban")).status, 403, "admins can't be banned");

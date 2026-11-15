@@ -11,6 +11,7 @@
  *   npm run admin -- terms on|off
  *   npm run admin -- make-admin <username>
  *   npm run admin -- remove-admin <username>
+ *   npm run admin -- make-owner <username>
  *   npm run admin -- invite [--uses N] [--days N] [--label TEXT]
  *   npm run admin -- invites
  *   npm run admin -- revoke <id>
@@ -23,7 +24,7 @@
 import { parseArgs } from "node:util";
 import config from "../config.js";
 import {
-  AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, openDatabase, revokeInvite,
+  AdminError, adminCount, createInvite, getSiteSettings, giveOwnership, ownerRow, listInvites, listUsers, openDatabase, revokeInvite,
   setAdmin, setBanned, setSiteSetting,
 } from "../src/accountsdb.js";
 import { saveTerms } from "../src/admindb.js";
@@ -36,6 +37,7 @@ const USAGE = `Usage: npm run admin -- <command>
   terms on|off                                the red acceptable use screen for people who aren't signed in
   make-admin <username>                       give someone Settings > Admin
   remove-admin <username>                     take it away
+  make-owner <username>                       hand the site to someone (the only owner; they become an admin too)
   invite [--uses N] [--days N] [--label TEXT]   make an invite code (default: 1 use, 7 days; --days 0 never expires)
   invites                                     list invite codes
   revoke <id>                                 stop an invite code from working
@@ -80,6 +82,7 @@ async function main(argv) {
         console.log(`accounts: ${show("mode", "ACCOUNTS", "off")}`);
         console.log(`sign-up:  ${show("signup", "ACCOUNTS_SIGNUP", "invite")}`);
         const names = listUsers(db, { admins }).filter((u) => u.admin).map((u) => u.username);
+        console.log(`owner:    ${ownerRow(db)?.username ?? "none (any admin can do the owner's jobs): use make-owner"}`);
         console.log(`admins:   ${names.length ? names.join(", ") : "none yet: start the server for a setup link, or use make-admin"}${admins.size ? ` (ADMINS: ${[...admins].join(", ")})` : ""}`);
         console.log(`data:     ${config.accounts.dataDir}/accounts.db`);
         break;
@@ -105,6 +108,16 @@ async function main(argv) {
         setAdmin(db, rest[0], command === "make-admin", { serverAdmins: admins });
         console.log(command === "make-admin" ? `${rest[0]} is now an admin.` : `${rest[0]} is no longer an admin.`);
         break;
+      case "make-owner": {
+        if (!rest[0]) throw new AdminError(400, "Who? Give a username.");
+        const user = db.prepare("SELECT id, username, banned_at FROM users WHERE username = ?").get(rest[0]);
+        if (!user) throw new AdminError(404, "There's no account with that name.");
+        if (user.banned_at) throw new AdminError(400, "Unban them first.");
+        const before = ownerRow(db)?.username;
+        giveOwnership(db, user.id);
+        console.log(`${user.username} is now the owner${before && before !== user.username ? `; ${before} stays an admin` : ""}.`);
+        break;
+      }
       case "invite": {
         const { code, invite } = createInvite(db, { label: values.label, maxUses: values.uses, expiresInDays: values.days, createdBy: "command line" });
         console.log(code);

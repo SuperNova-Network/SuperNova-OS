@@ -17,7 +17,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { createLimiter } from "./ratelimit.js";
 import {
   AdminError, adminCount, createInvite, getSiteSettings, listInvites, listUsers, newInviteCode, newRecoveryCode,
-  getAvatar, USERNAME_PATTERN, lastRename, nameHeldByOther, normalizeCode, openDatabase, renameUser, RENAME_EVERY_MS, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
+  getAvatar, USERNAME_PATTERN, giveOwnership, ownerRow, lastRename, nameHeldByOther, normalizeCode, openDatabase, renameUser, RENAME_EVERY_MS, redeemInvite, revokeInvite, setAdmin, setAvatar, setBanned, setSiteSetting, sha256, transaction,
 } from "./accountsdb.js";
 import { logAdmin } from "./admindb.js";
 import { HttpError, guardWrites } from "./http.js";
@@ -226,7 +226,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
 
   // `avatar` is the picture's version (0 = none): the page asks for the image only when
   // there is one, and the version in the address makes each new picture a new URL.
-  const publicUser = (user) => ({ username: user.username, ...(isAdmin(user) ? { admin: true } : {}), avatar: user.avatar_version ?? 0 });
+  const publicUser = (user) => ({ username: user.username, ...(isAdmin(user) ? { admin: true } : {}), ...(user.is_owner ? { owner: true } : {}), avatar: user.avatar_version ?? 0 });
 
   function bannedError(user) {
     return new HttpError(403, `This account has been suspended.${user.ban_reason ? ` Reason: ${user.ban_reason}` : ""}`);
@@ -331,14 +331,13 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     const recoveryCode = newRecoveryCode();
     const now = Date.now();
     const id = transaction(db, () => {
-      const newId = Number(sql.insertUser.run(username, passwordHash, sha256(normalizeCode(recoveryCode)), now, now, now, null).lastInsertRowid);
-      db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(newId);
-      return newId;
+      return Number(sql.insertUser.run(username, passwordHash, sha256(normalizeCode(recoveryCode)), now, now, now, null).lastInsertRowid);
     });
+    giveOwnership(db, id); // whoever sets the site up owns it
     setupCode = null;
     logAdmin(db, username, "setup", username, "created the first admin account");
     startSession(req, res, id);
-    res.status(201).json({ user: { username, admin: true }, recoveryCode });
+    res.status(201).json({ user: { username, admin: true, owner: true }, recoveryCode });
   }));
 
   router.post("/register", handle(async (req, res) => {
@@ -470,6 +469,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
 
   router.post("/delete", handle(async (req, res) => {
     const user = requireUser(req);
+    if (user.is_owner) throw new HttpError(403, "You own this site. Hand ownership to someone else (Settings > Admin) before deleting your account.");
     const releaseDelete = guard([[limits.loginUser, user.username.toLowerCase()]], "Too many wrong passwords.");
     if (!(await checkPassword(String(req.body?.password ?? ""), user.password_hash))) throw new HttpError(401, "Your password is wrong.");
     releaseDelete();
@@ -538,6 +538,16 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     return user;
   }
 
+  /**
+   * The owner. A site that has none (the owner's account was deleted, or only ADMINS names admins) lets any
+   * admin do what only the owner could, so nobody is ever locked out; `npm run admin -- make-owner` fixes that.
+   */
+  function requireOwner(req) {
+    const user = requireAdmin(req);
+    if (user.is_owner || !ownerRow(db)) return user;
+    throw new HttpError(403, "Only the owner can do that.");
+  }
+
   // Site settings: accounts off / optional / required, and who can sign up.
   router.get("/admin/site", handle((req, res) => {
     requireAdmin(req);
@@ -545,7 +555,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   }));
 
   router.post("/admin/site", handle((req, res) => {
-    const admin = requireAdmin(req);
+    const admin = requireOwner(req);
     const current = site();
     for (const [key, variable] of [["mode", "ACCOUNTS"], ["signup", "ACCOUNTS_SIGNUP"]]) {
       if (req.body?.[key] === undefined || req.body[key] === current[key]) continue;
@@ -559,18 +569,37 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
     res.json(next);
   }));
 
+  // Making and removing admins is the owner's alone: otherwise any admin could crown or dethrone another.
   router.post("/admin/users/:username/admin", handle((req, res) => {
-    const admin = requireAdmin(req);
+    const admin = requireOwner(req);
     setAdmin(db, req.params.username, true, { serverAdmins });
     logAdmin(db, admin.username, "made admin", req.params.username);
     res.json({ ok: true });
   }));
 
   router.post("/admin/users/:username/unadmin", handle((req, res) => {
-    const admin = requireAdmin(req);
+    const admin = requireOwner(req);
     setAdmin(db, req.params.username, false, { serverAdmins });
     logAdmin(db, admin.username, "removed admin", req.params.username);
     res.json({ ok: true });
+  }));
+
+  // Hand the site over: the new owner becomes the only owner, the old one stays an admin. Needs the owner's password.
+  router.post("/admin/owner", handle(async (req, res) => {
+    const admin = requireOwner(req);
+    if (!admin.is_owner) throw new HttpError(403, "This site has no owner to hand over from. Use `npm run admin -- make-owner <username>` on the server.");
+    const release = guard([[limits.loginUser, admin.username.toLowerCase()]], "Too many wrong passwords.");
+    const row = sql.userById.get(admin.id);
+    if (!(await checkPassword(String(req.body?.password ?? ""), row.password_hash))) throw new HttpError(401, "Your password is wrong.");
+    release();
+    const target = sql.userByName.get(String(req.body?.username ?? "").trim());
+    if (!target) throw new HttpError(404, "There's no account with that name.");
+    if (target.id === admin.id) throw new HttpError(400, "You already own this site.");
+    if (target.banned_at) throw new HttpError(400, "Unban them first.");
+    giveOwnership(db, target.id);
+    for (const listener of banListeners) listener(target.id); // their open pages start over with the new standing
+    logAdmin(db, admin.username, "handed over ownership", target.username, "stays an admin");
+    res.json({ ok: true, owner: target.username });
   }));
 
   router.get("/admin/users", handle((req, res) => {
@@ -632,7 +661,7 @@ export async function createAccounts({ mode: serverMode = null, signup: serverSi
   /** The signed-in user ({ id, username, admin }) for a request or WebSocket upgrade, or null. Sets req.sessionHash. */
   function userFor(req) {
     const user = currentUser(req);
-    return user ? { id: user.id, ...publicUser(user) } : null;
+    return user ? { id: user.id, ...publicUser(user) } : null; // includes admin and owner
   }
 
   /** Whether a session (by hash) is still valid: not signed out, expired or banned. */

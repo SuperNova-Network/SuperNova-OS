@@ -298,7 +298,37 @@ const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS username_history_name ON username_history(username, changed_at);
     `);
   },
+  // 14: one Owner. Whoever did the first-run setup (else the oldest admin) owns the site: nobody else can make or
+  // remove admins, touch their account, or hold the Owner role.
+  (db) => {
+    if (!db.prepare("PRAGMA table_info(users)").all().some((c) => c.name === "is_owner")) db.exec("ALTER TABLE users ADD COLUMN is_owner INTEGER NOT NULL DEFAULT 0");
+    if (db.prepare("SELECT 1 FROM users WHERE is_owner = 1").get()) return;
+    const setup = db.prepare("SELECT actor FROM admin_log WHERE action = 'setup' ORDER BY id LIMIT 1").get();
+    const byName = setup && db.prepare("SELECT id FROM users WHERE username = ? AND is_admin = 1 AND banned_at IS NULL").get(setup.actor);
+    const owner = byName ?? db.prepare("SELECT id FROM users WHERE is_admin = 1 AND banned_at IS NULL ORDER BY created_at, id LIMIT 1").get();
+    if (owner) applyOwnership(db, owner.id);
+  },
 ];
+
+/**
+ * Make one account the Owner: the only one. They are an admin too, hold the Owner and Admin roles, and nobody
+ * else holds the Owner role. (An earlier owner stays an admin.)
+ */
+export const giveOwnership = (db, userId) => transaction(db, () => applyOwnership(db, userId));
+
+function applyOwnership(db, userId) {
+  db.prepare("UPDATE users SET is_owner = 0 WHERE is_owner = 1 AND id <> ?").run(userId);
+  db.prepare("UPDATE users SET is_owner = 1, is_admin = 1 WHERE id = ?").run(userId);
+  for (const slug of ["owner", "admin"]) {
+    const role = db.prepare("SELECT id FROM roles WHERE slug = ?").get(slug);
+    if (role) db.prepare("INSERT OR IGNORE INTO user_roles (user_id, role_id) VALUES (?, ?)").run(userId, role.id);
+  }
+  const owner = db.prepare("SELECT id FROM roles WHERE slug = 'owner'").get();
+  if (owner) db.prepare("DELETE FROM user_roles WHERE role_id = ? AND user_id <> ?").run(owner.id, userId);
+}
+
+/** The Owner's account row, or undefined when the site has none yet. */
+export const ownerRow = (db) => db.prepare("SELECT id, username FROM users WHERE is_owner = 1").get();
 
 /** What a username may be. */
 export const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,32}$/;
@@ -476,8 +506,9 @@ export function adminCount(db) {
 
 /** Make someone an admin, or not. `serverAdmins`: names from ADMINS, which stay admins. */
 export function setAdmin(db, username, admin, { serverAdmins = new Set() } = {}) {
-  const user = db.prepare("SELECT id, username, is_admin, banned_at FROM users WHERE username = ?").get(String(username ?? ""));
+  const user = db.prepare("SELECT id, username, is_admin, is_owner, banned_at FROM users WHERE username = ?").get(String(username ?? ""));
   if (!user) throw new AdminError(404, "There's no account with that name.");
+  if (!admin && user.is_owner) throw new AdminError(403, "They're the owner. Transfer ownership to someone else first.");
   if (admin && user.banned_at) throw new AdminError(400, "Unban them first.");
   if (!admin && serverAdmins.has(user.username.toLowerCase())) throw new AdminError(403, "They're an admin through ADMINS on the server; remove them there.");
   if (!admin && user.is_admin && adminCount(db) <= 1 && !serverAdminExists(db, serverAdmins)) throw new AdminError(400, "They're the only admin. Make someone else an admin first.");
@@ -497,7 +528,7 @@ export function setAdmin(db, username, admin, { serverAdmins = new Set() } = {})
 export function listUsers(db, { search = "", admins = new Set() } = {}) {
   const like = `%${String(search).replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
   return db.prepare(`
-    SELECT users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin,
+    SELECT users.username, users.created_at, users.last_seen_at, users.banned_at, users.ban_reason, users.is_admin, users.is_owner,
            invites.label AS invite_label, invites.hint AS invite_hint
     FROM users LEFT JOIN invites ON invites.id = users.invite_id
     WHERE users.username LIKE ? ESCAPE '\\'
@@ -511,6 +542,7 @@ export function listUsers(db, { search = "", admins = new Set() } = {}) {
     bannedAt: row.banned_at,
     banReason: row.ban_reason,
     admin: Boolean(row.is_admin) || admins.has(row.username.toLowerCase()),
+    owner: Boolean(row.is_owner),
     serverAdmin: admins.has(row.username.toLowerCase()),
     invite: row.invite_label || (row.invite_hint ? `…${row.invite_hint}` : null),
   }));
@@ -521,8 +553,9 @@ export function listUsers(db, { search = "", admins = new Set() } = {}) {
  * deleted). Returns the user's id. `admins`: usernames that cannot be banned.
  */
 export function setBanned(db, username, banned, { reason = "", admins = new Set() } = {}) {
-  const user = db.prepare("SELECT id, username, is_admin FROM users WHERE username = ?").get(String(username ?? ""));
+  const user = db.prepare("SELECT id, username, is_admin, is_owner FROM users WHERE username = ?").get(String(username ?? ""));
   if (!user) throw new AdminError(404, "There's no account with that name.");
+  if (banned && user.is_owner) throw new AdminError(403, "The owner can't be banned.");
   if (banned && (user.is_admin || admins.has(user.username.toLowerCase()))) throw new AdminError(403, "Admins can't be banned. Remove their admin role first.");
   transaction(db, () => {
     if (banned) {

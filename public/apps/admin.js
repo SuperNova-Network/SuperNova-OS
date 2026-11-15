@@ -338,7 +338,7 @@
             box.addEventListener("change", () => { box.checked ? s.selected.add(u.username) : s.selected.delete(u.username); update(); });
             return h("tr", {},
               h("td", {}, box),
-              h("td", {}, h("span", { class: "who" }, avatar(u.username, u.avatar), h("span", {}, u.username, u.admin && chip("ADMIN", "admin"), u.banned && chip("BANNED", "red")))),
+              h("td", {}, h("span", { class: "who" }, avatar(u.username, u.avatar), h("span", {}, u.username, u.owner ? chip("OWNER", "admin") : u.admin && chip("ADMIN", "admin"), u.banned && chip("BANNED", "red")))),
               dateCell(u.createdAt), dateCell(u.lastSeenAt),
               h("td", { class: "num", text: number(u.messages) }), h("td", { class: "num", text: number(u.sessions) }),
               h("td", { text: u.invite ?? "" }),
@@ -368,12 +368,15 @@
   /** The roles someone has (click one's x to take it away), and a list to give another. */
   function rolesBox(detail, u, refresh) {
     const box = h("div", { class: "role-members" });
+    const mine = detail.canManage || (me && me.username.toLowerCase() === detail.username.toLowerCase());
+    const system = new Set(["owner", "admin"]); // these follow the account: only the owner changes them, from the buttons above
     for (const r of detail.roles) {
-      box.append(h("span", { class: "chip", style: `border:1px solid ${r.color};color:${r.color};background:transparent` }, r.name, h("button", { class: "chip-x", type: "button", title: `Take ${r.name} away`, text: "x", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${r.id}/members`, { username: detail.username, add: false }); await refresh(); }) })));
+      box.append(h("span", { class: "chip", style: `border:1px solid ${r.color};color:${r.color};background:transparent` }, r.name, (system.has(r.slug) || !mine) ? null : h("button", { class: "chip-x", type: "button", title: `Take ${r.name} away`, text: "x", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${r.id}/members`, { username: detail.username, add: false }); await refresh(); }) })));
     }
     const pick = h("select", { class: "field", style: "width:auto", "aria-label": "Give a role" }, h("option", { value: "", text: "Give a role…" }));
+    if (!mine) return box;
     A("GET", "/roles").then(({ roles }) => {
-      for (const r of roles) if (!detail.roles.some((x) => x.id === r.id)) pick.append(h("option", { value: r.id, text: r.name }));
+      for (const r of roles) if (!system.has(r.slug) && !detail.roles.some((x) => x.id === r.id)) pick.append(h("option", { value: r.id, text: r.name }));
     }).catch(() => {});
     pick.addEventListener("change", () => { if (pick.value) act(pick, async () => { await A("POST", `/roles/${pick.value}/members`, { username: detail.username }); await refresh(); }); });
     box.append(pick);
@@ -390,31 +393,35 @@
     const btn = (label, onClick, kind = "", disabled = false) => h("button", { class: `btn small ${kind}`.trim(), type: "button", text: label, disabled, onclick: (e) => onClick(e.target) });
 
     const actions = h("div", { class: "row" },
-      btn(detail.admin ? "Remove admin" : "Make admin", (b) => act(b, async () => { await api("POST", `/api/account/admin/users/${u}/${detail.admin ? "unadmin" : "admin"}`, {}); await refresh(); }, detail.admin ? "Admin role removed." : "Now an admin."), "", detail.serverAdmin || self),
+      btn(detail.admin ? "Remove admin" : "Make admin", (b) => act(b, async () => { await api("POST", `/api/account/admin/users/${u}/${detail.admin ? "unadmin" : "admin"}`, {}); await refresh(); }, detail.admin ? "Admin role removed." : "Now an admin."), "", detail.serverAdmin || self || detail.owner || !detail.canGrantAdmin),
+      me && me.owner && !self ? btn("Make owner…", async (b) => {
+        const password = await askText(`Hand ${detail.username} the site`, "Your password", { type: "password", hint: `${detail.username} becomes the owner and you become an ordinary admin: only they can make or remove admins, and you can't undo it yourself. Type your password to confirm.`, confirm: "Hand over", danger: true, validate: (v) => (v ? "" : "Enter your password.") });
+        if (password !== null) act(b, async () => { await api("POST", "/api/account/admin/owner", { username: detail.username, password }); closeDialog(); location.reload(); }, "Ownership handed over.");
+      }, "danger", detail.banned) : null,
       detail.banned
         ? btn("Unban", (b) => act(b, async () => { await api("POST", `/api/account/admin/users/${u}/unban`, {}); await refresh(); }, "Unbanned."))
         : btn("Ban from the site…", async (b) => {
           const reason = await askText(`Ban ${detail.username}`, "Reason (they will see it)", { confirm: "Ban", danger: true });
           if (reason !== null) act(b, async () => { await api("POST", `/api/account/admin/users/${u}/ban`, { reason }); await refresh(); }, "Banned and signed out.");
         }, "danger", detail.admin || self),
-      btn("Sign out everywhere", (b) => act(b, async () => { const r = await A("POST", `/users/${u}/signout`, {}); await refresh(); toast(`${r.ended} session${r.ended === 1 ? "" : "s"} ended.`, "ok"); })),
+      btn("Sign out everywhere", (b) => act(b, async () => { const r = await A("POST", `/users/${u}/signout`, {}); await refresh(); toast(`${r.ended} session${r.ended === 1 ? "" : "s"} ended.`, "ok"); }), "", !self && !detail.canManage),
       btn("Rename…", async (b) => {
         const name = await askText(`Rename ${detail.username}`, "New username", { hint: "3 to 32 letters, numbers, dots, dashes or underscores. Their old name stays on record here. They stay signed in and see the new name.", confirm: "Rename", validate: (v) => (/^[A-Za-z0-9_.-]{3,32}$/.test(v.trim()) ? "" : "Use 3 to 32 letters, numbers, dots, dashes or underscores.") });
         if (name !== null) act(b, async () => { const r = await A("POST", `/users/${u}/rename`, { username: name.trim() }); closeDialog(); if (current === "accounts") views.accounts(); toast(`Renamed to ${r.username}.`, "ok"); });
-      }, "", (detail.admin && !self) || detail.serverAdmin),
+      }, "", (!self && !detail.canManage) || detail.serverAdmin),
       btn("Set a new password…", async (b) => {
         const password = await askText(`New password for ${detail.username}`, "New password", { type: "password", hint: "At least 8 characters. They are signed out everywhere and should change it after signing in.", validate: (v) => (v.length < 8 ? "Use at least 8 characters." : "") });
         if (password !== null) act(b, async () => { await A("POST", `/users/${u}/password`, { password }); await refresh(); }, "Password changed.");
-      }, "", detail.admin && !self),
+      }, "", !self && !detail.canManage),
       btn("Chat timeout or ban…", () => chatSanction(detail.username, refresh), "", detail.admin),
       btn("Delete account…", async (b) => {
         const typed = await askText(`Delete ${detail.username}`, `Type ${detail.username} to delete the account, its messages and its settings for good.`, { confirm: "Delete", danger: true, validate: (v) => (v !== detail.username ? "That isn't the username." : "") });
         if (typed !== null) act(b, async () => { await A("POST", `/users/${u}/delete`, { confirm: typed }); closeDialog(); if (current === "accounts") views.accounts(); }, "Account deleted.");
-      }, "danger", detail.admin || self));
+      }, "danger", detail.admin || self || !detail.canManage));
 
     const sessions = detail.sessionList.length
       ? table(["Started", "Expires", "From", "Browser", ""], detail.sessionList.map((s) => h("tr", {}, dateCell(s.createdAt), h("td", { text: inFuture(s.expiresAt) }), h("td", { text: s.ip ?? "unknown" }), h("td", { class: "wrap", text: s.userAgent ?? "unknown" }),
-        h("td", {}, btn("End", (b) => act(b, async () => { await A("POST", `/sessions/${s.id}/revoke`, {}); await refresh(); }, "Session ended."))))))
+        h("td", {}, btn("End", (b) => act(b, async () => { await A("POST", `/sessions/${s.id}/revoke`, {}); await refresh(); }, "Session ended."), "", !self && !detail.canManage))))) 
       : h("p", { class: "faint", text: "Not signed in anywhere." });
     const messages = detail.recentMessages.length
       ? h("ul", { class: "feed" }, detail.recentMessages.map((m) => h("li", {}, h("span", { class: "when", title: dateTime(m.at), text: ago(m.at) }), h("span", { class: "wrap", text: m.text || (m.gif ? "[GIF]" : "") }))))
@@ -435,7 +442,7 @@
     pick("Browsers");
 
     const body = h("div", { class: "stack" },
-      h("div", { class: "row" }, avatar(detail.username, detail.avatar, true), h("div", {}, h("strong", { text: detail.username }), detail.admin && chip(detail.serverAdmin ? "ADMIN (ADMINS)" : "ADMIN", "admin"), detail.banned && chip("BANNED", "red"),
+      h("div", { class: "row" }, avatar(detail.username, detail.avatar, true), h("div", {}, h("strong", { text: detail.username }), detail.owner ? chip("OWNER", "admin") : detail.admin && chip(detail.serverAdmin ? "ADMIN (ADMINS)" : "ADMIN", "admin"), detail.banned && chip("BANNED", "red"),
         h("div", { class: "dim small", text: detail.banned ? `Banned${detail.banReason ? `: ${detail.banReason}` : ""}` : `Last seen ${ago(detail.lastSeenAt)}` }))),
       h("dl", { class: "kv" },
         h("dt", { text: "Joined" }), h("dd", { text: dateTime(detail.createdAt) }),
@@ -800,6 +807,7 @@
     const reload = () => show("roles");
     const dot = (color) => h("span", { class: "role-dot", style: `background:${color}` });
 
+    const locked = (role) => role.slug === "owner" || role.slug === "admin";
     const rows = data.roles.map((role, i) => h("tr", {},
       h("td", {}, dot(role.color), h("strong", { text: role.name, style: `color:${role.color};margin-left:8px` })),
       h("td", { text: `@${role.slug}` }),
@@ -807,17 +815,17 @@
       h("td", { class: "wrap dim", text: role.permissions.length ? role.permissions.map((p) => data.permissions.find((x) => x.id === p)?.label ?? p).join(", ") : "no special permissions" }),
       h("td", {}, role.mentionable ? chip("PINGABLE", "green") : ""),
       h("td", {}, h("div", { class: "row end" },
-        h("button", { class: "btn small", type: "button", text: "Up", disabled: i === 0, title: "More important", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${role.id}/move`, { direction: -1 }); await reload(); }) }),
-        h("button", { class: "btn small", type: "button", text: "Down", disabled: i === data.roles.length - 1, title: "Less important", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${role.id}/move`, { direction: 1 }); await reload(); }) }),
+        h("button", { class: "btn small", type: "button", text: "Up", disabled: i === 0 || locked(role) || locked(data.roles[i - 1]), title: "More important", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${role.id}/move`, { direction: -1 }); await reload(); }) }),
+        h("button", { class: "btn small", type: "button", text: "Down", disabled: i === data.roles.length - 1 || locked(role) || locked(data.roles[i + 1]), title: "Less important", onclick: (e) => act(e.target, async () => { await A("POST", `/roles/${role.id}/move`, { direction: 1 }); await reload(); }) }),
         h("button", { class: "btn small primary", type: "button", text: "Edit", onclick: () => roleDialog(role, data, reload) }),
-        h("button", { class: "btn small danger", type: "button", text: "Delete", onclick: async (e) => {
+        h("button", { class: "btn small danger", type: "button", text: "Delete", disabled: locked(role), title: locked(role) ? "This role goes with the account and can't be deleted" : "", onclick: async (e) => {
           if (!(await confirmBox(`Delete ${role.name}?`, `${role.members ? `${role.members} ${role.members === 1 ? "person has" : "people have"} it and will lose it. ` : ""}Pings of @${role.slug} stop working.`, { confirm: "Delete", danger: true }))) return;
           act(e.target, async () => { await A("POST", `/roles/${role.id}/delete`, {}); await reload(); }, `${role.name} was deleted.`);
         } })))));
 
     main.replaceChildren(
       head("Roles", h("button", { class: "btn primary", type: "button", text: "Create a role", onclick: () => roleDialog(null, data, reload) })),
-      h("p", { class: "dim section", text: "Roles give people a colour, a tag in the chat and permissions. Someone with several roles gets all of their permissions and the colour of the highest one. People are moderated by rank: nobody can moderate someone whose highest role is as high as theirs. Site admins always have every permission. A role doesn't make anyone a site admin: that stays in Accounts." }),
+      h("p", { class: "dim section", text: "Roles give people a colour, a tag in the chat and permissions. Someone with several roles gets all of their permissions and the colour of the highest one. The order is the pecking order: nobody can moderate someone whose highest role is as high as theirs. The owner is above everyone, admins above every role, and only the owner makes admins. The Owner and Admin roles follow the account, so they can't be handed out, moved or deleted. A role doesn't make anyone a site admin." }),
       table(["Role", "Ping it with", "People", "Permissions", "", ""], rows, "There are no roles yet."));
   };
 

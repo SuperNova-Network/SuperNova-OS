@@ -172,7 +172,7 @@ export function createChat({ db, site, userFor, isAdmin, sessionActive, onBan, o
     if (!row) throw new HttpError(404, "There's no account with that name.");
     if (row.id === admin.id) throw new HttpError(400, "You can't do that to yourself.");
     if (isAdmin(row)) throw new HttpError(403, "Admins can't be sanctioned. Remove their admin role first.");
-    if (roles.rank(db, { id: row.id, admin: false }) >= roles.rank(db, admin)) throw new HttpError(403, "Their role is as high as yours, so you can't do that.");
+    if (roles.rank(db, { id: row.id, admin: false, owner: false }) >= roles.rank(db, admin)) throw new HttpError(403, "Their role is as high as yours, so you can't do that.");
     return row;
   }
 

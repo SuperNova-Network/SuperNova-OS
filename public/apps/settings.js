@@ -839,18 +839,21 @@
 
     function renderPeople(people) {
       const me = SnAccount.user?.username.toLowerCase();
+      // Only the owner makes and removes admins (any admin, on a site that has no owner).
+      const canGrant = Boolean(SnAccount.user?.owner) || !people.some((p) => p.owner);
       $("people-list").replaceChildren(...people.map((person) => {
         const row = el("div", "admin-row");
         row.append(el("span", "admin-avatar", person.username.charAt(0).toUpperCase()));
         const main = el("div", "admin-main");
         const name = el("strong", "", person.username);
-        if (person.admin) name.append(el("span", "chip-admin", person.serverAdmin ? "Admin (ADMINS)" : "Admin"));
+        if (person.owner) name.append(el("span", "chip-admin", "Owner"));
+        else if (person.admin) name.append(el("span", "chip-admin", person.serverAdmin ? "Admin (ADMINS)" : "Admin"));
         if (person.banned) name.append(el("span", "chip-banned", "Banned"));
         main.append(name, el("small", "", `Joined ${day(person.createdAt)} · last seen ${ago(person.lastSeenAt)}${person.invite ? ` · invite: ${person.invite}` : ""}`));
         if (person.banned && person.banReason) main.append(el("small", "ban-reason", `Reason: ${person.banReason}`));
         row.append(main);
 
-        if (!person.banned && !person.serverAdmin) {
+        if (!person.banned && !person.serverAdmin && !person.owner && canGrant) {
           row.append(person.admin
             ? button("Remove admin", "btn-ghost", () => act(() => SnAccount.admin.removeAdmin(person.username), `${person.username} is no longer an admin.`))
             : button("Make admin", "btn-ghost", () => act(() => SnAccount.admin.makeAdmin(person.username), `${person.username} is now an admin and has this page.`)));
