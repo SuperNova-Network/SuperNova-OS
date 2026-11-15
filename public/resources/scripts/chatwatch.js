@@ -122,7 +122,8 @@
 
   function connect() {
     if (source) return;
-    var stream = new EventSource("/api/chat/stream?quiet=1");
+    // Through the shared hub when there is one, so a lot of open tabs hold one connection, not one each (streams.js).
+    var stream = global.SnStreams ? global.SnStreams.create("/api/chat/stream?quiet=1") : new EventSource("/api/chat/stream?quiet=1");
     source = stream;
     stream.addEventListener("ready", function (event) {
       failures = 0;

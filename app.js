@@ -85,6 +85,7 @@ const admin = accounts.database
     applyBlocklist,
     runtime: () => ({
       chat: chat.stats?.() ?? { online: 0, streams: 0, quietStreams: 0 },
+      live: live.count(),
       wisp: proxySockets.size,
       filter: { enabled: policy.enabled, hosts: config.filter.hosts.length, tlds: config.filter.tlds.length, keywords: config.filter.hostKeywords.length, words: config.filter.queryWords.length },
       config: { accounts: accounts.site(), trustProxy: config.trustProxy, giphy: Boolean(config.chat.giphyKey), sitePassword: Boolean(config.auth.pass), version: info.version },

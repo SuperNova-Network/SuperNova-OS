@@ -90,7 +90,7 @@
   // with "hello", so a change made while it was down is caught up.
   function listen() {
     if (!global.EventSource) return;
-    var source = new global.EventSource("/api/live");
+    var source = global.SnStreams ? global.SnStreams.create("/api/live") : new global.EventSource("/api/live");
     function on(name, handler) { source.addEventListener(name, function (event) { try { handler(JSON.parse(event.data)); } catch (e) { /* ignore a bad message */ } }); }
     on("hello", function (data) {
       showAnnouncement(data.announcement);
