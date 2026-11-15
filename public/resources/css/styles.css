@@ -2988,47 +2988,48 @@ div[data-title]:hover:before {
 #friendsmenu {
   position: fixed;
   z-index: 10002;
-  display: flex;
-  flex-direction: column;
-  width: clamp(270px, 22vw, 380px);
-  max-height: min(60vh, 520px);
+  width: 22vw;
+  min-width: 250px;
   background: #2b2b2b;
   color: #fff;
-  font-size: clamp(12px, 0.95vw, 15px);
+  font-size: max(1vw, 13px);
   box-shadow: 0 0.3vw 1vw rgba(0, 0, 0, 0.55);
 }
 
-#friendsmenu .fm-head {
+/* the profile card opens beside the menu, above it */
+body > .pcard {
+  z-index: 10003;
+}
+
+#friendsmenu .fm-title {
   display: flex;
-  flex: none;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  padding: 0.9em 1.1em 0.6em;
-  font-size: 1.15em;
+  padding: 0.9em 1em 0.55em;
+  font-size: 1.3em;
 }
 
-#friendsmenu .fm-count {
-  min-width: 1.6em;
-  padding: 0 0.5em;
-  background: #2fb35a;
-  color: #fff;
-  font-size: 0.8em;
-  font-weight: 700;
-  line-height: 1.6em;
-  text-align: center;
+#friendsmenu .fm-sum {
+  color: #b8b8b8;
+  font-size: 0.65em;
 }
 
+/* the dark box with the scrolling list of people */
 #friendsmenu .fm-list {
-  flex: 1;
-  min-height: 0;
+  height: 15em;
+  margin: 0 1em;
   overflow-y: auto;
-  padding-bottom: 0.4em;
+  background: #1f1f1f;
+  border: 1px solid #444;
+  scrollbar-width: thin;
+  scrollbar-color: #5a5a5a #1f1f1f;
 }
 
 #friendsmenu .fm-empty {
   margin: 0;
-  padding: 0.8em 1.1em 1em;
-  color: #b8b8b8;
+  padding: 5.5em 1em 0;
+  color: #9a9a9a;
+  text-align: center;
 }
 
 #friendsmenu .fm-row {
@@ -3036,8 +3037,9 @@ div[data-title]:hover:before {
   align-items: center;
   gap: 0.8em;
   width: 100%;
-  padding: 0.45em 1.1em;
+  padding: 0.5em 0.8em;
   border: 0;
+  border-bottom: 1px solid #2f2f2f;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -3051,8 +3053,8 @@ div[data-title]:hover:before {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 2.3em;
-  height: 2.3em;
+  width: 2.2em;
+  height: 2.2em;
   border-radius: 50%;
   color: #fff;
   font-weight: 600;
@@ -3070,11 +3072,11 @@ div[data-title]:hover:before {
   position: absolute;
   right: -0.1em;
   bottom: -0.1em;
-  width: 0.75em;
-  height: 0.75em;
-  border: 2px solid #2b2b2b;
+  width: 0.7em;
+  height: 0.7em;
+  border: 2px solid #1f1f1f;
   border-radius: 50%;
-  background: #2fb35a;
+  background: #4cc26b;
 }
 
 #friendsmenu .fm-pic[data-status="away"]::after {
@@ -3090,29 +3092,33 @@ div[data-title]:hover:before {
 }
 
 #friendsmenu .fm-state {
-  color: #a8a8a8;
+  color: #b8b8b8;
   font-size: 0.85em;
 }
 
 #friendsmenu .fm-requests {
-  flex: none;
-  padding: 0.7em 1.1em;
+  display: block;
+  width: 100%;
+  padding: 0.6em 1.2em 0;
   border: 0;
-  border-top: 1px solid #444;
   background: transparent;
   color: #ffc83d;
   font: inherit;
+  font-size: 0.85em;
   text-align: left;
   cursor: pointer;
 }
 
+/* the button under the list: a plain rectangle, like the status menu's */
 #friendsmenu .fm-open {
-  flex: none;
-  padding: 0.85em 1em;
-  border: 0;
-  border-top: 1px solid #444;
-  background: var(--accent, #7b4aa8);
+  display: block;
+  width: calc(100% - 2em);
+  margin: 0.8em 1em 1em;
+  padding: 0.75em 1em;
+  border: 1px solid #555;
+  background: #3a3a3a;
   color: #fff;
   font: inherit;
+  text-align: center;
   cursor: pointer;
 }

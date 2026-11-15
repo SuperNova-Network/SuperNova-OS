@@ -62,34 +62,41 @@
   }
 
   function openApp() {
+    if (global.SnProfile) global.SnProfile.close();
     hide();
     if (typeof global.openFriends === "function") global.openFriends();
+  }
+
+  function openProfile(person, row) {
+    if (global.SnProfile) global.SnProfile.open(person.username, { anchor: row });
+    else openApp();
   }
 
   function render() {
     if (!menu) return;
     menu.textContent = "";
     var list = online();
-    var head = el("div", "fm-head");
-    head.appendChild(el("strong", "", "Friends online"));
-    head.appendChild(el("span", "fm-count", String(list.length)));
-    menu.appendChild(head);
+    var title = el("div", "fm-title");
+    title.appendChild(el("span", "", "Friends online"));
+    title.appendChild(el("span", "fm-sum", data ? list.length + " online" : ""));
+    menu.appendChild(title);
 
     var body = el("div", "fm-list");
     if (!data) {
-      body.appendChild(el("p", "fm-empty", "Loading…"));
+      body.appendChild(el("p", "fm-empty", "Loading\u2026"));
     } else if (!list.length) {
-      body.appendChild(el("p", "fm-empty", data.friends.length ? "None of your friends are online right now." : "You haven't added any friends yet."));
+      body.appendChild(el("p", "fm-empty", data.friends.length ? "No friends available right now" : "No friends available"));
     } else {
       list.forEach(function (friend) {
         var row = el("button", "fm-row");
         row.type = "button";
+        row.title = "See " + friend.username + "'s profile";
         var pic = picture(friend);
         pic.setAttribute("data-status", friend.status);
         row.appendChild(pic);
         row.appendChild(el("span", "fm-name", friend.username));
         row.appendChild(el("span", "fm-state", friend.status === "away" ? "Away" : "Online"));
-        row.addEventListener("click", openApp);
+        row.addEventListener("click", function () { openProfile(friend, row); });
         body.appendChild(row);
       });
     }
@@ -102,7 +109,7 @@
       requests.addEventListener("click", openApp);
       menu.appendChild(requests);
     }
-    var open = el("button", "fm-open", "Open Friends");
+    var open = el("button", "fm-open", "Open Friends app");
     open.type = "button";
     open.addEventListener("click", openApp);
     menu.appendChild(open);
@@ -134,6 +141,7 @@
 
   function hide() {
     if (!menu) return;
+    if (global.SnProfile) global.SnProfile.close();
     menu.remove();
     menu = null;
   }
@@ -143,7 +151,7 @@
     if (menu) hide(); else show();
   }
 
-  document.addEventListener("mousedown", function (event) { if (menu && !event.target.closest("#friendsmenu, #friendsbtn")) hide(); }, true);
+  document.addEventListener("mousedown", function (event) { if (menu && !event.target.closest("#friendsmenu, #friendsbtn, .pcard")) hide(); }, true);
   document.addEventListener("keydown", function (event) { if (event.key === "Escape") hide(); });
   global.addEventListener("resize", place);
 

@@ -34,7 +34,7 @@ A ground-up modernisation of the proxy, the settings, the cloak and the interfac
 
 ### Added
 
-- **See which friends are online from the taskbar.** A small people icon beside the trophy shows how many of your friends are online; click it for a list of who is online or away, a note when friend requests are waiting, and an Open Friends button that opens the Friends app.
+- **See which friends are online from the taskbar.** A small people icon beside the trophy shows how many of your friends are online; click it for a scrolling list of who is online or away (click someone to see their profile), a note when friend requests are waiting, and an Open Friends app button.
 - **Friend requests pop up with Accept and Decline.** When someone asks to be your friend, a notification about 20% bigger than usual appears straight away with their picture, a slowly turning dotted ring and Accept and Decline buttons right on it. It stays for three minutes, and the time only counts while you are looking at the tab: switch away and it waits for you.
 - <!--quiet--> **What's new is organised by day.** The window opens on a list of days (Today, Yesterday, then the weekday and date for days this week, "Last Thursday" for last week, and just the date before that), newest first, with the latest marked LATEST and a count of what you haven't seen marked NEW. Click a day to see its updates, and "All days" to come back. Each update's date is when it was written into the changelog.
 - **Hold Shift for quick icons on chat messages.** Hover a message and hold Shift to see one-click icons in place of the "...": react, reply, report, and for moderators moderate and delete. Let go and they hide again.
