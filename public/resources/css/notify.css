@@ -212,22 +212,35 @@
   .sn-ring rect { animation: none; }
 }
 
-/* A bigger notification with buttons (a friend request): wider and roomier, the same text size */
-.sn-toasts .sn-toast.sn-toast-large {
-  width: 430px;
+/* A notification with buttons (a friend request): about 20% bigger than the person's usual size, the same text size */
+.sn-toasts[data-size="small"] .sn-toast.sn-toast-large {
+  width: 314px;
+  padding: 10px 12px 11px;
+}
+
+.sn-toasts[data-size="standard"] .sn-toast.sn-toast-large {
+  width: 437px;
+  padding: 13px 16px 14px;
+}
+
+.sn-toast-large {
   max-width: calc(100vw - 24px);
-  padding: 16px 18px 16px;
 }
 
 .sn-toast-large .sn-toast-body {
-  gap: 13px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
-.sn-toasts .sn-toast-large .sn-toast-pic {
-  width: 56px;
-  height: 56px;
-  font-size: 22px;
+.sn-toasts[data-size="small"] .sn-toast-large .sn-toast-pic {
+  width: 36px;
+  height: 36px;
+  font-size: 15px;
+}
+
+.sn-toasts[data-size="standard"] .sn-toast-large .sn-toast-pic {
+  width: 53px;
+  height: 53px;
+  font-size: 21px;
 }
 
 .sn-toast-large .sn-toast-title,
@@ -235,19 +248,15 @@
   white-space: normal;
 }
 
-.sn-toast-large .sn-toast-msg {
-  margin-top: 2px;
-}
-
 .sn-toast-actions {
   display: flex;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .sn-toast-btn {
   flex: 1;
-  padding: 7px 12px;
+  padding: 5px 10px;
   border: 1px solid var(--sn-line);
   background: transparent;
   color: var(--sn-fg);
