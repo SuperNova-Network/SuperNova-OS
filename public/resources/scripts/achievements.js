@@ -67,56 +67,6 @@
     return node;
   }
 
-  // Ranks by points: what you are called, and how far to the next.
-  var RANKS = [[0, "Newcomer"], [40, "Explorer"], [110, "Regular"], [220, "Veteran"], [380, "Master"], [560, "Legend"]];
-  function rankOf(points) {
-    var index = 0;
-    RANKS.forEach(function (r, i) { if (points >= r[0]) index = i; });
-    var next = RANKS[index + 1] || null;
-    return { name: RANKS[index][1], index: index, next: next ? next[1] : null, from: RANKS[index][0], to: next ? next[0] : RANKS[index][0], fraction: next ? (points - RANKS[index][0]) / (next[0] - RANKS[index][0]) : 1 };
-  }
-
-  var CONFETTI = ["#ffc83d", "#7fe0ff", "#ff6b78", "#8be28b", "#c9a0ff", "#ffffff"];
-  /** A little burst of confetti from the middle of an element, inside the window. */
-  function burst(target, count) {
-    if (reduced() || !panel || !target) return;
-    var layer = panel.querySelector(".ach-fx");
-    if (!layer) return;
-    var box = target.getBoundingClientRect(), base = panel.getBoundingClientRect();
-    var x = box.left - base.left + box.width / 2, y = box.top - base.top + box.height / 2;
-    for (var i = 0; i < (count || 18); i++) {
-      var bit = el("span", "ach-bit");
-      var angle = Math.random() * Math.PI * 2, force = 40 + Math.random() * 90;
-      bit.style.left = x + "px";
-      bit.style.top = y + "px";
-      bit.style.setProperty("--dx", Math.round(Math.cos(angle) * force) + "px");
-      bit.style.setProperty("--dy", Math.round(Math.sin(angle) * force - 30) + "px");
-      bit.style.setProperty("--r", Math.round(Math.random() * 720 - 360) + "deg");
-      bit.style.background = CONFETTI[i % CONFETTI.length];
-      layer.appendChild(bit);
-      setTimeout(function (node) { node.remove(); }.bind(null, bit), 1100);
-    }
-  }
-
-  /** Tiles tilt toward the pointer, with a light that follows it. */
-  function tilt(node) {
-    if (reduced() || !global.matchMedia || !global.matchMedia("(pointer: fine)").matches) return;
-    node.addEventListener("pointermove", function (event) {
-      var box = node.getBoundingClientRect();
-      var px = (event.clientX - box.left) / box.width, py = (event.clientY - box.top) / box.height;
-      node.style.setProperty("--mx", Math.round(px * 100) + "%");
-      node.style.setProperty("--my", Math.round(py * 100) + "%");
-      node.style.setProperty("--rx", ((0.5 - py) * 7).toFixed(2) + "deg");
-      node.style.setProperty("--ry", ((px - 0.5) * 9).toFixed(2) + "deg");
-      node.setAttribute("data-hot", "");
-    });
-    node.addEventListener("pointerleave", function () {
-      node.style.setProperty("--rx", "0deg");
-      node.style.setProperty("--ry", "0deg");
-      node.removeAttribute("data-hot");
-    });
-  }
-
   function tierOf(points) { return points >= 50 ? "platinum" : points >= 25 ? "gold" : points >= 10 ? "silver" : "bronze"; }
   function reduced() { return global.matchMedia && global.matchMedia("(prefers-reduced-motion: reduce)").matches; }
   function seenTime() { try { return Number(localStorage.getItem(SEEN_KEY)) || 0; } catch (e) { return 0; } }
@@ -165,11 +115,7 @@
       data.totals.unlocked = data.achievements.filter(function (a) { return a.unlockedAt; }).length;
       data.totals.points = data.achievements.reduce(function (sum, a) { return sum + (a.unlockedAt ? a.points : 0); }, 0);
       paintTray();
-      if (panel) {
-        render("still");
-        var shown = panel.querySelector('.ach[data-id="' + achievement.id + '"]');
-        if (shown) { shown.setAttribute("data-just", ""); burst(shown.querySelector(".ach-badge"), 30); shown.scrollIntoView({ block: "nearest" }); }
-      }
+      if (panel) render("still");
     } else {
       load();
     }
@@ -227,7 +173,6 @@
 
   function tile(a, index, isNew) {
     var node = el("div", "ach");
-    node.setAttribute("data-id", a.id);
     node.style.setProperty("--i", String(index));
     node.setAttribute("data-tier", tierOf(a.points));
     node.setAttribute("data-state", a.unlockedAt ? "unlocked" : "locked");
@@ -252,9 +197,6 @@
     }
     node.appendChild(text);
     node.appendChild(el("span", "ach-pts", "+" + a.points));
-    node.appendChild(el("span", "ach-glare"));
-    if (!a.unlockedAt) badge.appendChild(el("span", "ach-lock"));
-    tilt(node);
     return node;
   }
 
@@ -270,14 +212,8 @@
     var keep = scroll ? scroll.scrollTop : 0;
     panel.textContent = "";
     panel.appendChild(el("div", "ach-sweep"));
-    panel.appendChild(el("div", "ach-fx"));
-    var rank = rankOf(t.points);
-    panel.setAttribute("data-rank", String(rank.index));
 
     var head = el("div", "ach-head");
-    var aurora = el("div", "ach-aurora");
-    aurora.appendChild(el("i")); aurora.appendChild(el("i")); aurora.appendChild(el("i"));
-    head.appendChild(aurora);
     var ringWrap = el("div", "ach-ring");
     var NS = "http://www.w3.org/2000/svg";
     var ring = document.createElementNS(NS, "svg");
@@ -290,16 +226,8 @@
     var circumference = 2 * Math.PI * 34;
     arc.style.setProperty("--c", circumference.toFixed(1));
     arc.style.setProperty("--off", (circumference * (1 - (t.total ? t.unlocked / t.total : 0))).toFixed(1));
-    var defs = document.createElementNS(NS, "defs");
-    var grad = document.createElementNS(NS, "linearGradient");
-    grad.setAttribute("id", "ach-grad"); grad.setAttribute("x1", "0"); grad.setAttribute("y1", "0"); grad.setAttribute("x2", "1"); grad.setAttribute("y2", "1");
-    [["0", "#ffc83d"], ["0.55", "#ff8a5c"], ["1", "#ff5c9a"]].forEach(function (s) { var stop = document.createElementNS(NS, "stop"); stop.setAttribute("offset", s[0]); stop.setAttribute("stop-color", s[1]); grad.appendChild(stop); });
-    defs.appendChild(grad);
-    ring.appendChild(defs);
-    arc.setAttribute("stroke", "url(#ach-grad)");
     ring.appendChild(track); ring.appendChild(arc);
     ringWrap.appendChild(ring);
-    ringWrap.appendChild(el("div", "ach-orbit"));
     var inner = el("div", "ach-ringtext");
     var number = el("strong", "", String(t.unlocked));
     inner.appendChild(number);
@@ -312,21 +240,7 @@
     title.appendChild(svg("trophy", "ach-trophy"));
     title.appendChild(el("strong", "", "Achievements"));
     info.appendChild(title);
-    var rankLine = el("div", "ach-rank");
-    rankLine.appendChild(el("b", "", rank.name));
-    var pointsText = el("span", "ach-points", t.points + " pts");
-    rankLine.appendChild(pointsText);
-    info.appendChild(rankLine);
-    if (rank.next) {
-      var nextBar = el("div", "ach-next");
-      var nextFill = el("i");
-      nextFill.style.setProperty("--p", Math.round(rank.fraction * 100) + "%");
-      nextBar.appendChild(nextFill);
-      info.appendChild(nextBar);
-      info.appendChild(el("span", "ach-nexttext", (rank.to - t.points) + " points to " + rank.next));
-    } else {
-      info.appendChild(el("span", "ach-nexttext", "Top rank reached"));
-    }
+    info.appendChild(el("span", "ach-points", t.points + " of " + t.possible + " points"));
     var streak = data.streak && data.streak.current;
     info.appendChild(el("span", "ach-streak", streak ? "Streak: " + streak + " day" + (streak === 1 ? "" : "s") + (data.streak.best > streak ? " (best " + data.streak.best + ")" : "") : "Visit again tomorrow to start a streak"));
     head.appendChild(info);
@@ -345,9 +259,6 @@
       button.addEventListener("click", function () { filter = pair[0]; render("tiles"); });
       tabs.appendChild(button);
     });
-    var which = ["all", "unlocked", "locked"].indexOf(filter);
-    tabs.style.setProperty("--tab", String(which));
-    tabs.appendChild(el("span", "ach-tabbar"));
     panel.appendChild(tabs);
 
     var list = el("div", "ach-scroll");
@@ -361,11 +272,6 @@
       var total = data.achievements.filter(function (a) { return a.group === group; }).length;
       var heading = el("h4", "ach-group", group);
       heading.appendChild(el("small", "", done + "/" + total));
-      var mini = el("span", "ach-mini");
-      var miniFill = el("i");
-      miniFill.style.setProperty("--p", Math.round((done / total) * 100) + "%");
-      mini.appendChild(miniFill);
-      heading.insertBefore(mini, heading.lastChild);
       list.appendChild(heading);
       var grid = el("div", "ach-grid");
       items.forEach(function (a) { grid.appendChild(tile(a, index++, Boolean(a.unlockedAt && a.unlockedAt > since))); });
@@ -382,11 +288,6 @@
     }
     panel.setAttribute("data-open", "");
     if (mode === "still") number.textContent = String(t.unlocked); else countUp(number, t.unlocked, 1000);
-    if (mode !== "still") {
-      // What is new gets a burst of confetti as the tiles arrive.
-      var fresh = panel.querySelectorAll(".ach[data-new] .ach-badge");
-      for (var i = 0; i < fresh.length && i < 4; i++) setTimeout(burst.bind(null, fresh[i], 16), 900 + i * 260);
-    }
   }
 
   function place() {
